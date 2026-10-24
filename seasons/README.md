@@ -32,6 +32,8 @@ flowchart TD
 
 ## Шаги
 
+Плоский список действий для сборки в редакторе — [actions.md](actions.md).
+
 1. **Get Value** `movies.settings.poiskkino_api_key` → `apiKey`. Пусто → **Show Notification** «Movie Seasons: нет ключа poiskkino» → **Stop This Shortcut** (автоматизация в фоне — без уведомления ты бы не узнал).
 2. **Get Value** `movies.items` → All Values → `db`. **Number** 0 → `counter`, `okCount`, `errCount`; `lastErr` пусто.
 3. **Repeat with Each** `db`:

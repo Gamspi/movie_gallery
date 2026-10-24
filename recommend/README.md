@@ -55,6 +55,8 @@ stateDiagram-v2
 
 ## Шаги
 
+Плоский список действий для сборки в редакторе — [actions.md](actions.md).
+
 ### Подготовка
 
 1. **Get Value** `movies.settings` → `settings` ([проверка настроек](../data.md#ошибки), ключ API не нужен). **Get Value** `movies.items` → Get Dictionary Value All Values → `db`.

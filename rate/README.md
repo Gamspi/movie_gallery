@@ -24,6 +24,8 @@ flowchart TD
 
 ## Шаги
 
+Плоский список действий для сборки в редакторе — [actions.md](actions.md).
+
 1. **Choose from Menu** «Показать»: Несмотренные / Смотрю / Посмотренные / Бросил / Скрытые / Все → Set Variable `filter` = `unwatched` / `watching` / `watched` / `dropped` / `dismissed` / `all`. «Скрытые» — чтобы вернуть тайтл в рекомендации (Статус в карточке).
 2. **Repeat** 100 раз:
    1. **Get Value** `movies.items` → **Get Dictionary Value** All Values → `all`.

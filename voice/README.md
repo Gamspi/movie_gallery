@@ -37,6 +37,8 @@ flowchart TD
 
 ## Шаги
 
+Плоский список действий для сборки в редакторе — [actions.md](actions.md).
+
 1. **Get Value** `movies.settings` → `settings`. [Проверка настроек](../data.md#ошибки), но вместо уведомления — **Stop and Output** «Movies settings are missing. Open the Shortcuts app.».
 2. **If** Shortcut Input has any value → `phrase` = Shortcut Input. Otherwise → **Ask for Input** (Text, «What do you want? Add a title, or ask what to watch.») → `phrase`.
 3. `ai_enabled` = `false` → без ИИ: **Match Text** `^add\s+(.+)` (без учёта регистра) → есть → `intent` = `add`, `title` = группа 1; нет → `intent` = `recommend`, `mood` пуст, `types` пуст. Иначе **Use Model** (Private Cloud Compute, Output: Dictionary, [запасной путь](../data.md#ответ-ии-use-model)) — промпт «Намерение» → `intent`, `title`, `mood`, `types`. ИИ не ответил → **Stop and Output** «Sorry, I didn't get that.».

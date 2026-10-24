@@ -23,6 +23,8 @@ flowchart TD
 
 ## Шаги
 
+Плоский список действий для сборки в редакторе — [actions.md](actions.md).
+
 1. **Get Value** `movies.items` → All Values → `db`. **Get Value** `movies.settings` → `settings` ([проверка настроек](../data.md#ошибки), ключ API не нужен) → `k` = `weights.smoothing_k` (пусто → 3), `aiOn` = `ai_enabled`.
 2. Счётчики — **Dictionary** `byStatus`, `byType`, `byYear`, `gSum`, `gCnt` (пустые).
 3. **Repeat with Each** `db`:

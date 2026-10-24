@@ -36,6 +36,8 @@ flowchart TD
 
 ## Шаги
 
+Плоский список действий для сборки в редакторе — [actions.md](actions.md).
+
 1. **If** Shortcut Input has any value → Set Variable `query` = Shortcut Input. Otherwise → **Ask for Input** (Text, «Что добавить?») → `query`. End If.
 2. **Repeat** 5 раз (пока `ok` пуст) — поиск с превью:
    1. **Run Shortcut** Movie Lookup, Input = `query` → `rec`. Пусто → **Stop This Shortcut**.

@@ -45,13 +45,15 @@ flowchart TD
 
 ## Шаги
 
+Плоский список действий для сборки в редакторе — [actions.md](actions.md).
+
 ### Загрузка
 
 1. **Get Value** `movies.settings` → `settings`; `apiKey`, `tagsList` (`tags`), `genreList` (`genres` → **Combine Text** через `, `), `typeLabels` (`type_labels`), `typeMap` (`type_map`), `aiOn` (`ai_enabled`). [Проверка настроек](../data.md#ошибки).
 2. **Get Dictionary Value** `key` из Shortcut Input → `key`. **Get Dictionary Value** `predicted` → `predicted`.
 3. **If** `key` has any value → **Get Value** `movies.items.<key>` → `rec`; **Set Variable** `saved` = `yes`. `rec` пуст (запись удалили) → **Show Notification** «Запись не найдена» → **Stop and Output** `{action:"back"}`.
 4. Otherwise → `rec` = `record` из входа; `saved` = `no`.
-   - **If** `rec.source` ≠ `poiskkino` (light records из «Похожие» и ИИ-рекомендации поля `source` не имеют): **Dictionary** `{kinopoisk_id}` (если есть) иначе `{title_en, title_ru, year, type}` → **Run Shortcut** Movie Lookup (Show While Running off) → если результат есть → `rec` = результат. Это ленивое обогащение: запросы тратятся только при открытии карточки.
+   - **If** `rec.source` ≠ `poiskkino` (light records из «Похожие» и ИИ-рекомендации поля `source` не имеют): **Dictionary** `{kinopoisk_id}` (если есть) иначе `{title_en, title_ru, year, type}` → **Run Shortcut** Movie Lookup → если результат есть → `rec` = результат. Это ленивое обогащение: запросы тратятся только при открытии карточки.
    - После обогащения: если ключ `rec.key` уже есть в `movies.items` (**Check If Value Exists** `movies.items.<rec.key>`) → `key` = `rec.key`, `rec` = Get Value, `saved` = `yes` (тайтл уже в базе).
 
 ### Цикл
