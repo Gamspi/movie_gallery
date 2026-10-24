@@ -2,7 +2,7 @@
 
 ## Назначение
 
-**Дополнительный** путь: основной функционал — на экране iPhone (Add, Rate, Card, Recommend). Movies — быстрый вход для Siri одной фразой, без экрана (AirPods, CarPlay, HomePod, заблокированный телефон). Умеет только два действия, остальное — на экране. «Hey Siri, Movies» → Siri спрашивает «What do you want?» → фраза → ИИ разбирает намерение:
+**Дополнительный** путь: основной функционал — на экране iPhone (Add, Rate, Card, Recommend). Movies — быстрый вход для Siri одной фразой, без экрана (AirPods, CarPlay, HomePod; iPhone должен быть **разблокирован** — с заблокированного Siri шорткат не запускает, проверено). Умеет только два действия, остальное — на экране. «Hey Siri, Movies» → Siri спрашивает «What do you want?» → фраза → ИИ разбирает намерение:
 
 | Намерение | Пример фразы | Результат (Siri читает вслух) |
 |---|---|---|
@@ -17,7 +17,7 @@
 
 ## Правила голосового пути
 
-- Ничего, что требует экрана или открывает приложение: без Show Web Page, Quick Look, Follow Up, Add New Event, Share. На заблокированном iPhone Siri просит разблокировать, если шорткат открывает приложение ([Apple](https://support.apple.com/guide/shortcuts/apd07c25bb38/ios)).
+- Ничего, что требует экрана или открывает приложение: без Show Web Page, Quick Look, Follow Up, Add New Event, Share. Если шорткат открывает приложение, Siri просит разблокировать ([Apple](https://support.apple.com/guide/shortcuts/apd07c25bb38/ios)).
 - Все тексты, которые Siri произносит, — **по-английски** (Siri на английском; русский текст она читает плохо). Названия — `title_en`.
 - Вопросы — только когда без них нельзя: несколько вариантов тайтла → Siri зачитывает их, выбор голосом.
 - Ошибки — тоже в выходной текст (уведомление голосом не прочитается).
@@ -45,7 +45,7 @@ flowchart TD
    2. Дубль — как в [Movie Add](../add/README.md#шаги), шаги 5–6. Есть → **Stop and Output** «Already in your list: title_en (year).».
    3. **Set Dictionary Value** в `rec`: `status` = `unwatched`, `origin` = `manual`, `added_date`, `updated_date` = Current Date, `tags` = [], `note` = "". **Set Value** `movies.items.<key>` = `rec`.
    4. **Text**: `Added: <title_en>, <year>, <метка типа англ.>` + `, IMDb <x>` (если есть) + `. Not found on Kinopoisk, saved from AI data.` (если `source` = `ai`) + `. Premieres on <premiere_date>.` (если в будущем) → **Stop and Output**.
-5. **intent = recommend**: **Run Shortcut** Movie Recommend, Input **Dictionary** `{mode: "voice", mood, types}` → текст → **Stop and Output**.
+5. **intent = recommend**: **Run Shortcut** Movie Recommend, Input **Dictionary** `{mode: "voice", mood, types}` → текст → **Stop and Output**. Текст пуст (Recommend остановился сам) → **Stop and Output** «No recommendations. Check the phone for details.».
 6. **intent = unknown** → **Stop and Output** «Say add and a title, or ask what to watch.».
 
 Метки типов для речи: movie → movie, tv_show → series, animation → animated film, animated_series → animated series, anime → anime, documentary → documentary.
@@ -79,4 +79,4 @@ Return a dictionary with:
 - Имя шортката **Movies** — это фраза для Siri. Переименуешь — фраза меняется.
 - Русские названия при английской Siri распознаются плохо. Надёжнее называть английское название; промпт Lookup и «Намерение» учитывают кривую транскрипцию.
 - Apple Watch не поддерживается: Use Model на watchOS нет.
-- Как Use Model ведёт себя при запуске из Siri с заблокированного экрана — проверить на iPhone (мини-тест в [README](../README.md#1-мини-тесты-ios-до-сборки)).
+- С **заблокированного** iPhone Siri не реагирует (мини-тест 7, 2026-10-24) — разблокировать телефон перед «Hey Siri, Movies».

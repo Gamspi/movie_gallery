@@ -107,7 +107,7 @@ stateDiagram-v2
 10. **If** `selected.key` есть и **Check If Value Exists** `movies.items.<key>` → Input `{key, predicted}`. Otherwise → `{record: selected, saved: false}`.
 11. **Run Shortcut** Movie Card → `res`.
 12. `res.action` = `similar` → `listItems` = `res.items`, `mode` = `similar` (чтобы «Назад» из карточки вёл в этот список, а не в random/today-логику), `screen` = `list`.
-13. `res.action` = `back` — перечитать `db` (статус мог смениться), затем по `mode`:
+13. `res.action` = `back` или `res` пуст (Card остановилась сама, напр. на проверке настроек) — перечитать `db` (статус мог смениться), затем по `mode`:
     - `today` → **Stop This Shortcut**;
     - `random` → **Choose from Menu** «Ещё случайный / В меню» → `listItems` пусто, `screen` = `list` / `screen` = `menu`;
     - `taste` → `listItems` = пусто (пересчитать), `screen` = `list`;

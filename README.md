@@ -54,15 +54,19 @@ flowchart LR
 
 ### 1. Мини-тесты iOS (до сборки)
 
-Крошечные тестовые шорткаты — от них зависит, верна ли дока:
+Крошечные тестовые шорткаты — от них зависит, верна ли дока. Пройдены на iPhone 2026-10-24 (iOS 27.0.1):
 
-1. **Use Model**, Output: Dictionary — попросить `{"a": 1}`: пришёл словарь или текст?
-2. **Use Model**, Follow Up — открывается чат?
-3. **Show Web Page** с любой ссылкой — после Done шорткат продолжается?
-4. **Stop This Shortcut** внутри вызванного через Run Shortcut — останавливается только он или и вызвавший?
-5. **Get Contents of URL** к poiskkino с заголовком `X-API-KEY` — пришли `docs`?
-6. Data Jar: записать и прочитать путь `test.items.kp-123.x` (3 уровня, как `movies.items.<key>.<field>`) — вложенный путь и ключ с `-` работают?
-7. Siri с **заблокированного** iPhone: тест-шорткат «Ask for Input → Use Model → Data Jar Get Value → Stop and Output текст». Siri спрашивает голосом, отвечает вслух, не просит разблокировать?
+| # | Тест | Результат |
+|---|---|---|
+| 1 | **Use Model**, Output: Dictionary — попросить `{"a": 1}` | ✅ приходит словарь |
+| 2 | **Use Model**, Follow Up | ✅ открывается чат |
+| 3 | **Show Web Page** с любой ссылкой | ✅ Safari View внутри; после закрытия шорткат продолжается |
+| 4 | **Stop This Shortcut** внутри вызванного через Run Shortcut | ✅ останавливается только дочерний; вызвавший продолжает с пустым результатом |
+| 5 | **Get Contents of URL** к poiskkino с `X-API-KEY` | ✅ `docs` пришли |
+| 6 | Data Jar: путь `test.items.kp-123.x` (3 уровня) | ✅ запись и чтение работают |
+| 7 | Siri с **заблокированного** iPhone: «Ask for Input → Use Model → Data Jar Get Value → Stop and Output» | ❌ Siri не реагирует — голосовой путь только на разблокированном iPhone |
+
+Следствие п. 4: каждый вызывающий шорткат проверяет пустой результат Run Shortcut (Lookup, Card, Recommend могут остановиться на проверке настроек).
 
 Что-то не так → сначала поправить доку, потом собирать.
 
@@ -78,7 +82,7 @@ flowchart LR
 | 6 | Movie Tonight + виджет | тап → сразу карточка |
 | 7 | Movie Stats | отчёт, «Разбор вкуса» |
 | 8 | Movie Seasons + автоматизация | ручной запуск на одном сериале: первый раз заполняет `seasons_count`; неверный ключ → одно уведомление |
-| 9 | Movies (голос) | «Hey Siri, Movies» с заблокированного iPhone и в AirPods: «add Dune Prophecy», русское название голосом, дубль, «something light for tonight» |
+| 9 | Movies (голос) | «Hey Siri, Movies» с разблокированного iPhone и в AirPods: «add Dune Prophecy», русское название голосом, дубль, «something light for tonight» |
 
 ### 3. Наполнение
 
