@@ -27,9 +27,12 @@ movies
 2. `kp-<kinopoisk_id>` — `kp-1318972`.
 3. `ai-<slug>-<year>` — `ai-the-brutalist-2024`.
 
-Slug для `ai-`: `title_en` → lowercase → пробелы в `-` → удалить всё, кроме `a-z`, `0-9`, `-` (Replace Text с regex `[^a-z0-9-]` → пусто) → схлопнуть повторные `-` (regex `-+` → `-`).
+Slug для `ai-`:
 
-Нет `title_en` в латинице (запись «Сохранить как есть» с кириллицей) → slug пуст → `ai-<Current Date yyyyMMddHHmm>`. Нет года → без `-<year>`.
+1. **Match Text** `[a-zA-Z]` в названии. Нет ни одной латинской буквы (кириллица, «Сохранить как есть» с `Брат 2`) → slug не делать, ключ сразу `ai-<Current Date yyyyMMddHHmm>`. Иначе из `Брат 2` вышел бы кривой `ai--2-…`.
+2. Есть латиница → lowercase → пробелы в `-` → удалить всё, кроме `a-z`, `0-9`, `-` (Replace Text, regex `[^a-z0-9-]` → пусто) → схлопнуть повторные `-` (regex `-+` → `-`) → срезать `-` по краям (regex `^-+|-+$` → пусто).
+
+Год есть → `-<year>` в конце, в обоих случаях. Нет года → без него.
 
 Ключ не меняется после сохранения. Если «Обновить данные» нашло `imdb_id` у записи с ключом `kp-`/`ai-` — запись остаётся под старым ключом, `imdb_id` пишется в поле.
 
@@ -117,14 +120,22 @@ Movie Lookup возвращает запись без `status`, `origin`, `added
 
 ### Type
 
-| Значение | Метка | poiskkino `type` |
-|---|---|---|
-| `movie` | Фильм | `movie` |
-| `tv_show` | Сериал | `tv-series`, `tv-show` |
-| `animation` | Мультфильм | `cartoon` |
-| `animated_series` | Мультсериал | `animated-series` |
-| `anime` | Аниме | `anime` |
-| `documentary` | Документальный | `movie` + жанр `Documentary` |
+| Значение | Метка (`type_labels`) | Голос (`type_labels_en`) | poiskkino `type` |
+|---|---|---|---|
+| `movie` | Фильм | movie | `movie` |
+| `tv_show` | Сериал | series | `tv-series`, `tv-show` |
+| `animation` | Мультфильм | animated film | `cartoon` |
+| `animated_series` | Мультсериал | animated series | `animated-series` |
+| `anime` | Аниме | anime | `anime` |
+| `documentary` | Документальный | documentary | `movie` + жанр `Documentary` |
+
+Маппинг poiskkino `type` → наш хранится в `movies.settings.type_map` (Dictionary, 6 пар из колонки «poiskkino `type`»: `movie` → `movie`, `tv-series` → `tv_show`, `tv-show` → `tv_show`, `cartoon` → `animation`, `animated-series` → `animated_series`, `anime` → `anime`; `documentary` — по жанру, в карте его нет). Неизвестный тип (нет в карте) → `movie`.
+
+Метки хранятся в `movies.settings.type_labels` / `type_labels_en` (Dictionary `type` → метка) — шорткаты берут их оттуда, текстом не вписывать.
+
+**Метка по типу**: Get Dictionary Value `<type>` из `type_labels`.
+
+**Выбор типа** (Choose from Menu не берёт пункты из переменных): Get Dictionary Value **All Values** из `type_labels` → **Choose from List** → **Repeat with Each** All Keys `type_labels`: **If** выбранное содержит Get Dictionary Value Repeat Item → это `type` (Add to Variable, если Select Multiple).
 
 Правило: сначала маппинг по таблице; если результат `movie` и в `genres` (после маппинга) есть `Documentary` → `documentary`. Неизвестный `type` → `movie`.
 
@@ -198,7 +209,10 @@ Action, Adventure, Biography, Comedy, Concert, Crime, Documentary, Drama, Family
   "ai_enabled": true,
   "tags": ["с семьёй", "на выходные", "пересмотреть"],
   "genres": ["Action", "Adventure", "…"],
-  "genre_map": {"аниме": "drop", "биография": "Biography", "…": "…"}
+  "genre_map": {"аниме": "drop", "биография": "Biography", "…": "…"},
+  "type_map": {"movie": "movie", "tv-series": "tv_show", "tv-show": "tv_show", "cartoon": "animation", "animated-series": "animated_series", "anime": "anime"},
+  "type_labels": {"movie": "Фильм", "tv_show": "Сериал", "animation": "Мультфильм", "animated_series": "Мультсериал", "anime": "Аниме", "documentary": "Документальный"},
+  "type_labels_en": {"movie": "movie", "tv_show": "series", "animation": "animated film", "animated_series": "animated series", "anime": "anime", "documentary": "documentary"}
 }
 ```
 
@@ -213,6 +227,9 @@ Action, Adventure, Biography, Comedy, Concert, Crime, Documentary, Drama, Family
 | `tags` | список тегов, редактируется руками в Data Jar |
 | `genres` | канонические жанры |
 | `genre_map` | ru → канон |
+| `type_map` | poiskkino `type` → наш `type`, [Type](#type) |
+| `type_labels` | `type` → рус. метка (меню, карточка, статистика), [Type](#type) |
+| `type_labels_en` | `type` → англ. метка (голос, Siri) |
 
 ## Ссылки карточки
 

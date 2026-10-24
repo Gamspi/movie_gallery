@@ -72,7 +72,7 @@ stateDiagram-v2
    - ← Назад → `screen` = `menu`.
    - Без фильтров → `flt` = пустой Dictionary, `listItems` = пусто, `screen` = `list`.
    - Настроить:
-     1. **Choose from List** типов (метки из [data.md](../data.md#type)), Select Multiple → `flt.types` (enum-значения).
+     1. [Выбор типа](../data.md#type) по `settings.type_labels`, Choose from List Select Multiple → `flt.types` (enum-значения).
      2. **Choose from List** `settings.genres`, Select Multiple → `flt.genres`.
      3. **Choose from Menu** «Длительность»: Любая / ≤ 90 мин / ≤ 120 мин / ≤ 150 мин → `flt.maxLen` (пусто / 90 / 120 / 150).
      4. **Choose from List** (`settings.tags` + «Любой»; Choose from Menu не подходит — пункты статичны) → `flt.tag`.
@@ -156,7 +156,7 @@ stateDiagram-v2
 
 Use Model, Private Cloud Compute, Output: Dictionary.
 
-`[topGenres]` — 5 жанров с наибольшим `genre_score` (через запятую). `[filters]` — текст фильтров («types: tv_show; genres: Drama; max length: 120 min; tag: с семьёй» или «none»). `[genreList]` — канонические жанры.
+`[topGenres]` — 5 жанров с наибольшим `genre_score` (через запятую). `[filters]` — текст фильтров («types: tv_show; genres: Drama; max length: 120 min; tag: с семьёй» или «none»). `[genreList]` — `settings.genres` → **Combine Text** через `, `.
 
 ### Уточнение (для «По настроению»)
 

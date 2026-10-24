@@ -33,7 +33,7 @@ flowchart TD
 5. Жанры: **Repeat with Each** ключей `gCnt` → `genre_score = (gSum + k·mean) / (gCnt + k)` (та же формула, что в [Recommend](../recommend/README.md#скоринг-мой-список)) → Dictionary `gScore` genre → score → [топ без сортировки](../data.md#топ-без-сортировки), N = 5 → строка `Genre — 8.1 (gCnt)`.
 6. Топ-5: Dictionary `key` → `my_rating` из `rated` → топ, N = 5 → `★ my_rating title_ru (year)`.
 7. Годы: `minY` / `maxY` = **Calculate Statistics** Minimum / Maximum по ключам `byYear` → **Repeat** (`maxY − minY + 1`) раз, год = `minY + Repeat Index − 1` → есть в `byYear` → строка `год: N`.
-8. Метки статусов/типов — из [data.md](../data.md#перечисления).
+8. Метки статусов — из [data.md](../data.md#status); типов — Get Dictionary Value `type` из `settings.type_labels`.
 9. **Text** отчёт:
    ```
    Всего: N

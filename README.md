@@ -42,7 +42,7 @@ flowchart LR
 1. Установить **Data Jar** из App Store. Других приложений не нужно.
 2. Получить ключ poiskkino: Telegram-бот **@poiskkinodev_bot** → выдаёт ключ. Демо — 200 запросов/сутки (хватает: добавление ≈ 2 запроса).
 3. В Data Jar создать **один** ключ верхнего уровня `movies` (Dictionary) — [структура](data.md#корень-movies). Внутри:
-   - `settings` (Dictionary) по образцу из [data.md](data.md#moviessettings): вписать ключ API, `weights`, `top_n`, `ai_enabled`, `tags`, `genres`, `genre_map`;
+   - `settings` (Dictionary) по образцу из [data.md](data.md#moviessettings): вписать ключ API, `weights`, `top_n`, `ai_enabled`, `tags`, `genres`, `genre_map`, `type_map`, `type_labels`, `type_labels_en`;
    - `items` — пустой Dictionary.
 4. Собрать шорткаты — по [порядку сборки](#порядок-сборки-и-проверки) (суб-шорткаты раньше тех, кто их вызывает через Run Shortcut).
 5. Имена шорткатов — точно как в таблице (Run Shortcut ищет по имени).

@@ -47,7 +47,7 @@ flowchart TD
 
 ### Загрузка
 
-1. **Get Value** `movies.settings` → `settings`; `apiKey`, `tagsList` (`tags`), `genreList`, `aiOn` (`ai_enabled`). [Проверка настроек](../data.md#ошибки).
+1. **Get Value** `movies.settings` → `settings`; `apiKey`, `tagsList` (`tags`), `genreList` (`genres` → **Combine Text** через `, `), `typeLabels` (`type_labels`), `typeMap` (`type_map`), `aiOn` (`ai_enabled`). [Проверка настроек](../data.md#ошибки).
 2. **Get Dictionary Value** `key` из Shortcut Input → `key`. **Get Dictionary Value** `predicted` → `predicted`.
 3. **If** `key` has any value → **Get Value** `movies.items.<key>` → `rec`; **Set Variable** `saved` = `yes`. `rec` пуст (запись удалили) → **Show Notification** «Запись не найдена» → **Stop and Output** `{action:"back"}`.
 4. Otherwise → `rec` = `record` из входа; `saved` = `no`.
@@ -60,7 +60,7 @@ flowchart TD
    1. Собрать **Text** карточки (пустые строки опускать через If):
       ```
       title_ru / title_en
-      year · <метка type> · length мин · age_rating+
+      year · <Get Dictionary Value `type` из `typeLabels`> · length мин · age_rating+
       genres (через запятую)
       IMDb x · КП y · мой балл z | прогноз p
       Статус: <метка status>
@@ -119,7 +119,7 @@ flowchart TD
 
 ### Похожие
 
-1. **If** `kinopoisk_id` → **Get Contents of URL** `https://api.poiskkino.dev/v1.5/movie/<kinopoisk_id>` (`X-API-KEY`) → `similarMovies`. **Repeat with Each** → **Dictionary** light record: `kinopoisk_id` = `id`, `title_ru` = `name`, `title_en` = `alternativeName` (`enName` в similarMovies нет), `year` (бывает пропущен), `type` (маппинг), `ratings` `{kp}` из `rating`, Round 0.1 (imdb в similarMovies нет; 0 → null), `genres` = [] → **Add to Variable** `items`.
+1. **If** `kinopoisk_id` → **Get Contents of URL** `https://api.poiskkino.dev/v1.5/movie/<kinopoisk_id>` (`X-API-KEY`) → `similarMovies`. **Repeat with Each** → **Dictionary** light record: `kinopoisk_id` = `id`, `title_ru` = `name`, `title_en` = `alternativeName` (`enName` в similarMovies нет), `year` (бывает пропущен), `type` = Get Dictionary Value (`type` из Repeat Item) из `typeMap`, пусто → `movie` ([data.md](../data.md#type)), `ratings` `{kp}` из `rating`, Round 0.1 (imdb в similarMovies нет; 0 → null), `genres` = [] → **Add to Variable** `items`.
 1a. Ответ без `id` (ошибка API) → **Show Notification** `poiskkino: <statusCode> <message>`.
 2. **If** `items` пусто (нет id, similarMovies пуст или API недоступно) **и** `aiOn` ≠ `false` → **Use Model** промпт «Похожие» ([с запасным путём](../data.md#ответ-ии-use-model)) → `items` = `similar`. ИИ не ответил → `items` пуст.
 3. Исключить: **Repeat with Each** записей `movies.items` (Get Value `movies.items` → Get Dictionary Value All Values) с `status` ∈ watched/dropped/dismissed → собрать список `title_en lowercase + year` и `kinopoisk_id` → item, совпавший по любому из них, отбросить.
