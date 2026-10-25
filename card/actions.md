@@ -8,6 +8,7 @@
 
 - **Сброс переменной**: `Nothing` → `Set variable x` (поле «to» пустое). Нужен для списков (`Add to Variable` копит между оборотами Repeat) и флагов в начале каждого оборота.
 - **Меню → `act`**: пункты меню только ставят `act`, сами действия — ниже отдельными If. Так общие пункты (ссылки, Постер, Похожие…) не дублируются в двух меню.
+- **Число из словаря** (Data Jar, ответ API, `Repeat Item: поле`) приходит без типа — If не даёт сравнений «больше/меньше». Перед сравнением: `Number [x]` → сравнивать `[Number]`.
 - **Вложенный Repeat** внутри `Repeat 50`: iOS может назвать плашки `Repeat Item 2` / `Repeat Index 2` — бери плашку своего Repeat.
 
 ```
@@ -433,7 +434,10 @@ Repeat 50 times
             Get All Values in [Value]
             Repeat with each item in [Values]
                 Count Items in [favs]
-                If All are true: [Repeat Item: my_rating] is greater than or equal to 8, [Count] is less than 10
+                Set variable nFav to [Count]
+                Get Value for "my_rating" in [Repeat Item]
+                Number [Dictionary Value]
+                If All are true: [Number] is greater than or equal to 8, [nFav] is less than 10
                     Text "[Repeat Item: title_en] ([Repeat Item: year]) — [Repeat Item: my_rating] — [Repeat Item: note]"
                     Add [Text] to favs
                 End If
@@ -769,8 +773,9 @@ Repeat 50 times
                     Dictionary   (пустой)
                     Set variable simR to [Dictionary]
                     Get Value for "rating.kp" in [Repeat Item]
-                    If [Dictionary Value] is greater than 0
-                        Round [Dictionary Value] to Tenths
+                    Number [Dictionary Value]
+                    If [Number] is greater than 0
+                        Round [Number] to Tenths
                         Set "kp" to [Rounded Number] in [simR]
                         Set variable simR to [Dictionary]
                     End If

@@ -11,6 +11,7 @@
 - **Счётчик в словаре** (`d[x] += 1`): Get Value `x` из `d` → пусто = 0 → Calculate +1 → Set Dictionary Value → Set variable `d` (Set Dictionary Value не меняет переменную сам).
 - **Топ без сортировки** ([data.md](../data.md#топ-без-сортировки)): уже выбранные id копятся в тексте `pickedTxt` = `|a|b|`; проверка «не выбран» — `pickedTxt` does not contain `|id|`.
 - **Меню → `act`**: пункт меню только ставит `act`, действие — ниже отдельным If.
+- **Число из словаря** (Data Jar, ответ API, `Repeat Item: поле`) приходит без типа — If не даёт сравнений «больше/меньше». Перед сравнением: `Number [x]` → сравнивать `[Number]`.
 - **Вложенный Repeat**: iOS может назвать плашки `Repeat Item 2` / `Repeat Index 2` — бери плашку своего Repeat. Поэтому запись внешнего цикла сразу кладётся в `it`.
 
 ```
@@ -239,7 +240,8 @@ If [n] is greater than 0
         Set variable bestId
         Repeat with each item in [gKeys]
             Get Value for [Repeat Item] in [gScore]
-            Set variable v to [Dictionary Value]
+            Number [Dictionary Value]
+            Set variable v to [Number]
             Text "|[Repeat Item]|"
             If All are true: [pickedTxt] does not contain [Text], [v] is greater than [best]
                 Set variable best to [v]
@@ -269,7 +271,8 @@ If [n] is greater than 0
         Set variable bestId
         Repeat with each item in [rKeys]
             Get Value for [Repeat Item] in [rScore]
-            Set variable v to [Dictionary Value]
+            Number [Dictionary Value]
+            Set variable v to [Number]
             Text "|[Repeat Item]|"
             If All are true: [pickedTxt] does not contain [Text], [v] is greater than [best]
                 Set variable best to [v]
@@ -384,7 +387,8 @@ If [act] is "taste"
         Set variable bestId
         Repeat with each item in [rKeys]
             Get Value for [Repeat Item] in [rScore]
-            Set variable v to [Dictionary Value]
+            Number [Dictionary Value]
+            Set variable v to [Number]
             Text "|[Repeat Item]|"
             If All are true: [pickedTxt] does not contain [Text], [v] is greater than [best]
                 Set variable best to [v]
@@ -418,7 +422,8 @@ If [act] is "taste"
         Get Value for "my_rating" in [it]
         Set variable mr to [Dictionary Value]
         If [mr] has any value
-            If [mr] is less than or equal to 5
+            Number [mr]
+            If [Number] is less than or equal to 5
                 Number 1
                 Set variable isLow to [Number]
             End If

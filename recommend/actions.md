@@ -12,6 +12,7 @@
 - **«Есть ли в списке»**: список → `Combine` через `|` → `Text "|…|"` → `If … contains "|x|"`. Условие `contains` по списку ненадёжно, по тексту — работает.
 - **Выбор из списка**: метки и элементы — два параллельных списка; выбранную метку ищем по `Repeat Index` → `Get Item at Index`. Не Dictionary «метка → элемент»: в метках есть точки (`IMDb 8.1`), а точка в Get Value — путь.
 - **Вложенный Repeat** внутри `Repeat 200`: iOS может назвать плашки `Repeat Item 2` / `Repeat Index 2` — бери плашку своего Repeat.
+- **Число из словаря** (Data Jar, ответ API, `Repeat Item: поле`) приходит без типа — If не даёт сравнений «больше/меньше». Перед сравнением: `Number [x]` → сравнивать `[Number]`.
 - **Calculate Statistics**: плашка результата — `[Average]` (как назовёт iOS — та и есть).
 
 ```
@@ -50,6 +51,8 @@ If [minR] does not have any value
     Number 3
     Set variable minR to [Number]
 End If
+Number [minR]
+Set variable minR to [Number]
 
 // ── Шаг 3. Размер «Мой список» ──
 Get Value for "top_n" in [settings]
@@ -58,6 +61,8 @@ If [topN] does not have any value
     Number 3
     Set variable topN to [Number]
 End If
+Number [topN]
+Set variable topN to [Number]
 
 // ── Шаг 4. ИИ включён? ──
 Get Value for "ai_enabled" in [settings]
@@ -79,8 +84,12 @@ Get All Values in [Value]
 Set variable db to [Values]
 
 // ── Шаг 7. Режим из входа ──
-Get Value for "mode" in [Shortcut Input]
-Set variable inMode to [Dictionary Value]
+// Get Value из Text ("today") падает: "couldn't convert from Text to Dictionary"
+Get Type of [Shortcut Input]
+If [Type] is "Dictionary"
+    Get Value for "mode" in [Shortcut Input]
+    Set variable inMode to [Dictionary Value]
+End If
 
 // ── Шаг 8. Голосовой режим (без цикла и экранов) ──
 If [inMode] is "voice"
@@ -106,6 +115,10 @@ If [inMode] is "voice"
     Set variable fGenres to [Dictionary Value]
     Get Value for "maxLen" in [flt]
     Set variable fMax to [Dictionary Value]
+    If [fMax] has any value
+        Number [fMax]
+        Set variable fMax to [Number]
+    End If
     Get Value for "tag" in [flt]
     Set variable fTag to [Dictionary Value]
     Nothing
@@ -149,7 +162,8 @@ If [inMode] is "voice"
         If [fMax] has any value
             Get Value for "length" in [Repeat Item]
             If [Dictionary Value] has any value
-                If [Dictionary Value] is greater than [fMax]
+                Number [Dictionary Value]
+                If [Number] is greater than [fMax]
                     Number 0
                     Set variable ok to [Number]
                 End If
@@ -252,7 +266,8 @@ If [inMode] is "voice"
         Get All Keys in [gScore]
         Repeat with each item in [Keys]
             Get Value for [Repeat Item] in [gScore]
-            Set variable v to [Dictionary Value]
+            Number [Dictionary Value]
+            Set variable v to [Number]
             Text "|[Repeat Item]|"
             If All are true: [pickedTxt] does not contain [Text], [v] is greater than [best]
                 Set variable best to [v]
@@ -285,7 +300,8 @@ If [inMode] is "voice"
             Repeat with each item in [rated]
                 Set [Repeat Item: key] to [Repeat Item] in [ratedMap]
                 Set variable ratedMap to [Dictionary]
-                If [Repeat Item: my_rating] is greater than or equal to 8
+                Number [Repeat Item: my_rating]
+                If [Number] is greater than or equal to 8
                     Set [Repeat Item: key] to [Repeat Item: my_rating] in [favScores]
                     Set variable favScores to [Dictionary]
                 End If
@@ -303,7 +319,8 @@ If [inMode] is "voice"
                 Get All Keys in [favScores]
                 Repeat with each item in [Keys]
                     Get Value for [Repeat Item] in [favScores]
-                    Set variable v to [Dictionary Value]
+                    Number [Dictionary Value]
+                    Set variable v to [Number]
                     Text "|[Repeat Item]|"
                     If All are true: [pickedTxt] does not contain [Text], [v] is greater than [best]
                         Set variable best to [v]
@@ -438,7 +455,8 @@ If [inMode] is "voice"
             Get All Keys in [scores]
             Repeat with each item in [Keys]
                 Get Value for [Repeat Item] in [scores]
-                Set variable v to [Dictionary Value]
+                Number [Dictionary Value]
+                Set variable v to [Number]
                 Text "|[Repeat Item]|"
                 If All are true: [pickedTxt] does not contain [Text], [v] is greater than [best]
                     Set variable best to [v]
@@ -670,6 +688,10 @@ Repeat 200 times
         Set variable fGenres to [Dictionary Value]
         Get Value for "maxLen" in [flt]
         Set variable fMax to [Dictionary Value]
+        If [fMax] has any value
+            Number [fMax]
+            Set variable fMax to [Number]
+        End If
         Get Value for "tag" in [flt]
         Set variable fTag to [Dictionary Value]
     End If
@@ -717,7 +739,8 @@ Repeat 200 times
             If [fMax] has any value
                 Get Value for "length" in [Repeat Item]
                 If [Dictionary Value] has any value
-                    If [Dictionary Value] is greater than [fMax]
+                    Number [Dictionary Value]
+                    If [Number] is greater than [fMax]
                         Number 0
                         Set variable ok to [Number]
                     End If
@@ -828,7 +851,8 @@ Repeat 200 times
             Get All Keys in [gScore]
             Repeat with each item in [Keys]
                 Get Value for [Repeat Item] in [gScore]
-                Set variable v to [Dictionary Value]
+                Number [Dictionary Value]
+                Set variable v to [Number]
                 Text "|[Repeat Item]|"
                 If All are true: [pickedTxt] does not contain [Text], [v] is greater than [best]
                     Set variable best to [v]
@@ -859,7 +883,8 @@ Repeat 200 times
             Repeat with each item in [rated]
                 Set [Repeat Item: key] to [Repeat Item] in [ratedMap]
                 Set variable ratedMap to [Dictionary]
-                If [Repeat Item: my_rating] is greater than or equal to 8
+                Number [Repeat Item: my_rating]
+                If [Number] is greater than or equal to 8
                     Set [Repeat Item: key] to [Repeat Item: my_rating] in [favScores]
                     Set variable favScores to [Dictionary]
                 End If
@@ -877,7 +902,8 @@ Repeat 200 times
                 Get All Keys in [favScores]
                 Repeat with each item in [Keys]
                     Get Value for [Repeat Item] in [favScores]
-                    Set variable v to [Dictionary Value]
+                    Number [Dictionary Value]
+                    Set variable v to [Number]
                     Text "|[Repeat Item]|"
                     If All are true: [pickedTxt] does not contain [Text], [v] is greater than [best]
                         Set variable best to [v]
@@ -988,7 +1014,8 @@ Repeat 200 times
                 Get All Keys in [scores]
                 Repeat with each item in [Keys]
                     Get Value for [Repeat Item] in [scores]
-                    Set variable v to [Dictionary Value]
+                    Number [Dictionary Value]
+                    Set variable v to [Number]
                     Text "|[Repeat Item]|"
                     If All are true: [pickedTxt] does not contain [Text], [v] is greater than [best]
                         Set variable best to [v]
@@ -1163,7 +1190,8 @@ Repeat 200 times
             Set variable bad to [Number]
             Get Value for "my_rating" in [Repeat Item]
             If [Dictionary Value] has any value
-                If [Dictionary Value] is less than or equal to 4
+                Number [Dictionary Value]
+                If [Number] is less than or equal to 4
                     Number 1
                     Set variable bad to [Number]
                 End If

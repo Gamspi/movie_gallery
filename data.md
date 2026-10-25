@@ -74,6 +74,10 @@ Movie Lookup возвращает запись без `status`, `origin`, `added
 
 Даты хранятся текстом: Format Date → ISO 8601 (без времени для `premiere_date`). Перед сравнением дат или Format Date из сохранённого текста — **Get Dates from Input**.
 
+Вход суб-шортката бывает Text или Dictionary (Lookup, Recommend): **Get Dictionary Value** из Text падает («couldn't convert from Text to Dictionary»). Сначала **Get Type** of Shortcut Input → If Type is `Text` / `Dictionary`.
+
+Числа из словаря (Data Jar, ответ API, поле `Repeat Item`) приходят без типа — If не предлагает «больше/меньше». Перед сравнением — действие **Number** с этой переменной, сравнивать его результат.
+
 ### Пример
 
 ```json

@@ -11,6 +11,7 @@
 - **«Входит в набор»**: Text `|a|b|c|` contains `|[x]|` — вместо If с Any на каждое значение.
 - **Ротация без сортировки**: подходящие сериалы → Dictionary `scores` (ключ → секунды с `updated_date`), затем [топ без сортировки](../data.md#топ-без-сортировки) N = 30 — первыми проверяются самые давно обновлённые; лимит 30 запросов соблюдается сам, отдельный `counter` не нужен.
 - **Вложенный Repeat**: iOS может назвать плашки `Repeat Item 2` — бери плашку своего Repeat.
+- **Число из словаря** (Data Jar, ответ API, `Repeat Item: поле`) приходит без типа — If не даёт сравнений «больше/меньше». Перед сравнением: `Number [x]` → сравнивать `[Number]`.
 
 ## Автоматизация
 
@@ -125,7 +126,8 @@ Repeat 30 times
     Set variable bestId
     Repeat with each item in [scoreKeys]
         Get Value for [Repeat Item 2] in [scores]
-        Set variable sc to [Dictionary Value]
+        Number [Dictionary Value]
+        Set variable sc to [Number]
         If [pickedTxt] does not contain "|[Repeat Item 2]|"
             If [sc] is greater than [best]
                 Set variable best to [sc]
@@ -173,8 +175,9 @@ Repeat with each item in [picked]
             Set variable nums
             Repeat with each item in [docs]
                 Get Value for "number" in [Repeat Item 2]
-                If [Dictionary Value] is greater than 0
-                    Add [Dictionary Value] to nums
+                Number [Dictionary Value]
+                If [Number] is greater than 0
+                    Add [Number] to nums
                 End If
             End Repeat
 
@@ -184,7 +187,9 @@ Repeat with each item in [picked]
 
                 // 6.4 Уведомление (первый запуск — без него)
                 If [oldCount] has any value
-                    If [newCount] is greater than [oldCount]
+                    // oldCount не преобразуем при Set variable — нужна проверка «has any value»
+                    Number [oldCount]
+                    If [newCount] is greater than [Number]
                         Show notification "Новый сезон: [rec: title_ru] — сезон [newCount]"
                     End If
                 End If

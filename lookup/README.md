@@ -63,16 +63,10 @@ flowchart TD
 3. **Get Dictionary Value** `genre_map` из `settings` → **Set Variable** `genreMap`.
 4. **Get Dictionary Value** `genres` из `settings` → **Combine Text** через `, ` → **Set Variable** `genreList`. Жанры текстом не вписывать — источник один: `movies.settings.genres`.
 5. **Get Dictionary Value** `type_map` из `settings` → **Set Variable** `typeMap` (тип poiskkino → наш, [data.md](../data.md#type)). Таблицу текстом не вписывать — источник один: `movies.settings.type_map`.
-6. **Get Dictionary Value** `kinopoisk_id` из **Shortcut Input** → **Set Variable** `kpId`. (Вход Text → пусто.)
-7. **Get Dictionary Value** `title_en` из **Shortcut Input** → **Set Variable** `hintTitle`.
-8. Сырой ввод `query`:
-    1. **Get Dictionary Value** `query` из **Shortcut Input**.
-    2. **If** Dictionary Value has any value:
-        1. **Set Variable** `query` = Dictionary Value (голос).
-    3. **Otherwise**:
-        1. **If** (All) `kpId` does not have any value, `hintTitle` does not have any value → **Set Variable** `query` = **Shortcut Input** (вход — Text) → **End If**.
-    4. **End If**.
-9. **Get Dictionary Value** `voice` из **Shortcut Input** → **Set Variable** `voice` (`true` — вызвал голосовой Movies; пусто — вызвали Add / Card с экрана телефона: меню и тексты по-русски).
+6. **Get Type** of **Shortcut Input** → **If** Type is `Text` (Get Dictionary Value из Text падает с «couldn't convert from Text to Dictionary»):
+7. вход Text (Add) → **Set Variable** `query` = **Shortcut Input**.
+8. **Otherwise** (вход Dictionary) → **Get Dictionary Value** из **Shortcut Input**: `kinopoisk_id` → `kpId`; `title_en` → `hintTitle`; `query` → `query` (голос); `voice` → `voice` (`true` — вызвал голосовой Movies; пусто — Card с экрана: меню и тексты по-русски).
+9. **End If**.
 10. Тексты интерфейса — дальше берутся из `ui`, текстом не вписывать:
     1. **If** `voice` has any value:
         1. **Dictionary** (англ., таблица ниже) → **Set Variable** `ui`.

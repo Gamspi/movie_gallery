@@ -3,6 +3,7 @@
 Как в редакторе Shortcuts: одна строка = одно действие, отступ = внутри If / Otherwise / Repeat.
 `[x]` — синяя плашка переменной `x`. `[x: key]` — плашка `x`, тап → Get Value for Key `key`.
 Строки `// …` — пояснения, в шорткат их не добавлять.
+Число из словаря (ответ API, Data Jar) приходит без типа — If не даёт «больше/меньше». Перед сравнением: `Number [x]` → сравнивать `[Number]`.
 
 ```
 // ── Шаг 1. Настройки ──
@@ -34,27 +35,27 @@ Set variable genreList to [Combined Text]
 Get Value for "type_map" in [settings]
 Set variable typeMap to [Dictionary Value]
 
-// ── Шаг 6. kinopoisk_id из входа ──
-Get Value for "kinopoisk_id" in [Shortcut Input]
-Set variable kpId to [Dictionary Value]
+// ── Шаг 6. Тип входа ──
+// Get Value из Text падает: "couldn't convert from Text to Dictionary"
+Get Type of [Shortcut Input]
+If [Type] is "Text"
 
-// ── Шаг 7. Подсказка из входа ──
-Get Value for "title_en" in [Shortcut Input]
-Set variable hintTitle to [Dictionary Value]
+    // ── Шаг 7. Вход Text (Add) ──
+    Set variable query to [Shortcut Input]
 
-// ── Шаг 8. Сырой ввод ──
-Get Value for "query" in [Shortcut Input]
-If [Dictionary Value] has any value
-    Set variable query to [Dictionary Value]
+// ── Шаг 8. Вход Dictionary ──
 Otherwise
-    If All are true: [kpId] does not have any value, [hintTitle] does not have any value
-        Set variable query to [Shortcut Input]
-    End If
-End If
+    Get Value for "kinopoisk_id" in [Shortcut Input]
+    Set variable kpId to [Dictionary Value]
+    Get Value for "title_en" in [Shortcut Input]
+    Set variable hintTitle to [Dictionary Value]
+    Get Value for "query" in [Shortcut Input]
+    Set variable query to [Dictionary Value]
+    Get Value for "voice" in [Shortcut Input]
+    Set variable voice to [Dictionary Value]
 
-// ── Шаг 9. Голос ──
-Get Value for "voice" in [Shortcut Input]
-Set variable voice to [Dictionary Value]
+// ── Шаг 9 ──
+End If
 
 // ── Шаг 10. Тексты интерфейса ──
 If [voice] has any value
@@ -332,26 +333,30 @@ If [mId] has any value
     Dictionary   (пустой)
     Set variable ratings to [Dictionary]
     Get Value for "rating.imdb" in [m]
-    If [Dictionary Value] is greater than 0
-        Round [Dictionary Value] to Tenths
+    Number [Dictionary Value]
+    If [Number] is greater than 0
+        Round [Number] to Tenths
         Set "imdb" to [Rounded Number] in [ratings]
         Set variable ratings to [Dictionary]
     End If
     Get Value for "rating.kp" in [m]
-    If [Dictionary Value] is greater than 0
-        Round [Dictionary Value] to Tenths
+    Number [Dictionary Value]
+    If [Number] is greater than 0
+        Round [Number] to Tenths
         Set "kp" to [Rounded Number] in [ratings]
         Set variable ratings to [Dictionary]
     End If
 
     // 25.6 length
     Get Value for "seriesLength" in [m]
-    If [Dictionary Value] is greater than 0
-        Set variable length to [Dictionary Value]
+    Number [Dictionary Value]
+    If [Number] is greater than 0
+        Set variable length to [Number]
     Otherwise
         Get Value for "movieLength" in [m]
-        If [Dictionary Value] is greater than 0
-            Set variable length to [Dictionary Value]
+        Number [Dictionary Value]
+        If [Number] is greater than 0
+            Set variable length to [Number]
         End If
     End If
 
