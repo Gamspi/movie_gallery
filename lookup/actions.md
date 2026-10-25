@@ -418,10 +418,14 @@ If [mId] has any value
         source        Text    poiskkino
         updated_date  Text    [now]
     Set variable rec to [Dictionary]
-    Set "genres" to [genres] in [rec]
-    Set variable rec to [Dictionary]
-    Set "ratings" to [ratings] in [rec]
-    Set variable rec to [Dictionary]
+    If [genres] has any value
+        Set "genres" to [genres] in [rec]
+        Set variable rec to [Dictionary]
+    End If
+    If [ratings] has any value
+        Set "ratings" to [ratings] in [rec]
+        Set variable rec to [Dictionary]
+    End If
 
     // 25.12 необязательные поля
     If [imdb_id] has any value
@@ -501,11 +505,10 @@ Otherwise
             updated_date  Text    [now]
         Set variable rec to [Dictionary]
         Get Value for "genres" in [cand]
-        Set "genres" to [Dictionary Value] in [rec]
-        Set variable rec to [Dictionary]
-        Dictionary   (пустой)
-        Set "ratings" to [Dictionary] in [rec]
-        Set variable rec to [Dictionary]
+        If [Dictionary Value] has any value
+            Set "genres" to [Dictionary Value] in [rec]
+            Set variable rec to [Dictionary]
+        End If
 
     // 26.2 Нет кандидата — «Сохранить как есть?»
     Otherwise
@@ -570,12 +573,7 @@ Otherwise
             Set "year" to [yr] in [rec]
             Set variable rec to [Dictionary]
         End If
-        List   (пустой)
-        Set "genres" to [List] in [rec]
-        Set variable rec to [Dictionary]
-        Dictionary   (пустой)
-        Set "ratings" to [Dictionary] in [rec]
-        Set variable rec to [Dictionary]
+        // genres / ratings не ставим: пустое значение Set Dictionary Value не принимает
 
     // закрыл cand
     End If

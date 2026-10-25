@@ -201,14 +201,14 @@ flowchart TD
             4. **End If**.
             5. **If** `yrK` has any value → **Text** `<key>-<yrK>` → **Set Variable** `key` → **End If**.
         2. (пример: `The Brutalist`, 2024 → `ai-the-brutalist-2024`; `Брат 2`, 2000 → `ai-202610241530-2000`.)
-        3. **Dictionary**: `key`, `title_en`, `title_ru`, `year`, `type`, `genres` — из `cand`; `ratings` = пустой Dictionary; `source` = `ai`; `updated_date` = Current Date ISO 8601 → **Set Variable** `rec`.
+        3. **Dictionary**: `key`, `title_en`, `title_ru`, `year`, `type`, `genres` — из `cand` (если есть); `ratings` не ставить; `source` = `ai`; `updated_date` = Current Date ISO 8601 → **Set Variable** `rec`.
     2. **Otherwise** (пользователь отверг варианты ИИ, и poiskkino пусто):
         1. **List** [`ui.yes`, `ui.no`] → **Choose from List**, Prompt = `ui.not_found`.
         2. **If** Chosen Item is `ui.no` → **Stop This Shortcut** → **End If**.
         3. **Ask for Input** — Number, Prompt = `ui.year`, можно пусто → **Set Variable** `yr`.
         4. Тип — [выбор типа](../data.md#type) по `typeLabels`, Prompt = `ui.type` → **Set Variable** `type`.
         5. Ключ — те же действия, что в 26.1.1, но п. 0 другой: **Set Variable** `src` = `query`, **Set Variable** `yrK` = `yr`. Кириллица (`Брат 2`) → сразу `ai-<yyyyMMddHHmm>`, без slug.
-        6. **Dictionary**: `key`, `title_ru` = `title_en` = `query`, `year` = `yr` (если есть), `type`, `genres` = пустой список, `ratings` = пустой Dictionary, `source` = `ai`, `updated_date` → **Set Variable** `rec`. Позже — «Обновить данные» в карточке.
+        6. **Dictionary**: `key`, `title_ru` = `title_en` = `query`, `year` = `yr` (если есть), `type`, `genres` / `ratings` не ставить (пустые), `source` = `ai`, `updated_date` → **Set Variable** `rec`. Позже — «Обновить данные» в карточке.
     3. **End If**.
 27. **End If** (`mId`).
 28. **Stop and Output** `rec`.

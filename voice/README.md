@@ -45,7 +45,7 @@ flowchart TD
 4. **intent = add**:
    1. **Run Shortcut** Movie Lookup, Input **Dictionary** `{query: title, voice: true}` → `rec`. Пусто → **Stop and Output** «Nothing added. Check the phone for details.» (причина — в уведомлении Lookup: не найдено, ошибка API, отмена).
    2. Дубль — как в [Movie Add](../add/README.md#шаги), шаги 5–6. Есть → **Stop and Output** «Already in your list: title_en (year).».
-   3. **Set Dictionary Value** в `rec`: `status` = `unwatched`, `origin` = `manual`, `added_date`, `updated_date` = Current Date, `tags` = [], `note` = "". **Set Value** `movies.items.<key>` = `rec`.
+   3. **Set Dictionary Value** в `rec`: `status` = `unwatched`, `origin` = `manual`, `added_date`, `updated_date` = Current Date, `tags` / `note` не ставить (пустые, [data.md](../data.md#запись-moviesitemskey)). **Set Value** `movies.items.<key>` = `rec`.
    4. **Text**: `Added: <title_en>, <year>, <метка типа англ.>` (метка — Get Dictionary Value `type` из `settings.type_labels_en`) + `, IMDb <x>` (если есть) + `. Not found on Kinopoisk, saved from AI data.` (если `source` = `ai`) + `. Premieres on <premiere_date>.` (если в будущем) → **Stop and Output**.
 5. **intent = recommend**: **Run Shortcut** Movie Recommend, Input **Dictionary** `{mode: "voice", mood, types}` → текст → **Stop and Output**. Текст пуст (Recommend остановился сам) → **Stop and Output** «No recommendations. Check the phone for details.».
 6. **intent = unknown** → **Stop and Output** «Say add and a title, or ask what to watch.».

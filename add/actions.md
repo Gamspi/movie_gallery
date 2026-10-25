@@ -244,12 +244,13 @@ End Menu
 Choose from Menu   (Prompt: "Теги?")
     • Добавить
         Choose from [tagsList]   (Prompt: "Теги", Select Multiple: on)
-        Set "tags" to [Chosen Items] in [rec]
-        Set variable rec to [Dictionary]
+        // один тег ляжет текстом, не списком — это норма (data.md)
+        If [Chosen Items] has any value
+            Set "tags" to [Chosen Items] in [rec]
+            Set variable rec to [Dictionary]
+        End If
     • Пропустить
-        List   (пустой)
-        Set "tags" to [List] in [rec]
-        Set variable rec to [Dictionary]
+        // ничего: нет тегов = нет поля tags (пустой List в Set Dictionary Value не передать)
 End Menu
 
 // ── Шаг 13. Пользовательские поля ──
@@ -262,10 +263,6 @@ Set "updated_date" to [now] in [rec]
 Set variable rec to [Dictionary]
 If [noteT] has any value
     Set "note" to [noteT] in [rec]
-    Set variable rec to [Dictionary]
-Otherwise
-    Text ""
-    Set "note" to [Text] in [rec]
     Set variable rec to [Dictionary]
 End If
 

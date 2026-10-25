@@ -45,13 +45,13 @@ Slug для `ai-`:
 | `title_ru` | Text | poiskkino `name` → ИИ | русское название |
 | `year` | Number | poiskkino `year` / ИИ | год выхода (для сериала — первый год) |
 | `type` | Text | маппинг `type` / ИИ | см. [Type](#type) |
-| `genres` | Array of Text | маппинг `genres[].name` / ИИ | канонические англ. жанры |
+| `genres` | Array of Text (1 шт. — Text) | маппинг `genres[].name` / ИИ | канонические англ. жанры |
 | `imdb_id` | Text / null | `externalId.imdb` | `tt…` |
 | `kinopoisk_id` | Number / null | `id` | id Кинопоиска |
 | `ratings` | Dictionary | `rating.imdb`, `rating.kp` | `{imdb, kp}`, Number или null; `0` → null |
 | `my_rating` | Number / null | пользователь | 1–10 |
 | `status` | Text | пользователь | см. [Status](#status) |
-| `tags` | Array of Text | пользователь | из `movies.settings.tags` |
+| `tags` | Array of Text (1 шт. — Text) | пользователь | из `movies.settings.tags` |
 | `note` | Text | пользователь | заметка |
 | `length` | Number / null | `movieLength`; сериал — `seriesLength` | минуты; для сериала — средняя серия |
 | `age_rating` | Number / null | `ageRating` | 0, 6, 12, 16, 18 |
@@ -73,6 +73,10 @@ Slug для `ai-`:
 Movie Lookup возвращает запись без `status`, `origin`, `added_date`, `watched_date`, `my_rating`, `tags`, `note` — их ставит вызывающий.
 
 Даты хранятся текстом: Format Date → ISO 8601 (без времени для `premiere_date`). Перед сравнением дат или Format Date из сохранённого текста — **Get Dates from Input**.
+
+**Пустое в Set Dictionary Value не передать** (пустой List, Text `""`, пустой Dictionary → ошибка «No value was provided»). Нет значения → поле не ставить: нет `tags` = нет тегов; нет `genres` / `ratings` / `note` = пусто. Читать через `has any value`.
+
+**Список из одного элемента ложится текстом** (проверено на iPhone 2026-10-25): Set Dictionary Value / Data Jar при одном значении пишут `"тег"`, а не `["тег"]`; обёртка в **List** не помогает. Касается `tags`, `genres`. Это норма: читать такие поля как список (Combine Text, `contains`, Repeat with Each, Count работают и с текстом — Count даст 1).
 
 Вход суб-шортката бывает Text или Dictionary (Lookup, Recommend): **Get Dictionary Value** из Text падает («couldn't convert from Text to Dictionary»). Сначала **Get Type** of Shortcut Input → If Type is `Text` / `Dictionary`.
 

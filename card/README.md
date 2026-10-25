@@ -86,7 +86,7 @@ flowchart TD
 |---|---|
 | Оценить | **Ask for Input** (Number, «Оценка 1–10»); If <1 или >10 → Show Notification «1–10», ничего не сохранять. Иначе **Set Value** `movies.items.<key>.my_rating`, `movies.items.<key>.status` = `watched`, `movies.items.<key>.watched_date` = Current Date (ISO), `movies.items.<key>.updated_date` → [после оценки](#после-оценки). |
 | Статус | **Choose from Menu** Не смотрел / Смотрю / Смотрел / Бросил / Не предлагать → **Set Value** `movies.items.<key>.status` + `updated_date`. «Смотрел» → ещё `watched_date` = Current Date (если пусто); без `my_rating` → предложить Оценить (те же шаги). |
-| Теги | **Choose from List** `tagsList`, Select Multiple, pre-selection невозможна → в prompt показать текущие теги. Результат (или пусто) → **Set Value** `movies.items.<key>.tags`. |
+| Теги | **Choose from List** `tagsList`, Select Multiple, pre-selection невозможна → в prompt показать текущие теги. Результат (или пусто); пусто → **Delete Value** → **Set Value** `movies.items.<key>.tags`. |
 | Заметка | **Ask for Input** Text, Default Answer = `note` → **Set Value** `movies.items.<key>.note`. |
 | Спросить ИИ | `aiOn` = `false` → «ИИ выключен». Иначе **Ask for Input** «Что спросить?» → **Use Model** (Private Cloud Compute, Output: Text, **Follow Up** on) — промпт «Спросить ИИ». Follow Up открывает чат: можно задавать вопросы дальше; закрыл — снова карточка. |
 | Кинопоиск | If `kinopoisk_id` → **Show Web Page** `https://www.kinopoisk.ru/film/<kinopoisk_id>/`. Иначе Show Notification «Нет id Кинопоиска». |
@@ -102,7 +102,7 @@ flowchart TD
 
 ### Действия (несохранённая)
 
-Общее для сохранения: ключ = `rec.key` (Lookup его уже собрал; если нет — по правилу [data.md](../data.md#ключ-записи)). Дописать `added_date`, `updated_date` = Current Date, `origin` = `recommendation`, `tags` = [], `note` = "". **Set Value** `movies.items.<key>` = `rec`. После сохранения: `saved` = `yes`, `key` = ключ — карточка дальше работает как сохранённая.
+Общее для сохранения: ключ = `rec.key` (Lookup его уже собрал; если нет — по правилу [data.md](../data.md#ключ-записи)). Дописать `added_date`, `updated_date` = Current Date, `origin` = `recommendation` (`tags` / `note` не ставить — пустые, [data.md](../data.md#запись-moviesitemskey)). **Set Value** `movies.items.<key>` = `rec`. После сохранения: `saved` = `yes`, `key` = ключ — карточка дальше работает как сохранённая.
 
 | Пункт | Статус |
 |---|---|
@@ -121,7 +121,7 @@ flowchart TD
 
 ### Похожие
 
-1. **If** `kinopoisk_id` → **Get Contents of URL** `https://api.poiskkino.dev/v1.5/movie/<kinopoisk_id>` (`X-API-KEY`) → `similarMovies`. **Repeat with Each** → **Dictionary** light record: `kinopoisk_id` = `id`, `title_ru` = `name`, `title_en` = `alternativeName` (`enName` в similarMovies нет), `year` (бывает пропущен), `type` = Get Dictionary Value (`type` из Repeat Item) из `typeMap`, пусто → `movie` ([data.md](../data.md#type)), `ratings` `{kp}` из `rating`, Round 0.1 (imdb в similarMovies нет; 0 → null), `genres` = [] → **Add to Variable** `items`.
+1. **If** `kinopoisk_id` → **Get Contents of URL** `https://api.poiskkino.dev/v1.5/movie/<kinopoisk_id>` (`X-API-KEY`) → `similarMovies`. **Repeat with Each** → **Dictionary** light record: `kinopoisk_id` = `id`, `title_ru` = `name`, `title_en` = `alternativeName` (`enName` в similarMovies нет), `year` (бывает пропущен), `type` = Get Dictionary Value (`type` из Repeat Item) из `typeMap`, пусто → `movie` ([data.md](../data.md#type)), `ratings` `{kp}` из `rating`, Round 0.1 (imdb в similarMovies нет; 0 → null), `genres` не ставить, `ratings` — только если есть `kp` → **Add to Variable** `items`.
 1a. Ответ без `id` (ошибка API) → **Show Notification** `poiskkino: <statusCode> <message>`.
 2. **If** `items` пусто (нет id, similarMovies пуст или API недоступно) **и** `aiOn` ≠ `false` → **Use Model** промпт «Похожие» ([с запасным путём](../data.md#ответ-ии-use-model)) → `items` = `similar`. ИИ не ответил → `items` пуст.
 3. Исключить: **Repeat with Each** записей `movies.items` (Get Value `movies.items` → Get Dictionary Value All Values) с `status` ∈ watched/dropped/dismissed → собрать список `title_en lowercase + year` и `kinopoisk_id` → item, совпавший по любому из них, отбросить.

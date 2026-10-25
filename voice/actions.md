@@ -147,12 +147,7 @@ If [intent] is "add"
     Set variable rec to [Dictionary]
     Set "updated_date" to [now] in [rec]
     Set variable rec to [Dictionary]
-    List   (пустой)
-    Set "tags" to [List] in [rec]
-    Set variable rec to [Dictionary]
-    Text ""
-    Set "note" to [Text] in [rec]
-    Set variable rec to [Dictionary]
+    // tags / note не ставим: пустое значение Set Dictionary Value не принимает
     Set Value [rec] for "movies.items.[key]" (Data Jar)
 
     // ── Шаг 10. Ответ ──

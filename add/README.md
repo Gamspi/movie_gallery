@@ -53,7 +53,7 @@ flowchart TD
    - **Смотрел** → `status` = `watched`; **Ask for Input** (Number, «Оценка 1–10»); If 1…10 → `my_rating`, иначе не задавать. `watched_date` = Current Date (Format Date ISO 8601). **Ask for Input** «Пара слов? (можно пусто)» → `note`.
 9. Теги: **Choose from Menu** «Теги?» Добавить / Пропустить.
    - Добавить → **Get Value** `movies.settings.tags` → **Choose from List** (Select Multiple) → **Set Dictionary Value** `tags` в `rec`.
-   - Пропустить → `tags` = пустой список.
+   - Пропустить → `tags` не ставить (пустое Set Dictionary Value не принимает, [data.md](../data.md#запись-moviesitemskey)).
 10. **Set Dictionary Value** в `rec`: `origin` = `manual`, `added_date` = Current Date (ISO), `updated_date` = Current Date, `note` (если не задан — ""), `my_rating` (если не задан — не добавлять), `watched_date` (если нет — не добавлять).
 11. **Set Value** (Data Jar) `movies.items.<key>` = `rec`.
 12. **If** `rec.premiere_date` has any value **и** **Get Dates from Input** `premiere_date` > Current Date:

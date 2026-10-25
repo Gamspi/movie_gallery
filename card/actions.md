@@ -404,7 +404,13 @@ Repeat 50 times
         Get Value for "tags" in [rec]
         Combine [Dictionary Value] with Custom ", "
         Choose from [tagsList]   (Prompt: "Теги (сейчас: [Combined Text])", Select Multiple: on)
-        Set Value [Chosen Items] for "movies.items.[key].tags" (Data Jar)
+        // один тег ляжет текстом, не списком — это норма (data.md)
+        If [Chosen Items] has any value
+            Set Value [Chosen Items] for "movies.items.[key].tags" (Data Jar)
+        Otherwise
+            // сняли все теги
+            Delete Value for "movies.items.[key].tags" (Data Jar)
+        End If
         Date   (Current Date)
         Format [Date] with ISO 8601
         Set Value [Formatted Date] for "movies.items.[key].updated_date" (Data Jar)
@@ -681,12 +687,7 @@ Repeat 50 times
         Set variable rec to [Dictionary]
         Set "status" to [saveStatus] in [rec]
         Set variable rec to [Dictionary]
-        List   (пустой)
-        Set "tags" to [List] in [rec]
-        Set variable rec to [Dictionary]
-        Text ""
-        Set "note" to [Text] in [rec]
-        Set variable rec to [Dictionary]
+        // tags / note не ставим: пустое значение Set Dictionary Value не принимает
         If [saveStatus] is "watched"
             Set "my_rating" to [r] in [rec]
             Set variable rec to [Dictionary]
@@ -779,11 +780,10 @@ Repeat 50 times
                         Set "kp" to [Rounded Number] in [simR]
                         Set variable simR to [Dictionary]
                     End If
-                    Set "ratings" to [simR] in [lr]
-                    Set variable lr to [Dictionary]
-                    List   (пустой)
-                    Set "genres" to [List] in [lr]
-                    Set variable lr to [Dictionary]
+                    If [simR] has any value
+                        Set "ratings" to [simR] in [lr]
+                        Set variable lr to [Dictionary]
+                    End If
                     Add [lr] to items
                 End Repeat
             End If
