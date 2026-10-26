@@ -16,6 +16,7 @@ movies
 |---|---|---|
 | `movies.items` | Dictionary | ключ записи → запись |
 | `movies.settings` | Dictionary | настройки, справочники, API-ключ |
+| `movies.seed_keys` | Array of Text | **временно**: ключи записей, созданных тестовым [Movie Seed](seed/README.md); удаляется его пунктом «Удалить тестовые». Убрать строку вместе с `seed/` |
 
 Путь к полю: `movies.items.<key>.<field>`, напр. `movies.items.tt10466872.my_rating`. Точка — разделитель пути в Data Jar, поэтому в ключах записей точек нет.
 
