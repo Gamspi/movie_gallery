@@ -9,7 +9,7 @@
 - **Сброс переменной**: `Nothing` → `Set variable x` (поле «to» пустое). Нужен для списков (`Add to Variable` копит между оборотами Repeat).
 - **Условие «A и (B или C)»**: в одном If нельзя смешать All / Any — флаг `ok` = 1, каждое невыполненное условие ставит `ok` = 0.
 - **«Входит в набор»**: Text `|a|b|c|` contains `|[x]|` — вместо If с Any на каждое значение.
-- **Ротация без сортировки**: подходящие сериалы → Dictionary `scores` (ключ → секунды с `updated_date`), затем [топ без сортировки](../data.md#топ-без-сортировки) N = 30 — первыми проверяются самые давно обновлённые; лимит 30 запросов соблюдается сам, отдельный `counter` не нужен.
+- **Ротация без сортировки**: подходящие сериалы → Dictionary `scores` (ключ → секунды с `seasons_checked`, нет поля → 999999999), затем [топ без сортировки](../data.md#топ-без-сортировки) N = 30 — первыми проверяются самые давно проверенные; каждый успешный ответ пишет `seasons_checked`, поэтому очередь крутится; лимит 30 запросов соблюдается сам, отдельный `counter` не нужен.
 - **Вложенный Repeat**: iOS может назвать плашки `Repeat Item 2` — бери плашку своего Repeat.
 - **Число из словаря** (Data Jar, ответ API, `Repeat Item: поле`) приходит без типа — If не даёт сравнений «больше/меньше». Перед сравнением: `Number [x]` → сравнивать `[Number]`.
 
@@ -98,7 +98,7 @@ Repeat with each item in [Values]
 
     // 4.5 Давность
     If [ok] is 1
-        Get Value for "updated_date" in [Repeat Item]
+        Get Value for "seasons_checked" in [Repeat Item]
         If [Dictionary Value] has any value
             Get dates from [Dictionary Value]
             Get time between [Dates] and [nowDate] in Seconds
@@ -169,6 +169,8 @@ Repeat with each item in [picked]
         If [docs] has any value
             Calculate [okCount] + 1
             Set variable okCount to [Calculation Result]
+            // Ответ валиден → отметка проверки (ротация), даже без изменений
+            Set Value [now] for "movies.items.[key].seasons_checked" (Data Jar)
 
             // 6.3 Номера сезонов (0 — спецвыпуски)
             Nothing
@@ -194,7 +196,7 @@ Repeat with each item in [picked]
                     End If
                 End If
 
-                // 6.5 Запись
+                // 6.5 Запись (только при изменении — updated_date = «запись изменилась»)
                 If [oldCount] does not have any value
                     Set Value [newCount] for "movies.items.[key].seasons_count" (Data Jar)
                     Set Value [now] for "movies.items.[key].updated_date" (Data Jar)

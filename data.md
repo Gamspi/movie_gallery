@@ -65,6 +65,7 @@ Slug для `ai-`:
 | `added_date` | Text | Current Date | ISO 8601 |
 | `watched_date` | Text / null | Current Date при оценке или статусе «Смотрел» | ISO 8601 |
 | `updated_date` | Text | Current Date | ISO 8601, при любом изменении |
+| `seasons_checked` | Text / null | Movie Seasons | ISO 8601; время последней успешной проверки сезонов (валидный ответ с `docs`), пишется и без изменений; нет → проверяется первым. Служебное: не меняет `updated_date` |
 
 **null** в таблице = ключа в словаре нет (Dictionary в Shortcuts не хранит null). Проверка — `If … has any value`.
 
