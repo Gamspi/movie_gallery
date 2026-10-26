@@ -130,7 +130,7 @@ Repeat 100 times
         // ── Шаг 6. Выбор тайтла (Cancel = выход из шортката) ──
         Count Items in [items]
         Choose from [labels]   (Prompt: "[filterT]: [Count]")
-        If [Chosen Item] is "← К фильтрам"
+        If [Chosen Item as Text] is "← К фильтрам"
             Nothing
             Set variable menuDone
             // следующий оборот — снова меню «Показать»
@@ -199,7 +199,7 @@ Repeat 100 times
 
                         // 8.2 Выбор похожего
                         Choose from [simLabels]   (Prompt: "Похожие")
-                        If [Chosen Item] is "← Назад"
+                        If [Chosen Item as Text] is "← Назад"
                             Number 1
                             Set variable simDone to [Number]
                         Otherwise

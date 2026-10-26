@@ -2329,6 +2329,15 @@
 					<dict>
 						<key>Value</key>
 						<dict>
+							<key>Aggrandizements</key>
+							<array>
+								<dict>
+									<key>CoercionItemClass</key>
+									<string>WFStringContentItem</string>
+									<key>Type</key>
+									<string>WFCoercionVariableAggrandizement</string>
+								</dict>
+							</array>
 							<key>Type</key>
 							<string>Variable</string>
 							<key>VariableName</key>
@@ -2661,6 +2670,15 @@
 					<dict>
 						<key>Value</key>
 						<dict>
+							<key>Aggrandizements</key>
+							<array>
+								<dict>
+									<key>CoercionItemClass</key>
+									<string>WFStringContentItem</string>
+									<key>Type</key>
+									<string>WFCoercionVariableAggrandizement</string>
+								</dict>
+							</array>
 							<key>Type</key>
 							<string>Variable</string>
 							<key>VariableName</key>
@@ -3262,6 +3280,15 @@
 					<dict>
 						<key>Value</key>
 						<dict>
+							<key>Aggrandizements</key>
+							<array>
+								<dict>
+									<key>CoercionItemClass</key>
+									<string>WFStringContentItem</string>
+									<key>Type</key>
+									<string>WFCoercionVariableAggrandizement</string>
+								</dict>
+							</array>
 							<key>Type</key>
 							<string>Variable</string>
 							<key>VariableName</key>
@@ -13190,6 +13217,15 @@ Return ONLY valid JSON, no markdown, no explanations.</string>
 					<dict>
 						<key>Value</key>
 						<dict>
+							<key>Aggrandizements</key>
+							<array>
+								<dict>
+									<key>CoercionItemClass</key>
+									<string>WFStringContentItem</string>
+									<key>Type</key>
+									<string>WFCoercionVariableAggrandizement</string>
+								</dict>
+							</array>
 							<key>Type</key>
 							<string>Variable</string>
 							<key>VariableName</key>
@@ -15342,6 +15378,15 @@ Return ONLY valid JSON, no markdown, no explanations.</string>
 					<dict>
 						<key>Value</key>
 						<dict>
+							<key>Aggrandizements</key>
+							<array>
+								<dict>
+									<key>CoercionItemClass</key>
+									<string>WFStringContentItem</string>
+									<key>Type</key>
+									<string>WFCoercionVariableAggrandizement</string>
+								</dict>
+							</array>
 							<key>Type</key>
 							<string>Variable</string>
 							<key>VariableName</key>
@@ -15674,6 +15719,15 @@ Return ONLY valid JSON, no markdown, no explanations.</string>
 					<dict>
 						<key>Value</key>
 						<dict>
+							<key>Aggrandizements</key>
+							<array>
+								<dict>
+									<key>CoercionItemClass</key>
+									<string>WFStringContentItem</string>
+									<key>Type</key>
+									<string>WFCoercionVariableAggrandizement</string>
+								</dict>
+							</array>
 							<key>Type</key>
 							<string>Variable</string>
 							<key>VariableName</key>
@@ -16275,6 +16329,15 @@ Return ONLY valid JSON, no markdown, no explanations.</string>
 					<dict>
 						<key>Value</key>
 						<dict>
+							<key>Aggrandizements</key>
+							<array>
+								<dict>
+									<key>CoercionItemClass</key>
+									<string>WFStringContentItem</string>
+									<key>Type</key>
+									<string>WFCoercionVariableAggrandizement</string>
+								</dict>
+							</array>
 							<key>Type</key>
 							<string>Variable</string>
 							<key>VariableName</key>
@@ -29638,6 +29701,15 @@ Return ONLY valid JSON, no markdown, no explanations.</string>
 					<dict>
 						<key>Value</key>
 						<dict>
+							<key>Aggrandizements</key>
+							<array>
+								<dict>
+									<key>CoercionItemClass</key>
+									<string>WFStringContentItem</string>
+									<key>Type</key>
+									<string>WFCoercionVariableAggrandizement</string>
+								</dict>
+							</array>
 							<key>Type</key>
 							<string>Variable</string>
 							<key>VariableName</key>
@@ -34094,6 +34166,15 @@ Return ONLY valid JSON, no markdown, no explanations.</string>
 					<dict>
 						<key>Value</key>
 						<dict>
+							<key>Aggrandizements</key>
+							<array>
+								<dict>
+									<key>CoercionItemClass</key>
+									<string>WFStringContentItem</string>
+									<key>Type</key>
+									<string>WFCoercionVariableAggrandizement</string>
+								</dict>
+							</array>
 							<key>Type</key>
 							<string>Variable</string>
 							<key>VariableName</key>
@@ -34279,6 +34360,15 @@ Return ONLY valid JSON, no markdown, no explanations.</string>
 					<dict>
 						<key>Value</key>
 						<dict>
+							<key>Aggrandizements</key>
+							<array>
+								<dict>
+									<key>CoercionItemClass</key>
+									<string>WFStringContentItem</string>
+									<key>Type</key>
+									<string>WFCoercionVariableAggrandizement</string>
+								</dict>
+							</array>
 							<key>Type</key>
 							<string>Variable</string>
 							<key>VariableName</key>
