@@ -37,6 +37,7 @@
 - Сторонние приложения — только Data Jar. Сортировки нет: топ — перебором максимума ([data.md](data.md#топ-без-сортировки)).
 - Ссылки — только **Show Web Page** (не Open URLs).
 - Use Model — всегда с запасным путём ([data.md](data.md#ответ-ии-use-model)); чаты (Follow Up) — Output Text, без него.
+- Use Model: вход/выход по-английски; русский — через Translate Text. Применено в режиме «По настроению» Movie Recommend (русский промпт/ответ там давал «The model cannot provide a response…»; ошибку Shortcuts не ловит).
 - Отзыв (`note`) — сигнал для ИИ: промпты рекомендаций и чатов передают `my_rating — note`.
 - Любой ответ poiskkino проверять (`m.id` / `docs` есть) до записи в Data Jar: пустой ответ не должен затирать данные. Ошибки — по правилам [data.md](data.md#ошибки): проверка настроек первым шагом, уведомление `poiskkino: <statusCode> <message>`, учёт `ai_enabled`.
 

@@ -49,7 +49,8 @@ stateDiagram-v2
 | `flt` | Dictionary фильтров `{types, genres, maxLen, tag}` |
 | `listItems` | элементы текущего списка (записи или light records) + `predicted` |
 | `selected` | выбранный элемент для card |
-| `mood`, `answers` | настроение и ответы на уточнения (живут до выхода в меню) |
+| `mood`, `moodEn`, `answers` | настроение (как ввёл пользователь и в переводе на английский) и ответы на уточнения строками `q — answer` по-английски (живут до выхода в меню) |
+| `qRu`, `opts`, `optsEn`, `ans`, `ansEn` | уточнение: вопрос по-русски, русские метки и параллельный список английских вариантов, выбор и его английский вариант |
 | `feedback`, `shown` | причины «↻ Не то…» и уже отвергнутые названия (живут до выхода в меню) |
 | `settings`, `db` | `movies.settings`, все записи `movies.items` |
 
@@ -95,13 +96,19 @@ stateDiagram-v2
    2. Для всех режимов, кроме `random` и `similar`, сначала шаги 1–4 [скоринга](#скоринг-мой-список) — `genre_score` нужен и для `[topGenres]` в промптах. По `mode`:
       - **taste / today** → скоринг (ниже) для каждого из `cands` → `predicted`. Dictionary `scores` key → Final → [топ без сортировки](../data.md#топ-без-сортировки): `taste` — N = `top_n` → `listItems`; `today` — N = 10 → **Get Random Item from List** → `selected` → `screen` = `card`, к следующему обороту (список не показывать).
       - **random** → **Get Random Item from List** `cands` → `selected`, `screen` = `card`, к следующему обороту.
-      - **mood** → `mood` уже есть (повтор после «↻ Не то…») → сразу промпт «Настроение». Иначе **Ask for Input** «Какое настроение?» → `mood`. Уточнение: **Use Model** промпт «Уточнение» → `questions` (0–2). **Repeat with Each**: **Choose from List** `options` + «Своё…» (prompt = `q`); «Своё…» → **Ask for Input**; → **Add to Variable** `answers` строкой `q — ответ`. Отмена/ИИ не ответил → без уточнений. Затем **Use Model** промпт «Настроение» ([запасной путь](../data.md#ответ-ии-use-model); не ответил → **Show Notification** «ИИ не ответил», `screen` = `menu`) → `picks`. Для каждого `pick.key` → запись из `cands` (ключа нет в `cands` — отбросить) + `reason` → `listItems`. `listItems` пуст → **Show Notification** «ИИ не подобрал из списка» → `screen` = `menu`.
+      - **mood** — Use Model получает и отдаёт только английский, русский — через **Translate Text** (см. [заметки](#заметки--ограничения)). `mood` уже есть (повтор после «↻ Не то…») → сразу промпт «Настроение». Иначе **Ask for Input** «Какое настроение?» → `mood` → **Translate Text** на English → `moodEn` (пустой ввод — без перевода). Уточнение: **Use Model** промпт «Уточнение» (`[moodEn]`) → `questions` (0–2, по-английски). **Repeat with Each** вопрос:
+        1. **Translate Text** `q` на Russian → `qRu`; `options` → `optsEn`; **Repeat with Each** `optsEn` → **Translate Text** на Russian → **Add to Variable** `opts` (параллельные списки, индекс в индекс); + «Своё…».
+        2. **Choose from List** `opts` (prompt = `qRu`) → `ans`; `ansEn` = `ans`.
+        3. «Своё…» → **Ask for Input** (prompt = `qRu`) → **Translate Text** на English → `ansEn`. Иначе — **Repeat with Each** `opts`: метка = `ans` → **Get Item from List** `optsEn` по `Repeat Index` → `ansEn` (исходный вариант ИИ, без обратного перевода).
+        4. **Add to Variable** `answers` строкой `q — ansEn` (по-английски).
+
+        Отмена/ИИ не ответил → без уточнений. Затем **Use Model** промпт «Настроение» (`[moodEn]`, английские `[answers]`; [запасной путь](../data.md#ответ-ии-use-model); не ответил → **Show Notification** «ИИ не ответил», `screen` = `menu`) → `picks`. Для каждого `pick.key` → запись из `cands` (ключа нет в `cands` — отбросить) + `reason` (по-английски → **Translate Text** на Russian) → `listItems`. `listItems` пуст → **Show Notification** «ИИ не подобрал из списка» → `screen` = `menu`.
       - **similar** → кеш опустел (всё посмотрено/скрыто) → **Show Notification** «Похожих не осталось» → `screen` = `menu`.
       - **new** → **Use Model** промпт «Новое» (запасной путь; не ответил → «ИИ не ответил», `screen` = `menu`) → `items` (light records + `reason`) → фильтр по `db` (см. после промпта) → `listItems`. `listItems` пуст → **Show Notification** «Всё предложенное уже в базе» → `screen` = `menu`.
 8. **Repeat with Each** `listItems` → метка `title_ru / title_en (year) — <predicted, иначе IMDb, иначе КП>`; для mood/new — ` · reason` (подзаголовков в Choose from List нет). Для mood/new + «↻ Не то…». + «← Назад».
 9. **Choose from List**:
    - «← Назад» → `listItems`, `feedback`, `shown`, `mood`, `answers` = пусто, `screen` = `menu`;
-   - «↻ Не то…» → **Ask for Input** «Что не так? (слишком старое, хочу смешнее…)» → **Add to Variable** `feedback`; названия текущего списка → **Add to Variable** `shown`; `listItems` = пусто → следующий оборот заново вызывает ИИ (тот же `mood` и `answers`, без повторного вопроса);
+   - «↻ Не то…» → **Ask for Input** «Что не так? (слишком старое, хочу смешнее…)» → **Translate Text** на English → **Add to Variable** `feedback` (пустой ввод — не добавлять; `feedback` по-английски и в «Новое»); названия текущего списка → **Add to Variable** `shown`; `listItems` = пусто → следующий оборот заново вызывает ИИ (тот же `mood` и `answers`, без повторного вопроса);
    - иначе → `selected`, `screen` = `card`.
 
 ### screen = card
@@ -163,9 +170,10 @@ Use Model, Private Cloud Compute, Output: Dictionary.
 ### Уточнение (для «По настроению»)
 
 ```
-The user wants something to watch and described their mood: "[mood]".
-Ask up to 2 short clarifying questions in Russian that would help most to choose (for example: who they watch with, how much time they have, light or serious).
-For each question give 2 to 4 short answer options in Russian.
+The user wants something to watch and described their mood: "[moodEn]".
+Ask up to 2 short clarifying questions that would help most to choose (for example: who they watch with, how much time they have, light or serious).
+For each question give 2 to 4 short answer options.
+Write the questions and options in English.
 Return a dictionary with key "questions": a list of up to 2 dictionaries, each with:
 - "q": the question (string)
 - "options": list of answer options (strings)
@@ -174,11 +182,11 @@ If the mood is already specific enough, return an empty list.
 
 ### По настроению
 
-`[mood]` — ответ Ask for Input. `[answers]` — уточнения (`q — ответ` по строке) или «none». `[feedback]` — причины «Не то» или «none». `[shown]` — уже показанные и отвергнутые названия или «none». `[favorites]` — как в «Новое» (с отзывами). `[candidates]` — по строке на кандидата: `key | title_en | year | type | genres | length min`.
+`[moodEn]` — ответ Ask for Input в переводе на английский. `[answers]` — уточнения (`q — answer` по строке, по-английски) или «none». `[feedback]` — причины «Не то» (переведены на английский) или «none». `[shown]` — уже показанные и отвергнутые названия или «none». `[favorites]` — как в «Новое» (с отзывами). `[candidates]` — по строке на кандидата: `key | title_en | year | type | genres | length min`.
 
 ```
 You are a movie recommender. The user describes their current mood:
-"[mood]"
+"[moodEn]"
 
 Clarifications:
 [answers]
@@ -197,8 +205,10 @@ Here is the user's own watchlist. Each line is: key | title | year | type | genr
 Pick up to 3 titles from this list that best fit the mood. Use only keys from the list above, copied exactly.
 Return a dictionary with key "picks": a list of up to 3 dictionaries, each with:
 - "key": the key from the list (string)
-- "reason": one short sentence in Russian explaining why it fits the mood
+- "reason": one short sentence in English explaining why it fits the mood
 ```
+
+`reason` — по-английски; перед показом каждый → **Translate Text** на Russian (до 3 переводов). В голосовом режиме — без перевода (Siri на английском).
 
 ### Новое
 
@@ -249,7 +259,7 @@ Only real, existing titles. Prefer variety.
 1. `flt` = `{types}`; **Кандидаты** — как шаг 7.1. Пусто → **Stop and Output** «Your watchlist is empty for that. Add something first.».
 2. Шаги 1–4 [скоринга](#скоринг-мой-список).
 3. `mood` пуст **или** `ai_enabled` = `false` → `taste`: топ-3 по Final → `picks` без `reason`.
-4. Иначе → промпт «По настроению» (`[answers]`, `[feedback]`, `[shown]` = «none»; без уточняющих вопросов; в конец промпта строка `Write "reason" in English.` — Siri на английском) → `picks`. ИИ не ответил → как п. 3.
+4. Иначе → промпт «По настроению» (`[moodEn]` = `mood` от Siri, уже английский, без перевода; `[answers]`, `[feedback]`, `[shown]` = «none»; без уточняющих вопросов; `reason` по-английски — как есть) → `picks`. ИИ не ответил → как п. 3.
 5. **Text**: `Try: 1. <title_en> (<year>) — <reason или «IMDb x»>. 2. … 3. …` → **Stop and Output**.
 
 Открыть выбранное — на экране: Movie Rate → «Несмотренные».
@@ -268,5 +278,8 @@ Only real, existing titles. Prefer variety.
 - Shortcuts не имеет while/goto/continue: машина состояний = Repeat N + `screen`. Каждый оборот — один экран. «К следующему обороту» = оставшиеся шаги экрана обёрнуты в **If** `screen` = тот же экран (после смены `screen` они пропускаются).
 - Длинный `exclude` в «Новое» на сотнях записей может упереться в лимит контекста модели — тогда ограничить последними 200 + всеми `watched` с `my_rating` ≥ 7.
 - ИИ в «По настроению» может вернуть ключ не из списка — фильтр по `cands` обязателен.
+- **«По настроению» — ИИ только по-английски.** На iPhone «Уточнение» с русским настроением и запросом ответа по-русски падало: «The model cannot provide a response for this request. Please revise the request and try again.» Это ошибка самого Use Model — Shortcuts её не ловит (шорткат останавливается, запасной путь не срабатывает). Поэтому весь русский текст ↔ английский — через **Translate Text** (Apple Translate): ввод настроения, «Своё…», «Что не так?» → English; вопросы, варианты, `reason` → Russian. Отзывы `note` в `[favorites]` уходят как есть (как и в «Новое», где ошибки не было).
+- Translate Text без сети работает, только если в приложении «Перевод» скачаны русский и английский (Настройки → Приложения → Перевод → Языки). Без сети и без языков — ошибка, шорткат останавливается.
+- **Проверить после импорта:** в каждом Translate Text (6 шт.) From = «Определить язык», To = English / Russian. В XML — `is.workflow.actions.text.translate`, параметры `WFInputText`, `WFSelectedLanguage` (`en_US` / `ru_RU`), `WFSelectedFromLanguage` не задан (по умолчанию — определение языка); ключи и значения языков собраны без проверки на устройстве.
 - Cancel в любом Choose from List / Ask for Input останавливает весь шорткат (ограничение Shortcuts). Для «назад» — пункт «← Назад» в списке.
 - Сортировки нет — топ перебором максимума, см. [data.md](../data.md#топ-без-сортировки).

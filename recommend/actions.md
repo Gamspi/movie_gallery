@@ -357,7 +357,7 @@ If [inMode] is "voice"
             End Repeat
             Combine [candLines] with New Lines
             Set variable candText to [Combined Text]
-            Use Private Cloud Compute model   (промпт «По настроению» из README с [mood], [answers] = "none", [topGenres], [favorites], [shown] = "none", [feedback] = "none", [candText] + в конце строка "Write \"reason\" in English."; Output: Dictionary)
+            Use Private Cloud Compute model   (промпт «По настроению» из README с [mood], [answers] = "none", [topGenres], [favorites], [shown] = "none", [feedback] = "none", [candText]; Output: Dictionary)
             Get Value for "picks" in [Response]
             Set variable picks to [Dictionary Value]
             If [picks] does not have any value
@@ -1090,9 +1090,15 @@ Repeat 200 times
         If [mood] does not have any value
             Ask for Text with "Какое настроение?"
             Set variable mood to [Provided Input]
+            // ИИ — только по-английски; русский ↔ английский через Translate Text (From: Detect Language)
+            Set variable moodEn to [mood]
+            If [mood] has any value
+                Translate [mood] to English
+                Set variable moodEn to [Translated Text]
+            End If
             Nothing
             Set variable answers
-            Use Private Cloud Compute model   (промпт «Уточнение» из README с [mood]; Output: Dictionary)
+            Use Private Cloud Compute model   (промпт «Уточнение» из README с [moodEn]; Output: Dictionary)
             Get Value for "questions" in [Response]
             Set variable qs to [Dictionary Value]
             // пустой список questions — нормальный ответ; запасной путь — только если ответ не словарь
@@ -1107,17 +1113,39 @@ Repeat 200 times
                 Set variable qs to [Dictionary Value]
             End If
             Repeat with each item in [qs]
+                Translate [Repeat Item: q] to Russian
+                Set variable qRu to [Translated Text]
+                // optsEn — варианты ИИ (англ.), opts — русские метки, параллельно по индексу
                 Get Value for "options" in [Repeat Item]
-                Set variable opts to [Dictionary Value]
+                Set variable optsEn to [Dictionary Value]
+                Nothing
+                Set variable opts
+                Repeat with each item in [optsEn]
+                    Translate [Repeat Item] to Russian
+                    Add [Translated Text] to opts
+                End Repeat
                 Text "Своё…"
                 Add [Text] to opts
-                Choose from [opts]   (Prompt: [Repeat Item: q])
+                Choose from [opts]   (Prompt: [qRu])
                 Set variable ans to [Chosen Item]
+                Set variable ansEn to [ans]
                 If [ans] is "Своё…"
-                    Ask for Text with [Repeat Item: q]
+                    Ask for Text with [qRu]
                     Set variable ans to [Provided Input]
+                    If [Provided Input] has any value
+                        Translate [Provided Input] to English
+                        Set variable ansEn to [Translated Text]
+                    End If
+                Otherwise
+                    // русская метка → исходный английский вариант
+                    Repeat with each item in [opts]
+                        If [Repeat Item] is "[ans]"
+                            Get Item at Index [Repeat Index] from [optsEn]
+                            Set variable ansEn to [Item from List]
+                        End If
+                    End Repeat
                 End If
-                Text "[Repeat Item: q] — [ans]"
+                Text "[Repeat Item: q] — [ansEn]"
                 Add [Text] to answers
             End Repeat
         End If
@@ -1157,7 +1185,7 @@ Repeat 200 times
         Set variable candText to [Combined Text]
 
         // 20.3 Подбор
-        Use Private Cloud Compute model   (промпт «По настроению» из README с [mood], [answersT], [topGenres], [favorites], [shownT], [feedbackT], [candText]; Output: Dictionary)
+        Use Private Cloud Compute model   (промпт «По настроению» из README с [moodEn], [answersT], [topGenres], [favorites], [shownT], [feedbackT], [candText]; Output: Dictionary)
         Get Value for "picks" in [Response]
         Set variable picks to [Dictionary Value]
         If [picks] does not have any value
@@ -1181,7 +1209,15 @@ Repeat 200 times
             Repeat with each item in [picks]
                 Get Value for [Repeat Item: key] in [candMap]
                 If [Dictionary Value] has any value
-                    Set "reason" to [Repeat Item: reason] in [Dictionary Value]
+                    // reason от ИИ — по-английски → на русский для метки
+                    Get Value for "reason" in [Repeat Item]
+                    Nothing
+                    Set variable reasonRu
+                    If [Dictionary Value] has any value
+                        Translate [Dictionary Value] to Russian
+                        Set variable reasonRu to [Translated Text]
+                    End If
+                    Set "reason" to [reasonRu] in [Dictionary Value]   (плашка Dictionary Value — от Get Value for [Repeat Item: key] in [candMap])
                     Add [Dictionary] to listItems
                 End If
             End Repeat
@@ -1414,7 +1450,10 @@ Repeat 200 times
             // 24.2 ↻ Не то… → следующий оборот заново вызовет ИИ (тот же mood и answers)
             If [chosen] is "↻ Не то…"
                 Ask for Text with "Что не так? (слишком старое, хочу смешнее…)"
-                Add [Provided Input] to feedback
+                If [Provided Input] has any value
+                    Translate [Provided Input] to English
+                    Add [Translated Text] to feedback
+                End If
                 Repeat with each item in [listItems]
                     Add [Repeat Item: title_en] to shown
                 End Repeat
