@@ -1950,6 +1950,8 @@ Return ONLY valid JSON, no markdown, no explanations.</string>
 				<string>3A6FC2EA-5754-4C8B-9980-7790EF4CA81F</string>
 				<key>WFCondition</key>
 				<integer>4</integer>
+				<key>WFConditionalActionBoolean</key>
+				<integer>1</integer>
 				<key>WFControlFlowMode</key>
 				<integer>0</integer>
 				<key>WFInput</key>
@@ -1980,8 +1982,6 @@ Return ONLY valid JSON, no markdown, no explanations.</string>
 						<string>WFTextTokenAttachment</string>
 					</dict>
 				</dict>
-				<key>WFConditionalActionBoolean</key>
-				<integer>1</integer>
 			</dict>
 		</dict>
 		<dict>
@@ -4568,7 +4568,7 @@ Return ONLY valid JSON, no markdown, no explanations.</string>
 		<key>WFWorkflowIconGlyphNumber</key>
 		<integer>61440</integer>
 		<key>WFWorkflowIconStartColor</key>
-		<integer>431817727</integer>
+		<integer>4282601983</integer>
 	</dict>
 	<key>WFWorkflowImportQuestions</key>
 	<array/>

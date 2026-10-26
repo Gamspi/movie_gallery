@@ -13185,7 +13185,7 @@ Return ONLY valid JSON, no markdown, no explanations.</string>
 		<key>WFWorkflowIconGlyphNumber</key>
 		<integer>61440</integer>
 		<key>WFWorkflowIconStartColor</key>
-		<integer>255</integer>
+		<integer>3031607807</integer>
 	</dict>
 	<key>WFWorkflowImportQuestions</key>
 	<array/>

@@ -2227,6 +2227,8 @@
 				<string>8066E4EE-96D2-4239-A475-A6515D6C3ABC</string>
 				<key>WFCondition</key>
 				<integer>4</integer>
+				<key>WFConditionalActionBoolean</key>
+				<integer>1</integer>
 				<key>WFControlFlowMode</key>
 				<integer>0</integer>
 				<key>WFInput</key>
@@ -2257,8 +2259,6 @@
 						<string>WFTextTokenAttachment</string>
 					</dict>
 				</dict>
-				<key>WFConditionalActionBoolean</key>
-				<integer>1</integer>
 			</dict>
 		</dict>
 		<dict>
@@ -7724,7 +7724,7 @@
 		<key>WFWorkflowIconGlyphNumber</key>
 		<integer>61440</integer>
 		<key>WFWorkflowIconStartColor</key>
-		<integer>431817727</integer>
+		<integer>4292093695</integer>
 	</dict>
 	<key>WFWorkflowImportQuestions</key>
 	<array/>

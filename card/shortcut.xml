@@ -1873,6 +1873,8 @@
 				<string>BC49450B-A4C4-4F95-B4BE-D4268A83D72B</string>
 				<key>WFCondition</key>
 				<integer>4</integer>
+				<key>WFConditionalActionBoolean</key>
+				<integer>1</integer>
 				<key>WFControlFlowMode</key>
 				<integer>0</integer>
 				<key>WFInput</key>
@@ -1903,8 +1905,6 @@
 						<string>WFTextTokenAttachment</string>
 					</dict>
 				</dict>
-				<key>WFConditionalActionBoolean</key>
-				<integer>1</integer>
 			</dict>
 		</dict>
 		<dict>
@@ -18641,7 +18641,7 @@ Return ONLY valid JSON, no markdown, no explanations.</string>
 		<key>WFWorkflowIconGlyphNumber</key>
 		<integer>61440</integer>
 		<key>WFWorkflowIconStartColor</key>
-		<integer>431817727</integer>
+		<integer>463140863</integer>
 	</dict>
 	<key>WFWorkflowImportQuestions</key>
 	<array/>
