@@ -15965,19 +15965,6 @@ User question: ￼</string>
 		</dict>
 		<dict>
 			<key>WFWorkflowActionIdentifier</key>
-			<string>is.workflow.actions.conditional</string>
-			<key>WFWorkflowActionParameters</key>
-			<dict>
-				<key>GroupingIdentifier</key>
-				<string>13461CF8-887D-4314-B30D-325A0F47FD06</string>
-				<key>UUID</key>
-				<string>24A67AE6-B6A0-49E0-9EA4-5323A6738CA8</string>
-				<key>WFControlFlowMode</key>
-				<integer>2</integer>
-			</dict>
-		</dict>
-		<dict>
-			<key>WFWorkflowActionIdentifier</key>
 			<string>is.workflow.actions.number</string>
 			<key>WFWorkflowActionParameters</key>
 			<dict>
@@ -16135,6 +16122,19 @@ User question: ￼</string>
 				<string>6A0CC883-8414-41F6-9244-CE3858132411</string>
 				<key>UUID</key>
 				<string>A0072AD4-FB23-4601-871E-C6DD07081349</string>
+				<key>WFControlFlowMode</key>
+				<integer>2</integer>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.conditional</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>13461CF8-887D-4314-B30D-325A0F47FD06</string>
+				<key>UUID</key>
+				<string>24A67AE6-B6A0-49E0-9EA4-5323A6738CA8</string>
 				<key>WFControlFlowMode</key>
 				<integer>2</integer>
 			</dict>

@@ -797,12 +797,12 @@ Repeat 50 times
                     Get Value for "rating" in [Repeat Item]
                     If [Dictionary Value] has any value
                         Get Value for "kp" in [Dictionary Value]
-                    End If
-                    Number [Dictionary Value]
-                    If [Number] is greater than 0
-                        Round [Number] to Tenths
-                        Set "kp" to [Rounded Number] in [simR]
-                        Set variable simR to [Dictionary]
+                        Number [Dictionary Value]
+                        If [Number] is greater than 0
+                            Round [Number] to Tenths
+                            Set "kp" to [Rounded Number] in [simR]
+                            Set variable simR to [Dictionary]
+                        End If
                     End If
                     If [simR] has any value
                         Set "ratings" to [simR] in [lr]

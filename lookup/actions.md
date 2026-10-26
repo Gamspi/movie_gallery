@@ -335,34 +335,30 @@ If [mId] has any value
     Get Value for "rating" in [m]
     If [Dictionary Value] has any value
         Get Value for "imdb" in [Dictionary Value]
-    End If
-    Number [Dictionary Value]
-    If [Number] is greater than 0
-        Round [Number] to Tenths
-        Set "imdb" to [Rounded Number] in [ratings]
-        Set variable ratings to [Dictionary]
+        If [Dictionary Value → Number] is greater than 0
+            Round [Dictionary Value → Number] to Tenths
+            Set "imdb" to [Rounded Number] in [ratings]
+            Set variable ratings to [Dictionary]
+        End If
     End If
     Get Value for "rating" in [m]
     If [Dictionary Value] has any value
         Get Value for "kp" in [Dictionary Value]
-    End If
-    Number [Dictionary Value]
-    If [Number] is greater than 0
-        Round [Number] to Tenths
-        Set "kp" to [Rounded Number] in [ratings]
-        Set variable ratings to [Dictionary]
+        If [Dictionary Value → Number] is greater than 0
+            Round [Dictionary Value → Number] to Tenths
+            Set "kp" to [Rounded Number] in [ratings]
+            Set variable ratings to [Dictionary]
+        End If
     End If
 
     // 25.6 length
     Get Value for "seriesLength" in [m]
-    Number [Dictionary Value]
-    If [Number] is greater than 0
-        Set variable length to [Number]
+    If [Dictionary Value → Number] is greater than 0
+        Set variable length to [Dictionary Value → Number]
     Otherwise
         Get Value for "movieLength" in [m]
-        Number [Dictionary Value]
-        If [Number] is greater than 0
-            Set variable length to [Number]
+        If [Dictionary Value → Number] is greater than 0
+            Set variable length to [Dictionary Value → Number]
         End If
     End If
 
@@ -370,14 +366,14 @@ If [mId] has any value
     Get Value for "premiere" in [m]
     If [Dictionary Value] has any value
         Get Value for "world" in [Dictionary Value]
+        Set variable pd to [Dictionary Value]
     End If
-    Set variable pd to [Dictionary Value]
     If [pd] does not have any value
         Get Value for "premiere" in [m]
         If [Dictionary Value] has any value
             Get Value for "russia" in [Dictionary Value]
+            Set variable pd to [Dictionary Value]
         End If
-        Set variable pd to [Dictionary Value]
     End If
     If [pd] has any value
         Get dates from [pd]
@@ -410,10 +406,13 @@ If [mId] has any value
     Get Value for "externalId" in [m]
     If [Dictionary Value] has any value
         Get Value for "imdb" in [Dictionary Value]
-    End If
-    If [Dictionary Value] has any value
-        Set variable imdb_id to [Dictionary Value]
-        Set variable key to [Dictionary Value]
+        If [Dictionary Value] has any value
+            Set variable imdb_id to [Dictionary Value]
+            Set variable key to [Dictionary Value]
+        Otherwise
+            Text "kp-[mId]"
+            Set variable key to [Text]
+        End If
     Otherwise
         Text "kp-[mId]"
         Set variable key to [Text]
@@ -476,10 +475,10 @@ If [mId] has any value
     Get Value for "poster" in [m]
     If [Dictionary Value] has any value
         Get Value for "url" in [Dictionary Value]
-    End If
-    If [Dictionary Value] has any value
-        Set "poster_url" to [Dictionary Value] in [rec]
-        Set variable rec to [Dictionary]
+        If [Dictionary Value] has any value
+            Set "poster_url" to [Dictionary Value] in [rec]
+            Set variable rec to [Dictionary]
+        End If
     End If
 
 // ── Шаг 26. Ветка D: не найдено ──

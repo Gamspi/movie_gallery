@@ -7072,19 +7072,6 @@ Return ONLY valid JSON, no markdown, no explanations.</string>
 			<key>WFWorkflowActionParameters</key>
 			<dict>
 				<key>GroupingIdentifier</key>
-				<string>75C3C60F-F53F-4668-93EC-5ADC6EC01C68</string>
-				<key>UUID</key>
-				<string>81AA1A5A-A376-43C3-A3E9-9A368D5F1C7F</string>
-				<key>WFControlFlowMode</key>
-				<integer>2</integer>
-			</dict>
-		</dict>
-		<dict>
-			<key>WFWorkflowActionIdentifier</key>
-			<string>is.workflow.actions.conditional</string>
-			<key>WFWorkflowActionParameters</key>
-			<dict>
-				<key>GroupingIdentifier</key>
 				<string>C8B7DABC-09A1-4400-9775-276999B5A2A1</string>
 				<key>WFCondition</key>
 				<integer>2</integer>
@@ -7098,6 +7085,15 @@ Return ONLY valid JSON, no markdown, no explanations.</string>
 					<dict>
 						<key>Value</key>
 						<dict>
+							<key>Aggrandizements</key>
+							<array>
+								<dict>
+									<key>CoercionItemClass</key>
+									<string>WFNumberContentItem</string>
+									<key>Type</key>
+									<string>WFCoercionVariableAggrandizement</string>
+								</dict>
+							</array>
 							<key>OutputName</key>
 							<string>Dictionary Value</string>
 							<key>OutputUUID</key>
@@ -7124,6 +7120,15 @@ Return ONLY valid JSON, no markdown, no explanations.</string>
 				<dict>
 					<key>Value</key>
 					<dict>
+						<key>Aggrandizements</key>
+						<array>
+							<dict>
+								<key>CoercionItemClass</key>
+								<string>WFNumberContentItem</string>
+								<key>Type</key>
+								<string>WFCoercionVariableAggrandizement</string>
+							</dict>
+						</array>
 						<key>OutputName</key>
 						<string>Dictionary Value</string>
 						<key>OutputUUID</key>
@@ -7221,6 +7226,19 @@ Return ONLY valid JSON, no markdown, no explanations.</string>
 		</dict>
 		<dict>
 			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.conditional</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>75C3C60F-F53F-4668-93EC-5ADC6EC01C68</string>
+				<key>UUID</key>
+				<string>81AA1A5A-A376-43C3-A3E9-9A368D5F1C7F</string>
+				<key>WFControlFlowMode</key>
+				<integer>2</integer>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
 			<string>is.workflow.actions.getvalueforkey</string>
 			<key>WFWorkflowActionParameters</key>
 			<dict>
@@ -7305,19 +7323,6 @@ Return ONLY valid JSON, no markdown, no explanations.</string>
 			<key>WFWorkflowActionParameters</key>
 			<dict>
 				<key>GroupingIdentifier</key>
-				<string>19C30BE3-2892-4395-B50E-38DAFABC29A5</string>
-				<key>UUID</key>
-				<string>FD9960E4-F226-4CA5-9CFE-E16049CB1EAD</string>
-				<key>WFControlFlowMode</key>
-				<integer>2</integer>
-			</dict>
-		</dict>
-		<dict>
-			<key>WFWorkflowActionIdentifier</key>
-			<string>is.workflow.actions.conditional</string>
-			<key>WFWorkflowActionParameters</key>
-			<dict>
-				<key>GroupingIdentifier</key>
 				<string>C5E05BD1-130F-4E27-A294-88F5625AA983</string>
 				<key>WFCondition</key>
 				<integer>2</integer>
@@ -7366,6 +7371,15 @@ Return ONLY valid JSON, no markdown, no explanations.</string>
 				<dict>
 					<key>Value</key>
 					<dict>
+						<key>Aggrandizements</key>
+						<array>
+							<dict>
+								<key>CoercionItemClass</key>
+								<string>WFNumberContentItem</string>
+								<key>Type</key>
+								<string>WFCoercionVariableAggrandizement</string>
+							</dict>
+						</array>
 						<key>OutputName</key>
 						<string>Dictionary Value</string>
 						<key>OutputUUID</key>
@@ -7457,6 +7471,19 @@ Return ONLY valid JSON, no markdown, no explanations.</string>
 				<string>C5E05BD1-130F-4E27-A294-88F5625AA983</string>
 				<key>UUID</key>
 				<string>77B7CBEB-1CAF-4778-980C-216947B42C60</string>
+				<key>WFControlFlowMode</key>
+				<integer>2</integer>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.conditional</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>19C30BE3-2892-4395-B50E-38DAFABC29A5</string>
+				<key>UUID</key>
+				<string>FD9960E4-F226-4CA5-9CFE-E16049CB1EAD</string>
 				<key>WFControlFlowMode</key>
 				<integer>2</integer>
 			</dict>
@@ -7776,19 +7803,6 @@ Return ONLY valid JSON, no markdown, no explanations.</string>
 		</dict>
 		<dict>
 			<key>WFWorkflowActionIdentifier</key>
-			<string>is.workflow.actions.conditional</string>
-			<key>WFWorkflowActionParameters</key>
-			<dict>
-				<key>GroupingIdentifier</key>
-				<string>E4EA5E91-8C27-4398-8815-9DCA1EF87DE9</string>
-				<key>UUID</key>
-				<string>3E66F278-2513-4286-B5E4-423EC5276741</string>
-				<key>WFControlFlowMode</key>
-				<integer>2</integer>
-			</dict>
-		</dict>
-		<dict>
-			<key>WFWorkflowActionIdentifier</key>
 			<string>is.workflow.actions.setvariable</string>
 			<key>WFWorkflowActionParameters</key>
 			<dict>
@@ -7808,6 +7822,19 @@ Return ONLY valid JSON, no markdown, no explanations.</string>
 				</dict>
 				<key>WFVariableName</key>
 				<string>pd</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.conditional</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>E4EA5E91-8C27-4398-8815-9DCA1EF87DE9</string>
+				<key>UUID</key>
+				<string>3E66F278-2513-4286-B5E4-423EC5276741</string>
+				<key>WFControlFlowMode</key>
+				<integer>2</integer>
 			</dict>
 		</dict>
 		<dict>
@@ -7922,19 +7949,6 @@ Return ONLY valid JSON, no markdown, no explanations.</string>
 		</dict>
 		<dict>
 			<key>WFWorkflowActionIdentifier</key>
-			<string>is.workflow.actions.conditional</string>
-			<key>WFWorkflowActionParameters</key>
-			<dict>
-				<key>GroupingIdentifier</key>
-				<string>777379EA-9668-4D25-BEEA-755170532BC2</string>
-				<key>UUID</key>
-				<string>1095BA45-AEEF-4597-A494-7053CA312E5C</string>
-				<key>WFControlFlowMode</key>
-				<integer>2</integer>
-			</dict>
-		</dict>
-		<dict>
-			<key>WFWorkflowActionIdentifier</key>
 			<string>is.workflow.actions.setvariable</string>
 			<key>WFWorkflowActionParameters</key>
 			<dict>
@@ -7954,6 +7968,19 @@ Return ONLY valid JSON, no markdown, no explanations.</string>
 				</dict>
 				<key>WFVariableName</key>
 				<string>pd</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.conditional</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>777379EA-9668-4D25-BEEA-755170532BC2</string>
+				<key>UUID</key>
+				<string>1095BA45-AEEF-4597-A494-7053CA312E5C</string>
+				<key>WFControlFlowMode</key>
+				<integer>2</integer>
 			</dict>
 		</dict>
 		<dict>
@@ -8592,19 +8619,6 @@ Return ONLY valid JSON, no markdown, no explanations.</string>
 			<key>WFWorkflowActionParameters</key>
 			<dict>
 				<key>GroupingIdentifier</key>
-				<string>6B7BF69B-A27B-4268-9C60-FAAB72835943</string>
-				<key>UUID</key>
-				<string>3392F579-2E38-44B8-95BD-1725DEBBA366</string>
-				<key>WFControlFlowMode</key>
-				<integer>2</integer>
-			</dict>
-		</dict>
-		<dict>
-			<key>WFWorkflowActionIdentifier</key>
-			<string>is.workflow.actions.conditional</string>
-			<key>WFWorkflowActionParameters</key>
-			<dict>
-				<key>GroupingIdentifier</key>
 				<string>6D3FFCD7-516C-46A2-B762-B4D0EE95EDDE</string>
 				<key>WFCondition</key>
 				<integer>100</integer>
@@ -8749,6 +8763,82 @@ Return ONLY valid JSON, no markdown, no explanations.</string>
 				<string>6D3FFCD7-516C-46A2-B762-B4D0EE95EDDE</string>
 				<key>UUID</key>
 				<string>0AAF6B3C-6CF4-41C5-9A06-F525FD221FF3</string>
+				<key>WFControlFlowMode</key>
+				<integer>2</integer>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.conditional</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>6B7BF69B-A27B-4268-9C60-FAAB72835943</string>
+				<key>WFControlFlowMode</key>
+				<integer>1</integer>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.gettext</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>UUID</key>
+				<string>0229D35B-3D9E-43C6-BEFB-7302BE9A1AF5</string>
+				<key>WFTextActionText</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>attachmentsByRange</key>
+						<dict>
+							<key>{3, 1}</key>
+							<dict>
+								<key>Type</key>
+								<string>Variable</string>
+								<key>VariableName</key>
+								<string>mId</string>
+							</dict>
+						</dict>
+						<key>string</key>
+						<string>kp-￼</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenString</string>
+				</dict>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.setvariable</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFInput</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>OutputName</key>
+						<string>Text</string>
+						<key>OutputUUID</key>
+						<string>0229D35B-3D9E-43C6-BEFB-7302BE9A1AF5</string>
+						<key>Type</key>
+						<string>ActionOutput</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenAttachment</string>
+				</dict>
+				<key>WFVariableName</key>
+				<string>key</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.conditional</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>6B7BF69B-A27B-4268-9C60-FAAB72835943</string>
+				<key>UUID</key>
+				<string>3392F579-2E38-44B8-95BD-1725DEBBA366</string>
 				<key>WFControlFlowMode</key>
 				<integer>2</integer>
 			</dict>
@@ -10277,19 +10367,6 @@ Return ONLY valid JSON, no markdown, no explanations.</string>
 			<key>WFWorkflowActionParameters</key>
 			<dict>
 				<key>GroupingIdentifier</key>
-				<string>4BD4A985-259D-41BB-9D53-0DC50719AB47</string>
-				<key>UUID</key>
-				<string>DBC721EE-7663-4EAC-B0EB-0CCF1C618B76</string>
-				<key>WFControlFlowMode</key>
-				<integer>2</integer>
-			</dict>
-		</dict>
-		<dict>
-			<key>WFWorkflowActionIdentifier</key>
-			<string>is.workflow.actions.conditional</string>
-			<key>WFWorkflowActionParameters</key>
-			<dict>
-				<key>GroupingIdentifier</key>
 				<string>71A696CE-7D32-4298-9B86-CCA08E6BCE49</string>
 				<key>WFCondition</key>
 				<integer>100</integer>
@@ -10393,6 +10470,19 @@ Return ONLY valid JSON, no markdown, no explanations.</string>
 				<string>71A696CE-7D32-4298-9B86-CCA08E6BCE49</string>
 				<key>UUID</key>
 				<string>3A64E5D6-4D73-4168-BFC1-9D6DE3E8BDA0</string>
+				<key>WFControlFlowMode</key>
+				<integer>2</integer>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.conditional</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>4BD4A985-259D-41BB-9D53-0DC50719AB47</string>
+				<key>UUID</key>
+				<string>DBC721EE-7663-4EAC-B0EB-0CCF1C618B76</string>
 				<key>WFControlFlowMode</key>
 				<integer>2</integer>
 			</dict>
