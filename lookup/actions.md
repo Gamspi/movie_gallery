@@ -332,14 +332,20 @@ If [mId] has any value
     // 25.5 ratings
     Dictionary   (пустой)
     Set variable ratings to [Dictionary]
-    Get Value for "rating.imdb" in [m]
+    Get Value for "rating" in [m]
+    If [Dictionary Value] has any value
+        Get Value for "imdb" in [Dictionary Value]
+    End If
     Number [Dictionary Value]
     If [Number] is greater than 0
         Round [Number] to Tenths
         Set "imdb" to [Rounded Number] in [ratings]
         Set variable ratings to [Dictionary]
     End If
-    Get Value for "rating.kp" in [m]
+    Get Value for "rating" in [m]
+    If [Dictionary Value] has any value
+        Get Value for "kp" in [Dictionary Value]
+    End If
     Number [Dictionary Value]
     If [Number] is greater than 0
         Round [Number] to Tenths
@@ -361,10 +367,16 @@ If [mId] has any value
     End If
 
     // 25.7 premiere_date
-    Get Value for "premiere.world" in [m]
+    Get Value for "premiere" in [m]
+    If [Dictionary Value] has any value
+        Get Value for "world" in [Dictionary Value]
+    End If
     Set variable pd to [Dictionary Value]
     If [pd] does not have any value
-        Get Value for "premiere.russia" in [m]
+        Get Value for "premiere" in [m]
+        If [Dictionary Value] has any value
+            Get Value for "russia" in [Dictionary Value]
+        End If
         Set variable pd to [Dictionary Value]
     End If
     If [pd] has any value
@@ -395,7 +407,10 @@ If [mId] has any value
     End If
 
     // 25.10 key
-    Get Value for "externalId.imdb" in [m]
+    Get Value for "externalId" in [m]
+    If [Dictionary Value] has any value
+        Get Value for "imdb" in [Dictionary Value]
+    End If
     If [Dictionary Value] has any value
         Set variable imdb_id to [Dictionary Value]
         Set variable key to [Dictionary Value]
@@ -458,7 +473,10 @@ If [mId] has any value
         Set "release_status" to [Dictionary Value] in [rec]
         Set variable rec to [Dictionary]
     End If
-    Get Value for "poster.url" in [m]
+    Get Value for "poster" in [m]
+    If [Dictionary Value] has any value
+        Get Value for "url" in [Dictionary Value]
+    End If
     If [Dictionary Value] has any value
         Set "poster_url" to [Dictionary Value] in [rec]
         Set variable rec to [Dictionary]

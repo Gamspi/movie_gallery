@@ -794,7 +794,10 @@ Repeat 50 times
                     End If
                     Dictionary   (пустой)
                     Set variable simR to [Dictionary]
-                    Get Value for "rating.kp" in [Repeat Item]
+                    Get Value for "rating" in [Repeat Item]
+                    If [Dictionary Value] has any value
+                        Get Value for "kp" in [Dictionary Value]
+                    End If
                     Number [Dictionary Value]
                     If [Number] is greater than 0
                         Round [Number] to Tenths

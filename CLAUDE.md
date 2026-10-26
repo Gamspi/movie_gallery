@@ -31,6 +31,7 @@
 - Data Jar: всё — в **одном** корне `movies` (`movies.items`, `movies.settings`), других ключей верхнего уровня не создавать — хранилище общее с другими кейсами. Пути: `movies.items.<key>.<field>`. В ключах нет точек.
 - Проверено на iPhone 2026-10-24 ([мини-тесты](README.md#1-мини-тесты-ios-до-сборки)): Use Model Output Dictionary отдаёт словарь; Follow Up открывает чат; Show Web Page — после закрытия шорткат продолжается; **Stop This Shortcut в суб-шорткате останавливает только его** — вызывающий обязан обрабатывать пустой результат Run Shortcut; Data Jar — вложенные пути и ключи с `-` работают; **Siri с заблокированного iPhone не запускает шорткат**.
 - **If** по ключу словаря из плашки (`[Repeat Item: status]`) — плашка Any, сравнить со строкой нельзя: в плашке Type → **Text** (в XML после `WFDictionaryValueVariableAggrandizement` — `WFCoercionVariableAggrandizement` `WFStringContentItem`).
+- Путь через точку (`rating.kp`) в Get Dictionary Value падает «no value was found for dictionary key rating», если родителя нет. Только для ответов poiskkino: `Get Value "rating"` → `If has any value` → `Get Value "kp" in [Dictionary Value]`. Пути Data Jar (`movies.…`) и `settings` — можно.
 - Схемы — Mermaid. Кода (Python и пр.) нет.
 - Сторонние приложения — только Data Jar. Сортировки нет: топ — перебором максимума ([data.md](data.md#топ-без-сортировки)).
 - Ссылки — только **Show Web Page** (не Open URLs).
