@@ -14,7 +14,7 @@
 flowchart TD
     A[Ask for Input] --> L[Run Movie Lookup]
     L -->|пусто| Stop[Stop This Shortcut]
-    D -->|да| N[Notification «Уже есть»] --> C[Run Movie Card key]
+    D -->|да| N[Notification «Уже в списке»] --> C[Run Movie Card key]
     D -->|нет| S[Menu «Уже смотрел?»]
     L --> PV{превью: это он?}
     PV -->|нет| Q[уточнить запрос] --> L
@@ -36,7 +36,7 @@ flowchart TD
 
 ## Шаги
 
-Плоский список действий для сборки в редакторе — [actions.md](actions.md).
+Плоский список действий для сборки в редакторе — [actions.md](actions.md). Экспорт собранного шортката — [shortcut.xml](shortcut.xml); что поправить в нём руками — [FIXES.md](FIXES.md).
 
 1. **If** Shortcut Input has any value → Set Variable `query` = Shortcut Input. Otherwise → **Ask for Input** (Text, «Что добавить?») → `query`. End If.
 2. **Repeat** 5 раз (пока `ok` пуст) — поиск с превью:
@@ -46,15 +46,15 @@ flowchart TD
 4. **Get Dictionary Value** `key` из `rec` → `key`.
 5. Дубль по ключу: **Check If Value Exists** `movies.items.<key>` → **If** true → `dupKey` = `key`.
 6. Дубль по названию (если `dupKey` пусто): **Get Value** `movies.items` → **Get Dictionary Value** All Values → **Repeat with Each**: **Change Case** lowercase `title_en` и `year` элемента == lowercase `rec.title_en` и `rec.year` → `dupKey` = `key` элемента. Ловит записи с другим ключом (`ai-` / `kp-` vs `tt…`).
-7. **If** `dupKey` has any value → **Show Notification** «Уже в списке: title_ru» → **Run Shortcut** Movie Card, Input **Dictionary** `{key: dupKey}` → **Stop This Shortcut**.
+7. **If** `dupKey` has any value → **Show Notification** «Уже в списке: title_ru» → **Run Shortcut** Movie Card, Input **Dictionary** `{key: dupKey}` → `res`; `res.action` = `similar` → список похожих, как в шаге 14 → **Stop This Shortcut**.
 8. **Choose from Menu** «Уже смотрел?»:
    - **Нет** → **Set Dictionary Value** `status` = `unwatched` в `rec`.
    - **Смотрю** → `status` = `watching`.
    - **Смотрел** → `status` = `watched`; **Ask for Input** (Number, «Оценка 1–10»); If 1…10 → `my_rating`, иначе не задавать. `watched_date` = Current Date (Format Date ISO 8601). **Ask for Input** «Пара слов? (можно пусто)» → `note`.
 9. Теги: **Choose from Menu** «Теги?» Добавить / Пропустить.
-   - Добавить → **Get Value** `movies.settings.tags` → **Choose from List** (Select Multiple) → **Set Dictionary Value** `tags` в `rec`.
+   - Добавить → **Choose from List** (Select Multiple) по `tags` из `movies.settings` (читаются в начале, вместе с настройками) → **Set Dictionary Value** `tags` в `rec`.
    - Пропустить → `tags` не ставить (пустое Set Dictionary Value не принимает, [data.md](../data.md#запись-moviesitemskey)).
-10. **Set Dictionary Value** в `rec`: `origin` = `manual`, `added_date` = Current Date (ISO), `updated_date` = Current Date, `note` (если не задан — ""), `my_rating` (если не задан — не добавлять), `watched_date` (если нет — не добавлять).
+10. **Set Dictionary Value** в `rec`: `origin` = `manual`, `added_date` = Current Date (ISO), `updated_date` = Current Date, `note` (если пусто — не добавлять), `my_rating` (если не задан — не добавлять), `watched_date` (если нет — не добавлять).
 11. **Set Value** (Data Jar) `movies.items.<key>` = `rec`.
 12. **If** `rec.premiere_date` has any value **и** **Get Dates from Input** `premiere_date` > Current Date:
     1. **Choose from Menu** «Добавить премьеру в Календарь?» Да / Нет.
@@ -68,7 +68,7 @@ flowchart TD
 
 ## Data Jar
 
-Читает: `movies.items` (дубли), `movies.settings.tags`. Пишет: `movies.items.<key>` целиком.
+Читает: `movies.items` (дубли), `movies.settings` (`tags`, `type_labels`). Пишет: `movies.items.<key>` целиком.
 
 ## Расход запросов poiskkino
 
