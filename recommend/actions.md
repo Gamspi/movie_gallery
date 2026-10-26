@@ -405,11 +405,18 @@ If [inMode] is "voice"
             // External: среднее имеющихся imdb, kp
             Nothing
             Set variable ev
-            Get Value for "ratings.imdb" in [Repeat Item]
+            // ratings может не быть — путь "ratings.imdb" тогда падает
+            Get Value for "ratings" in [Repeat Item]
+            Set variable rts to [Dictionary Value]
+            If [rts] does not have any value
+                Dictionary   (пустой)
+                Set variable rts to [Dictionary]
+            End If
+            Get Value for "imdb" in [rts]
             If [Dictionary Value] has any value
                 Add [Dictionary Value] to ev
             End If
-            Get Value for "ratings.kp" in [Repeat Item]
+            Get Value for "kp" in [rts]
             If [Dictionary Value] has any value
                 Add [Dictionary Value] to ev
             End If
@@ -479,7 +486,14 @@ If [inMode] is "voice"
     Repeat with each item in [vList]
         Get Value for "reason" in [Repeat Item]
         Set variable why to [Dictionary Value]
-        Get Value for "ratings.imdb" in [Repeat Item]
+        // ratings может не быть — путь "ratings.imdb" тогда падает
+        Get Value for "ratings" in [Repeat Item]
+        Set variable rts to [Dictionary Value]
+        If [rts] does not have any value
+            Dictionary   (пустой)
+            Set variable rts to [Dictionary]
+        End If
+        Get Value for "imdb" in [rts]
         Set variable vImdb to [Dictionary Value]
         If [why] has any value
             Text "[Repeat Index]. [Repeat Item: title_en] ([Repeat Item: year]) — [why]."
@@ -960,11 +974,18 @@ Repeat 200 times
                 // External: среднее имеющихся imdb, kp
                 Nothing
                 Set variable ev
-                Get Value for "ratings.imdb" in [Repeat Item]
+                // ratings может не быть — путь "ratings.imdb" тогда падает
+                Get Value for "ratings" in [Repeat Item]
+                Set variable rts to [Dictionary Value]
+                If [rts] does not have any value
+                    Dictionary   (пустой)
+                    Set variable rts to [Dictionary]
+                End If
+                Get Value for "imdb" in [rts]
                 If [Dictionary Value] has any value
                     Add [Dictionary Value] to ev
                 End If
-                Get Value for "ratings.kp" in [Repeat Item]
+                Get Value for "kp" in [rts]
                 If [Dictionary Value] has any value
                     Add [Dictionary Value] to ev
                 End If
@@ -1329,12 +1350,19 @@ Repeat 200 times
             If [Dictionary Value] has any value
                 Set variable sc to [Dictionary Value]
             Otherwise
-                Get Value for "ratings.imdb" in [Repeat Item]
+                // ratings может не быть — путь "ratings.imdb" тогда падает
+                Get Value for "ratings" in [Repeat Item]
+                Set variable rts to [Dictionary Value]
+                If [rts] does not have any value
+                    Dictionary   (пустой)
+                    Set variable rts to [Dictionary]
+                End If
+                Get Value for "imdb" in [rts]
                 If [Dictionary Value] has any value
                     Text "IMDb [Dictionary Value]"
                     Set variable sc to [Text]
                 Otherwise
-                    Get Value for "ratings.kp" in [Repeat Item]
+                    Get Value for "kp" in [rts]
                     If [Dictionary Value] has any value
                         Text "КП [Dictionary Value]"
                         Set variable sc to [Text]

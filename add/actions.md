@@ -77,12 +77,19 @@ Repeat 5 times
 
         Nothing
         Set variable parts
-        Get Value for "ratings.imdb" in [rec]
+        // ratings может не быть — путь "ratings.imdb" тогда падает
+        Get Value for "ratings" in [rec]
+        Set variable rts to [Dictionary Value]
+        If [rts] does not have any value
+            Dictionary   (пустой)
+            Set variable rts to [Dictionary]
+        End If
+        Get Value for "imdb" in [rts]
         If [Dictionary Value] has any value
             Text "IMDb [Dictionary Value]"
             Add [Text] to parts
         End If
-        Get Value for "ratings.kp" in [rec]
+        Get Value for "kp" in [rts]
         If [Dictionary Value] has any value
             Text "КП [Dictionary Value]"
             Add [Text] to parts
@@ -173,12 +180,19 @@ If [dupKey] has any value
         Repeat with each item in [Dictionary Value]
             Text "[Repeat Item: title_ru] / [Repeat Item: title_en] ([Repeat Item: year])"
             Set variable label to [Text]
-            Get Value for "ratings.imdb" in [Repeat Item]
+            // ratings может не быть — путь "ratings.imdb" тогда падает
+            Get Value for "ratings" in [Repeat Item]
+            Set variable rts to [Dictionary Value]
+            If [rts] does not have any value
+                Dictionary   (пустой)
+                Set variable rts to [Dictionary]
+            End If
+            Get Value for "imdb" in [rts]
             If [Dictionary Value] has any value
                 Text "[label] — IMDb [Dictionary Value]"
                 Set variable label to [Text]
             Otherwise
-                Get Value for "ratings.kp" in [Repeat Item]
+                Get Value for "kp" in [rts]
                 If [Dictionary Value] has any value
                     Text "[label] — КП [Dictionary Value]"
                     Set variable label to [Text]
@@ -313,12 +327,19 @@ If [myR] is greater than or equal to 8
                 Repeat with each item in [Dictionary Value]
                     Text "[Repeat Item: title_ru] / [Repeat Item: title_en] ([Repeat Item: year])"
                     Set variable label to [Text]
-                    Get Value for "ratings.imdb" in [Repeat Item]
+                    // ratings может не быть — путь "ratings.imdb" тогда падает
+                    Get Value for "ratings" in [Repeat Item]
+                    Set variable rts to [Dictionary Value]
+                    If [rts] does not have any value
+                        Dictionary   (пустой)
+                        Set variable rts to [Dictionary]
+                    End If
+                    Get Value for "imdb" in [rts]
                     If [Dictionary Value] has any value
                         Text "[label] — IMDb [Dictionary Value]"
                         Set variable label to [Text]
                     Otherwise
-                        Get Value for "ratings.kp" in [Repeat Item]
+                        Get Value for "kp" in [rts]
                         If [Dictionary Value] has any value
                             Text "[label] — КП [Dictionary Value]"
                             Set variable label to [Text]

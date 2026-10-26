@@ -150,12 +150,19 @@ Repeat 100 times
                         Text "[sLabel] ([Dictionary Value])"
                         Set variable sLabel to [Text]
                     End If
-                    Get Value for "ratings.imdb" in [Repeat Item 2]
+                    // ratings может не быть — путь "ratings.imdb" тогда падает
+                    Get Value for "ratings" in [Repeat Item 2]
+                    Set variable rts to [Dictionary Value]
+                    If [rts] does not have any value
+                        Dictionary   (пустой)
+                        Set variable rts to [Dictionary]
+                    End If
+                    Get Value for "imdb" in [rts]
                     If [Dictionary Value] has any value
                         Text "[sLabel] — IMDb [Dictionary Value]"
                         Set variable sLabel to [Text]
                     Otherwise
-                        Get Value for "ratings.kp" in [Repeat Item 2]
+                        Get Value for "kp" in [rts]
                         If [Dictionary Value] has any value
                             Text "[sLabel] — КП [Dictionary Value]"
                             Set variable sLabel to [Text]

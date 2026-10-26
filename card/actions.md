@@ -163,9 +163,11 @@ Repeat 50 times
             Add [Dictionary Value] to parts
         End If
         Get Value for "type" in [rec]
-        Get Value for [Dictionary Value] in [typeLabels]
         If [Dictionary Value] has any value
-            Add [Dictionary Value] to parts
+            Get Value for [Dictionary Value] in [typeLabels]
+            If [Dictionary Value] has any value
+                Add [Dictionary Value] to parts
+            End If
         End If
         Get Value for "length" in [rec]
         If [Dictionary Value] has any value
@@ -192,12 +194,19 @@ Repeat 50 times
         // 14.4 Рейтинги
         Nothing
         Set variable parts
-        Get Value for "ratings.imdb" in [rec]
+        // ratings может не быть — путь "ratings.imdb" тогда падает
+        Get Value for "ratings" in [rec]
+        Set variable rts to [Dictionary Value]
+        If [rts] does not have any value
+            Dictionary   (пустой)
+            Set variable rts to [Dictionary]
+        End If
+        Get Value for "imdb" in [rts]
         If [Dictionary Value] has any value
             Text "IMDb [Dictionary Value]"
             Add [Text] to parts
         End If
-        Get Value for "ratings.kp" in [rec]
+        Get Value for "kp" in [rts]
         If [Dictionary Value] has any value
             Text "КП [Dictionary Value]"
             Add [Text] to parts
@@ -218,11 +227,14 @@ Repeat 50 times
         End If
 
         // 14.5 Статус
+        // у несохранённой (из похожих) status нет → пустой ключ уронит Get Value
         Get Value for "status" in [rec]
-        Get Value for [Dictionary Value] in [statusLabels]
         If [Dictionary Value] has any value
-            Text "Статус: [Dictionary Value]"
-            Add [Text] to lines
+            Get Value for [Dictionary Value] in [statusLabels]
+            If [Dictionary Value] has any value
+                Text "Статус: [Dictionary Value]"
+                Add [Text] to lines
+            End If
         End If
 
         // 14.6 Теги
@@ -507,12 +519,19 @@ Repeat 50 times
         Add [Text] to lines
         Nothing
         Set variable parts
-        Get Value for "ratings.imdb" in [rec]
+        // ratings может не быть — путь "ratings.imdb" тогда падает
+        Get Value for "ratings" in [rec]
+        Set variable rts to [Dictionary Value]
+        If [rts] does not have any value
+            Dictionary   (пустой)
+            Set variable rts to [Dictionary]
+        End If
+        Get Value for "imdb" in [rts]
         If [Dictionary Value] has any value
             Text "IMDb [Dictionary Value]"
             Add [Text] to parts
         End If
-        Get Value for "ratings.kp" in [rec]
+        Get Value for "kp" in [rts]
         If [Dictionary Value] has any value
             Text "КП [Dictionary Value]"
             Add [Text] to parts
@@ -716,9 +735,11 @@ Repeat 50 times
         Ask for Text with "Пара слов? (можно пусто)"
         Set variable review to [Provided Input]
         If [review] has any value
-            Get Value for "movies.items.[key].note" (Data Jar)
-            If [Value] has any value
-                Text "[Value] · [review]"
+            // нет поля в Data Jar → Get Value по пути падает; берём запись целиком
+            Get Value for "movies.items.[key]" (Data Jar)
+            Get Value for "note" in [Value]
+            If [Dictionary Value] has any value
+                Text "[Dictionary Value] · [review]"
                 Set variable newNote to [Text]
             Otherwise
                 Set variable newNote to [review]

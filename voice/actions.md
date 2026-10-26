@@ -164,7 +164,14 @@ If [intent] is "add"
     If [Dictionary Value] has any value
         Add [Dictionary Value] to parts
     End If
-    Get Value for "ratings.imdb" in [rec]
+    // ratings может не быть — путь "ratings.imdb" тогда падает
+    Get Value for "ratings" in [rec]
+    Set variable rts to [Dictionary Value]
+    If [rts] does not have any value
+        Dictionary   (пустой)
+        Set variable rts to [Dictionary]
+    End If
+    Get Value for "imdb" in [rts]
     If [Dictionary Value] has any value
         Text "IMDb [Dictionary Value]"
         Add [Text] to parts

@@ -78,6 +78,12 @@ Movie Lookup возвращает запись без `status`, `origin`, `added
 
 **Список из одного элемента ложится текстом** (проверено на iPhone 2026-10-25): Set Dictionary Value / Data Jar при одном значении пишут `"тег"`, а не `["тег"]`; обёртка в **List** не помогает. Касается `tags`, `genres`. Это норма: читать такие поля как список (Combine Text, `contains`, Repeat with Each, Count работают и с текстом — Count даст 1).
 
+**Data Jar Get Value по пути к отсутствующему полю падает** («No value found at …», проверено на iPhone 2026-10-25), в отличие от Get Dictionary Value, которое отдаёт пусто. Необязательные поля (`note`, `my_rating`, `tags`…) читать так: Data Jar Get Value `movies.items.<key>` (запись целиком) → Get Dictionary Value поля.
+
+**Путь через отсутствующий словарь падает** («No value was found for dictionary key 'ratings'», проверено 2026-10-26): `Get Value for "ratings.imdb"` падает, если в записи нет `ratings`. Читать в два шага: Get Value `ratings` → Set variable `rts` → If `rts` нет значения → пустой **Dictionary** → `rts`; потом Get Value `imdb` / `kp` из `rts`. Отсутствующий ключ первого уровня (`note`, `my_rating`) отдаёт пусто, не падает.
+
+**Get Dictionary Value с пустым ключом падает** («No key was provided»). Ключ из переменной (`Get Value for [status] in [statusLabels]`) — сначала `If [переменная] has any value`.
+
 Вход суб-шортката бывает Text или Dictionary (Lookup, Recommend): **Get Dictionary Value** из Text падает («couldn't convert from Text to Dictionary»). Сначала **Get Type** of Shortcut Input → If Type is `Text` / `Dictionary`.
 
 Числа из словаря (Data Jar, ответ API, поле `Repeat Item`) приходят без типа — If не предлагает «больше/меньше». Перед сравнением — действие **Number** с этой переменной, сравнивать его результат.
