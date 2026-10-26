@@ -60,7 +60,7 @@ flowchart TD
     1. **Choose from Menu** «Добавить премьеру в Календарь?» Да / Нет.
     2. Да → **Add New Event**: Title «Премьера: title_ru», All Day on, Start Date = `premiere_date`, End Date = `premiere_date`.
 13. **Show Notification** «Добавлено: title_ru (year)» + статус.
-14. **If** `my_rating` ≥ 8 → **Choose from Menu** «Показать похожие?» Да / Нет. Да → **Run Shortcut** Movie Card `{key, auto: "similar"}` → `res`. `res.action` = `similar` → список похожих → выбор → Movie Card `{record: item, saved: false}` (как в [Rate](../rate/README.md#шаги), шаг 9).
+14. **If** `my_rating` ≥ 8 → **Choose from Menu** «Показать похожие?» Да / Нет. Да → **Run Shortcut** Movie Card `{key, auto: "similar"}` → `res`. `res.action` = `similar` → список похожих → выбор → Movie Card `{record: item, saved: false}`; «Назад» из карточки → снова список, выход — «← Назад» в списке (`Repeat 20` + `simDone`, как в [Rate](../rate/README.md#шаги), шаг 9).
 
 ## Промпты ИИ
 

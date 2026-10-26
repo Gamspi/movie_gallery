@@ -204,15 +204,25 @@ If [dupKey] has any value
         End Repeat
         Text "← Назад"
         Add [Text] to simLabels
-        Choose from [simLabels]   (Prompt: "Похожие")
-        If [Chosen Item] is not "← Назад"
-            Get Value for [Chosen Item] in [simMap]
-            Set variable simItem to [Dictionary Value]
-            Dictionary
-                saved  Boolean  False
-            Set "record" to [simItem] in [Dictionary]
-            Run Shortcut "Movie Card" with [Dictionary]
-        End If
+        // «Назад» из карточки похожего → снова список; выход — «← Назад» в списке
+        Number 0
+        Set variable simDone to [Number]
+        Repeat 20 times
+            If [simDone] is 0
+                Choose from [simLabels]   (Prompt: "Похожие")
+                If [Chosen Item] is "← Назад"
+                    Number 1
+                    Set variable simDone to [Number]
+                Otherwise
+                    Get Value for [Chosen Item] in [simMap]
+                    Set variable simItem to [Dictionary Value]
+                    Dictionary
+                        saved  Boolean  False
+                    Set "record" to [simItem] in [Dictionary]
+                    Run Shortcut "Movie Card" with [Dictionary]
+                End If
+            End If
+        End Repeat
     End If
     Stop this shortcut
 End If
@@ -351,15 +361,25 @@ If [myR] is greater than or equal to 8
                 End Repeat
                 Text "← Назад"
                 Add [Text] to simLabels
-                Choose from [simLabels]   (Prompt: "Похожие")
-                If [Chosen Item] is not "← Назад"
-                    Get Value for [Chosen Item] in [simMap]
-                    Set variable simItem to [Dictionary Value]
-                    Dictionary
-                        saved  Boolean  False
-                    Set "record" to [simItem] in [Dictionary]
-                    Run Shortcut "Movie Card" with [Dictionary]
-                End If
+                // «Назад» из карточки похожего → снова список; выход — «← Назад» в списке
+                Number 0
+                Set variable simDone to [Number]
+                Repeat 20 times
+                    If [simDone] is 0
+                        Choose from [simLabels]   (Prompt: "Похожие")
+                        If [Chosen Item] is "← Назад"
+                            Number 1
+                            Set variable simDone to [Number]
+                        Otherwise
+                            Get Value for [Chosen Item] in [simMap]
+                            Set variable simItem to [Dictionary Value]
+                            Dictionary
+                                saved  Boolean  False
+                            Set "record" to [simItem] in [Dictionary]
+                            Run Shortcut "Movie Card" with [Dictionary]
+                        End If
+                    End If
+                End Repeat
             End If
         • Нет
     End Menu
