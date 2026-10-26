@@ -1243,7 +1243,7 @@
 				<key>UUID</key>
 				<string>5BC96938-3DB9-4E78-AC94-FEAD76D876F2</string>
 				<key>WFDictionaryKey</key>
-				<string>updated_date</string>
+				<string>seasons_checked</string>
 				<key>WFInput</key>
 				<dict>
 					<key>Value</key>
@@ -2835,6 +2835,58 @@
 				</dict>
 				<key>WFVariableName</key>
 				<string>okCount</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.comment</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFCommentActionText</key>
+				<string>Ответ валиден → отметка проверки (ротация), даже без изменений</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>dk.simonbs.DataJar.SetValueIntent</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>UUID</key>
+				<string>E3805BB2-4C40-406E-B87D-4B5C61E1DD07</string>
+				<key>keyPath</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>attachmentsByRange</key>
+						<dict>
+							<key>{13, 1}</key>
+							<dict>
+								<key>Type</key>
+								<string>Variable</string>
+								<key>VariableName</key>
+								<string>key</string>
+							</dict>
+						</dict>
+						<key>string</key>
+						<string>movies.items.￼.seasons_checked</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenString</string>
+				</dict>
+				<key>overwriteStrategy</key>
+				<string>alwaysAllow</string>
+				<key>values</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>Type</key>
+						<string>Variable</string>
+						<key>VariableName</key>
+						<string>now</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenAttachment</string>
+				</dict>
 			</dict>
 		</dict>
 		<dict>
