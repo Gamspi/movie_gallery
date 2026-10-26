@@ -608,7 +608,13 @@ Repeat 50 times
             Get dates from [Dictionary Value]
             Set variable pDate to [Dates]
             If [pDate] is after [Current Date]
-                Add New Event "Премьера: [rec: title_ru]"   (All Day: on, Starts: [pDate], Ends: [pDate], Calendar: по умолчанию)
+                // уже есть событие с таким названием → не дублировать
+                Find Calendar Events where Title is "Премьера: [rec: title_ru]"   (Limit: on, 1)
+                If [Calendar Events] has any value
+                    Show notification "Премьера уже в Календаре"
+                Otherwise
+                    Add New Event "Премьера: [rec: title_ru]"   (All Day: on, Starts: [pDate], Ends: [pDate], Calendar: по умолчанию)
+                End If
             Otherwise
                 Show notification "Премьера уже была"
             End If

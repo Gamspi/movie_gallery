@@ -2,7 +2,7 @@
 
 ## Назначение
 
-Добавить фильм/сериал в список: запрос текстом или голосом → поиск (Movie Lookup) → проверка дублей → статус и оценка → теги → сохранение → (если премьера впереди) событие в Календаре.
+Добавить фильм/сериал в список: запрос текстом или голосом → поиск (Movie Lookup) → проверка дублей → статус и оценка (премьера впереди → сразу «Не смотрел») → теги → сохранение → (если премьера впереди и события ещё нет) событие в Календаре.
 
 ## Вход / Выход
 
@@ -15,7 +15,9 @@ flowchart TD
     A[Ask for Input] --> L[Run Movie Lookup]
     L -->|пусто| Stop[Stop This Shortcut]
     D -->|да| N[Notification «Уже в списке»] --> C[Run Movie Card key]
-    D -->|нет| S[Menu «Уже смотрел?»]
+    D -->|нет| F{premiere_date в будущем?}
+    F -->|да| U
+    F -->|нет| S[Menu «Уже смотрел?»]
     L --> PV{превью: это он?}
     PV -->|нет| Q[уточнить запрос] --> L
     PV -->|да| D{дубль?}
@@ -26,8 +28,10 @@ flowchart TD
     W --> T
     R --> T
     T --> V[Set Value movies.items.key]
-    V --> P{premiere_date в будущем?}
-    P -->|да| Cal[Menu «Добавить премьеру в Календарь?» → Add New Event]
+    V --> P{future?}
+    P -->|да| FE{Find Calendar Events: «Премьера: title_ru» есть?}
+    FE -->|да| Ex[Notification «Премьера уже в Календаре»] --> Done
+    FE -->|нет| Cal[Menu «Добавить премьеру в Календарь?» → Add New Event]
     P -->|нет| Done[Show Notification «Добавлено»]
     Cal --> Done
     Done --> Hi{оценка ≥ 8?}
@@ -47,7 +51,7 @@ flowchart TD
 5. Дубль по ключу: **Check If Value Exists** `movies.items.<key>` → **If** true → `dupKey` = `key`.
 6. Дубль по названию (если `dupKey` пусто): **Get Value** `movies.items` → **Get Dictionary Value** All Values → **Repeat with Each**: **Change Case** lowercase `title_en` и `year` элемента == lowercase `rec.title_en` и `rec.year` → `dupKey` = `key` элемента. Ловит записи с другим ключом (`ai-` / `kp-` vs `tt…`).
 7. **If** `dupKey` has any value → **Show Notification** «Уже в списке: title_ru» → **Run Shortcut** Movie Card, Input **Dictionary** `{key: dupKey}` → `res`; `res.action` = `similar` → список похожих, как в шаге 14 → **Stop This Shortcut**.
-8. **Choose from Menu** «Уже смотрел?»:
+8. Премьера впереди: **If** `rec.premiere_date` has any value → **Get Dates from Input** → `pDate`; **If** `pDate` > Current Date → `future` = 1. **If** `future` = 1 → `status` = `unwatched` без вопроса. Otherwise → **Choose from Menu** «Уже смотрел?»:
    - **Нет** → **Set Dictionary Value** `status` = `unwatched` в `rec`.
    - **Смотрю** → `status` = `watching`.
    - **Смотрел** → `status` = `watched`; **Ask for Input** (Number, «Оценка 1–10»); If 1…10 → `my_rating`, иначе не задавать. `watched_date` = Current Date (Format Date ISO 8601). **Ask for Input** «Пара слов? (можно пусто)» → `note`.
@@ -56,9 +60,10 @@ flowchart TD
    - Пропустить → `tags` не ставить (пустое Set Dictionary Value не принимает, [data.md](../data.md#запись-moviesitemskey)).
 10. **Set Dictionary Value** в `rec`: `origin` = `manual`, `added_date` = Current Date (ISO), `updated_date` = Current Date, `note` (если пусто — не добавлять), `my_rating` (если не задан — не добавлять), `watched_date` (если нет — не добавлять).
 11. **Set Value** (Data Jar) `movies.items.<key>` = `rec`.
-12. **If** `rec.premiere_date` has any value **и** **Get Dates from Input** `premiere_date` > Current Date:
-    1. **Choose from Menu** «Добавить премьеру в Календарь?» Да / Нет.
-    2. Да → **Add New Event**: Title «Премьера: title_ru», All Day on, Start Date = `premiere_date`, End Date = `premiere_date`.
+12. **If** `future` = 1 (шаг 8; `pDate` оттуда же):
+    1. **Find Calendar Events** where Title is «Премьера: title_ru», Limit 1. **If** Calendar Events has any value → **Show Notification** «Премьера уже в Календаре», событие не добавлять. Otherwise:
+    2. **Choose from Menu** «Добавить премьеру в Календарь?» Да / Нет.
+    3. Да → **Add New Event**: Title «Премьера: title_ru», All Day on, Start Date = `pDate`, End Date = `pDate`.
 13. **Show Notification** «Добавлено: title_ru (year)» + статус.
 14. **If** `my_rating` ≥ 8 → **Choose from Menu** «Показать похожие?» Да / Нет. Да → **Run Shortcut** Movie Card `{key, auto: "similar"}` → `res`. `res.action` = `similar` → список похожих → выбор → Movie Card `{record: item, saved: false}`; «Назад» из карточки → снова список, выход — «← Назад» в списке (`Repeat 20` + `simDone`, как в [Rate](../rate/README.md#шаги), шаг 9).
 

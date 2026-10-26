@@ -96,7 +96,7 @@ flowchart TD
 | Похожие | см. ниже. |
 | Поделиться | **Text**: `title_ru / title_en (year)`, `IMDb x · КП y`, ссылки Кинопоиск/IMDb → **Share**. |
 | Обновить данные | If `kinopoisk_id` → **Dictionary** `{kinopoisk_id}`, иначе `{title_en,title_ru,year,type}` → **Run Shortcut** Movie Lookup → результат пуст (отмена / API недоступно) → ничего не писать. Есть → **Set Value** в `movies.items.<key>` все **непустые** поля результата (пустое не затирает старое, напр. `seasons_count`), **кроме** пользовательских ([data.md](../data.md#запись-moviesitemskey)) и `key`: `title_en`, `title_ru`, `year`, `type`, `genres`, `imdb_id`, `kinopoisk_id`, `ratings`, `length`, `age_rating`, `premiere_date`, `seasons_count`, `release_status`, `description`, `poster_url`, `source`, `updated_date`. Show Notification «Обновлено». |
-| В календарь | If **Get Dates from Input** `premiere_date` > Current Date → **Add New Event**: All Day, Start/End = `premiere_date`, Title «Премьера: title_ru», календарь по умолчанию. |
+| В календарь | If **Get Dates from Input** `premiere_date` > Current Date → **Find Calendar Events** where Title is «Премьера: title_ru», Limit 1: есть → **Show Notification** «Премьера уже в Календаре»; нет → **Add New Event**: All Day, Start/End = `premiere_date`, Title «Премьера: title_ru», календарь по умолчанию. |
 | Удалить | **Choose from Menu** «Удалить title_ru?» Да / Нет. Да → **Delete Value** `movies.items.<key>` → **Stop and Output** `{action:"back"}`. |
 | Назад | **Stop and Output** **Dictionary** `{action: "back"}`. |
 

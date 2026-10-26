@@ -231,37 +231,56 @@ End If
 Date   (Current Date)
 Format [Date] with ISO 8601
 Set variable now to [Formatted Date]
-Choose from Menu   (Prompt: "Уже смотрел?")
-    • Нет
-        Text "unwatched"
-        Set "status" to [Text] in [rec]
-        Set variable rec to [Dictionary]
-        Text "Не смотрел"
-        Set variable statusT to [Text]
-    • Смотрю
-        Text "watching"
-        Set "status" to [Text] in [rec]
-        Set variable rec to [Dictionary]
-        Text "Смотрю"
-        Set variable statusT to [Text]
-    • Смотрел
-        Text "watched"
-        Set "status" to [Text] in [rec]
-        Set variable rec to [Dictionary]
-        Text "Смотрел"
-        Set variable statusT to [Text]
-        Ask for Number with "Оценка 1–10"
-        Set variable r to [Provided Input]
-        If All are true: [r] is greater than or equal to 1, [r] is less than or equal to 10
-            Set variable myR to [r]
-            Set "my_rating" to [myR] in [rec]
+// премьера впереди → future = 1, меню «Уже смотрел?» не показывать
+// pDate задан только при future = 1 — шаг 15 читает его только внутри If [future] is 1
+Get Value for "premiere_date" in [rec]
+If [Dictionary Value] has any value
+    Get dates from [Dictionary Value]
+    Set variable pDate to [Dates]
+    If [pDate] is after [Current Date]
+        Number 1
+        Set variable future to [Number]
+    End If
+End If
+If [future] is 1
+    Text "unwatched"
+    Set "status" to [Text] in [rec]
+    Set variable rec to [Dictionary]
+    Text "Не смотрел"
+    Set variable statusT to [Text]
+Otherwise
+    Choose from Menu   (Prompt: "Уже смотрел?")
+        • Нет
+            Text "unwatched"
+            Set "status" to [Text] in [rec]
             Set variable rec to [Dictionary]
-        End If
-        Set "watched_date" to [now] in [rec]
-        Set variable rec to [Dictionary]
-        Ask for Text with "Пара слов? (можно пусто)"
-        Set variable noteT to [Provided Input]
-End Menu
+            Text "Не смотрел"
+            Set variable statusT to [Text]
+        • Смотрю
+            Text "watching"
+            Set "status" to [Text] in [rec]
+            Set variable rec to [Dictionary]
+            Text "Смотрю"
+            Set variable statusT to [Text]
+        • Смотрел
+            Text "watched"
+            Set "status" to [Text] in [rec]
+            Set variable rec to [Dictionary]
+            Text "Смотрел"
+            Set variable statusT to [Text]
+            Ask for Number with "Оценка 1–10"
+            Set variable r to [Provided Input]
+            If All are true: [r] is greater than or equal to 1, [r] is less than or equal to 10
+                Set variable myR to [r]
+                Set "my_rating" to [myR] in [rec]
+                Set variable rec to [Dictionary]
+            End If
+            Set "watched_date" to [now] in [rec]
+            Set variable rec to [Dictionary]
+            Ask for Text with "Пара слов? (можно пусто)"
+            Set variable noteT to [Provided Input]
+    End Menu
+End If
 
 // ── Шаг 12. Теги ──
 // Cancel в Choose from List прерывает шорткат — поэтому сначала меню
@@ -294,11 +313,13 @@ End If
 Set Value [rec] for "movies.items.[key]" (Data Jar)
 
 // ── Шаг 15. Премьера в календарь ──
-Get Value for "premiere_date" in [rec]
-If [Dictionary Value] has any value
-    Get dates from [Dictionary Value]
-    Set variable pDate to [Dates]
-    If [pDate] is after [Current Date]
+// future и pDate — из шага 11
+If [future] is 1
+    // уже есть событие с таким названием → не дублировать
+    Find Calendar Events where Title is "Премьера: [rec: title_ru]"   (Limit: on, 1)
+    If [Calendar Events] has any value
+        Show notification "Премьера уже в Календаре"
+    Otherwise
         Choose from Menu   (Prompt: "Добавить премьеру в Календарь?")
             • Да
                 Add New Event "Премьера: [rec: title_ru]"   (All Day: on, Starts: [pDate], Ends: [pDate], Calendar: по умолчанию)
