@@ -46,7 +46,7 @@ flowchart TD
 1. **Get Value** `movies.settings` → `settings`. Пусто → **Show Notification** «Movie Seasons: нет movies.settings — см. README, Установка» → **Stop This Shortcut**.
 2. `settings.poiskkino_api_key` → `apiKey`. Пусто → **Show Notification** «Movie Seasons: нет ключа poiskkino» → **Stop This Shortcut** (автоматизация в фоне — без уведомления ты бы не узнал).
 3. **Get Value** `movies.items` → `items` (пусто → **Stop This Shortcut**). **Number** 0 → `okCount`, `errCount`; `lastErr` пусто; `now` = Current Date (ISO 8601).
-4. **Repeat with Each** значений `items` — отбор в Dictionary `scores` (ключ → секунды с `seasons_checked`; нет поля → 999999999, проверяется первым), если выполнено всё:
+4. **Repeat with Each** значений `items` — отбор в Dictionary `scores` (ключ → секунды с `seasons_checked`; нет поля или дата не распозналась → 999999999, проверяется первым; 999999999 ставится до чтения поля), если выполнено всё:
    - `type` ∈ {`tv_show`, `animated_series`, `anime`};
    - `status` ∈ {`watching`, `watched`};
    - `kinopoisk_id` has any value;

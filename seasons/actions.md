@@ -98,14 +98,16 @@ Repeat with each item in [Values]
 
     // 4.5 Давность
     If [ok] is 1
+        // по умолчанию — самый давний; дата не распозналась → остаётся 999999999
+        Number 999999999
+        Set variable age to [Number]
         Get Value for "seasons_checked" in [Repeat Item]
         If [Dictionary Value] has any value
             Get dates from [Dictionary Value]
             Get time between [Dates] and [nowDate] in Seconds
-            Set variable age to [Time Between Dates]
-        Otherwise
-            Number 999999999
-            Set variable age to [Number]
+            If [Time Between Dates] has any value
+                Set variable age to [Time Between Dates]
+            End If
         End If
         Set [Repeat Item: key] to [age] in [scores]
         Set variable scores to [Dictionary]
