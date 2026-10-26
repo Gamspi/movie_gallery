@@ -32417,8 +32417,6 @@ Return ONLY valid JSON, no markdown, no explanations.</string>
 				<dict>
 					<key>isSelf</key>
 					<false/>
-					<key>workflowIdentifier</key>
-					<string>2A6F17DF-1E3B-4662-AF50-B8BE3C7605E7</string>
 					<key>workflowName</key>
 					<string>Movie Card</string>
 				</dict>

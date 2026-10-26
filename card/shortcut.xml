@@ -1660,8 +1660,6 @@
 				<dict>
 					<key>isSelf</key>
 					<false/>
-					<key>workflowIdentifier</key>
-					<string>76020D33-2E25-4AEF-A2A1-8E9BBBDEF15E</string>
 					<key>workflowName</key>
 					<string>Movie Lookup</string>
 				</dict>
@@ -11166,8 +11164,6 @@ User question: ￼</string>
 				<dict>
 					<key>isSelf</key>
 					<false/>
-					<key>workflowIdentifier</key>
-					<string>76020D33-2E25-4AEF-A2A1-8E9BBBDEF15E</string>
 					<key>workflowName</key>
 					<string>Movie Lookup</string>
 				</dict>

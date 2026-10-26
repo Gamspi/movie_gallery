@@ -419,8 +419,6 @@
 				<dict>
 					<key>isSelf</key>
 					<false/>
-					<key>workflowIdentifier</key>
-					<string>76020D33-2E25-4AEF-A2A1-8E9BBBDEF15E</string>
 					<key>workflowName</key>
 					<string>Movie Lookup</string>
 				</dict>
@@ -2973,8 +2971,6 @@
 				<dict>
 					<key>isSelf</key>
 					<false/>
-					<key>workflowIdentifier</key>
-					<string>2A6F17DF-1E3B-4662-AF50-B8BE3C7605E7</string>
 					<key>workflowName</key>
 					<string>Movie Card</string>
 				</dict>
@@ -4191,8 +4187,6 @@
 				<dict>
 					<key>isSelf</key>
 					<false/>
-					<key>workflowIdentifier</key>
-					<string>2A6F17DF-1E3B-4662-AF50-B8BE3C7605E7</string>
 					<key>workflowName</key>
 					<string>Movie Card</string>
 				</dict>
@@ -6353,8 +6347,6 @@
 				<dict>
 					<key>isSelf</key>
 					<false/>
-					<key>workflowIdentifier</key>
-					<string>2A6F17DF-1E3B-4662-AF50-B8BE3C7605E7</string>
 					<key>workflowName</key>
 					<string>Movie Card</string>
 				</dict>
@@ -7612,8 +7604,6 @@
 				<dict>
 					<key>isSelf</key>
 					<false/>
-					<key>workflowIdentifier</key>
-					<string>2A6F17DF-1E3B-4662-AF50-B8BE3C7605E7</string>
 					<key>workflowName</key>
 					<string>Movie Card</string>
 				</dict>
