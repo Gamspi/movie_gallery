@@ -48,7 +48,7 @@ flowchart TD
 
 ## Шаги
 
-Плоский список действий для сборки в редакторе — [actions.md](actions.md).
+Плоский список действий для сборки в редакторе — [actions.md](actions.md). Экспорт собранного шортката — [shortcut.xml](shortcut.xml); что поправить в нём руками — [FIXES.md](FIXES.md).
 
 Как читать: каждое действие — отдельный пункт, в порядке добавления в редактор. Вложенность = то, что лежит внутри If / Otherwise / Repeat. Переходов «к шагу N» в Shortcuts нет — пропуск делается через If. Переменная, заданная внутри If, видна и после End If; не заданная — пустая (`has any value` = нет). `a.b` в Get Dictionary Value — путь по вложенным словарям (`rating.kp`).
 
@@ -184,10 +184,10 @@ flowchart TD
     5. `ratings`: **Dictionary** (пустой) → **Set Variable** `ratings`. **Get Dictionary Value** `rating.imdb` из `m` → **If** is greater than 0 → **Round Number** (Tenths) → **Set Dictionary Value** `imdb` в `ratings` → **Set Variable** `ratings` → **End If**. То же для `rating.kp` → `kp`.
     6. `length`: **Get Dictionary Value** `seriesLength` из `m` → **If** is greater than 0 → **Set Variable** `length` (сериал — длина серии). **Otherwise** → **Get Dictionary Value** `movieLength` из `m` → **If** is greater than 0 → **Set Variable** `length` → **End If** → **End If**. (У фильмов `seriesLength` пуст, поэтому проверять `type` не нужно; 0 или пусто → `length` не задаётся.)
     7. `premiere_date`: **Get Dictionary Value** `premiere.world` из `m`, пусто → `premiere.russia` → **If** has any value → **Get Dates from Input** → **Format Date** Custom `yyyy-MM-dd` → **Set Variable** `premiere_date` → **End If**.
-    8. `seasons_count`: сериальный тип (как в п. 6) и **Get Dictionary Value** `seasonsInfo` has any value → **Count** → **Set Variable** `seasons_count`. Обычно null — не задавать, заполнит Movie Seasons.
-    9. `description`: **Get Dictionary Value** `shortDescription` → есть → **Set Variable** `description`. Иначе **Get Dictionary Value** `description` → **Split Text** Custom `. ` → **Get Item from List** (First) → **Text** `<item>.` → **Set Variable** `description`.
+    8. `seasons_count`: **Get Dictionary Value** `seasonsInfo` has any value → **Count** → **Set Variable** `seasons_count`. Обычно null — не задавать, заполнит Movie Seasons.
+    9. `description`: **Get Dictionary Value** `shortDescription` → есть → **Set Variable** `description`. Иначе **Get Dictionary Value** `description` → **If** has any value → **Split Text** Custom `. ` → **Get Item from List** (First) → **Text** `<item>.` → **Set Variable** `description` → **End If**.
     10. Ключ: **Get Dictionary Value** `externalId.imdb` из `m` → **If** has any value → **Set Variable** `imdb_id`, **Set Variable** `key` = он же. **Otherwise** → **Text** `kp-<mId>` → **Set Variable** `key`. **End If**.
-    11. **Dictionary** — обязательные поля: `key`, `title_en`, `title_ru`, `year` (`m.year`), `type`, `genres`, `kinopoisk_id` = `mId`, `ratings`, `source` = `poiskkino`, `updated_date` = Current Date → **Format Date** ISO 8601 → **Set Variable** `rec`.
+    11. **Dictionary** — обязательные поля: `key`, `title_en`, `title_ru`, `year` (`m.year`), `type`, `kinopoisk_id` = `mId`, `source` = `poiskkino`, `updated_date` = Current Date → **Format Date** ISO 8601 → **Set Variable** `rec`. Затем `genres` и `ratings` — **If** has any value → **Set Dictionary Value** в `rec` → **Set Variable** `rec`.
     12. Необязательные — только если есть значение (**If** has any value → **Set Dictionary Value** в `rec` → **Set Variable** `rec`): `imdb_id`, `length`, `age_rating` (`m.ageRating`), `premiere_date`, `seasons_count`, `release_status` (`m.status`), `description`, `poster_url` (`m.poster.url`). Пустое не писать — null = ключа нет ([data.md](../data.md#запись-moviesitemskey)).
 26. **Otherwise** (ветка D — не найдено или API упал):
     1. **If** `cand` has any value — запись из ИИ:
@@ -201,7 +201,7 @@ flowchart TD
             4. **End If**.
             5. **If** `yrK` has any value → **Text** `<key>-<yrK>` → **Set Variable** `key` → **End If**.
         2. (пример: `The Brutalist`, 2024 → `ai-the-brutalist-2024`; `Брат 2`, 2000 → `ai-202610241530-2000`.)
-        3. **Dictionary**: `key`, `title_en`, `title_ru`, `year`, `type`, `genres` — из `cand` (если есть); `ratings` не ставить; `source` = `ai`; `updated_date` = Current Date ISO 8601 → **Set Variable** `rec`.
+        3. **Dictionary**: `key`, `title_en`, `title_ru`, `year`, `type`, `source` = `ai`, `updated_date` = Current Date ISO 8601 → **Set Variable** `rec`. `genres` из `cand` — **If** has any value → **Set Dictionary Value** в `rec` → **Set Variable** `rec`; `ratings` не ставить.
     2. **Otherwise** (пользователь отверг варианты ИИ, и poiskkino пусто):
         1. **List** [`ui.yes`, `ui.no`] → **Choose from List**, Prompt = `ui.not_found`.
         2. **If** Chosen Item is `ui.no` → **Stop This Shortcut** → **End If**.
