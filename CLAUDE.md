@@ -12,7 +12,8 @@
 | `add/` | Movie Add — добавление |
 | `card/` | Movie Card — суб-шорткат карточки, хаб действий |
 | `rate/` | Movie Rate — список и оценка |
-| `recommend/` | Movie Recommend + обёртка Movie Tonight |
+| `recommend/` | Movie Recommend |
+| `tonight/` | Movie Tonight — обёртка Recommend для виджета |
 | `stats/` | Movie Stats — статистика |
 | `seasons/` | Movie Seasons — автоматизация новых сезонов |
 | `voice/` | Movies — голосовой вход для Siri (add / recommend, ответ текстом) |

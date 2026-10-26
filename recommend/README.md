@@ -11,7 +11,7 @@
 | По настроению (ИИ) | свои `unwatched`/`watching` | да | 0 |
 | Новое (ИИ) | вне базы | да | 0 до открытия карточки |
 
-Плюс обёртка **Movie Tonight** для виджета.
+Обёртка для виджета — [Movie Tonight](../tonight/README.md).
 
 ## Вход / Выход
 
@@ -266,10 +266,7 @@ Only real, existing titles. Prefer variety.
 
 ## Movie Tonight
 
-Отдельный крошечный шорткат для виджета на Home Screen.
-
-1. **Text** `today`.
-2. **Run Shortcut** Movie Recommend, Input = Text.
+Отдельный шорткат для виджета — [tonight/](../tonight/README.md) (Text `today` → Run Shortcut Movie Recommend).
 
 В режиме `today`: без меню и фильтров → скоринг всех кандидатов → топ-10 → **Get Random Item from List** → Movie Card. «Назад» в карточке — конец. Кандидатов нет → уведомление «Список пуст — добавь через Movie Add».
 

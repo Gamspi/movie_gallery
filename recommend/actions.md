@@ -1611,12 +1611,4 @@ Stop this shortcut
 
 ## Movie Tonight
 
-Отдельный шорткат для виджета на Home Screen. Всё остальное (скоринг, топ-10, случайный, карточка, «Список пуст — добавь через Movie Add») — в Movie Recommend, режим `today` (шаги 9, 15, 18, 25–28).
-
-```
-// ── Шаг 1. Режим ──
-Text "today"
-
-// ── Шаг 2. Recommend ──
-Run Shortcut "Movie Recommend" with [Text]
-```
+Отдельный шорткат — [tonight/actions](../tonight/README.md#действия). Всё остальное — здесь, режим `today` (шаги 9, 15, 18, 25–28).

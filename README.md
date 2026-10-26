@@ -13,7 +13,7 @@
 | [Movie Add](add/README.md) | добавить тайтл в список | основной |
 | [Movie Rate](rate/README.md) | просмотр списка по статусу, открыть карточку | основной |
 | [Movie Recommend](recommend/README.md) | что посмотреть: по вкусу, случайно, по настроению, новое | основной |
-| Movie Tonight | обёртка Recommend для виджета: один тайтл на вечер | виджет |
+| [Movie Tonight](tonight/README.md) | обёртка Recommend для виджета: один тайтл на вечер | виджет |
 | [Movies](voice/README.md) | доп. вход для Siri: «add …» / «what to watch» одной фразой, ответ вслух | Siri (доп.) |
 | [Movie Stats](stats/README.md) | статистика + разбор вкуса ИИ (чат) | основной |
 | [Movie Seasons](seasons/README.md) | проверка новых сезонов раз в неделю | автоматизация |

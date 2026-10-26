@@ -6,7 +6,7 @@ Movie Add уже проверен — для него только регрес�
 
 ## Подготовка
 
-- [ ] На Mac: `movies/build.sh` → импортировать 8 шорткатов (Movie Lookup, Movie Card, Movie Add, Movie Rate, Movie Recommend, Movie Stats, Movie Seasons, Movies); Movie Tonight — вручную по [recommend/README.md](recommend/README.md#movie-tonight). Имена — точно как в [README](README.md#шорткаты): Run Shortcut ищет по имени.
+- [ ] На Mac: `movies/build.sh` → импортировать 9 шорткатов (Movie Lookup, Movie Card, Movie Add, Movie Rate, Movie Recommend, Movie Tonight, Movie Stats, Movie Seasons, Movies). Имена — точно как в [README](README.md#шорткаты): Run Shortcut ищет по имени.
 - [ ] Data Jar: есть `movies.settings` по [data.md](data.md#moviessettings), ключ API вписан, `ai_enabled` = `true`.
 - [ ] Записать на бумажку текущий ключ API (для теста 401 его придётся испортить и вернуть).
 - [ ] В базе ≥ 5 тайтлов, из них ≥ 3 с оценкой (иначе «Мой список» и «Разбор вкуса» не показывают вкус), хотя бы один сериал со статусом «Смотрю»/«Смотрел» и `kinopoisk_id`.
