@@ -1980,6 +1980,8 @@ Return ONLY valid JSON, no markdown, no explanations.</string>
 						<string>WFTextTokenAttachment</string>
 					</dict>
 				</dict>
+				<key>WFConditionalActionBoolean</key>
+				<integer>1</integer>
 			</dict>
 		</dict>
 		<dict>
