@@ -95,9 +95,9 @@ stateDiagram-v2
    2. Для всех режимов, кроме `random` и `similar`, сначала шаги 1–4 [скоринга](#скоринг-мой-список) — `genre_score` нужен и для `[topGenres]` в промптах. По `mode`:
       - **taste / today** → скоринг (ниже) для каждого из `cands` → `predicted`. Dictionary `scores` key → Final → [топ без сортировки](../data.md#топ-без-сортировки): `taste` — N = `top_n` → `listItems`; `today` — N = 10 → **Get Random Item from List** → `selected` → `screen` = `card`, к следующему обороту (список не показывать).
       - **random** → **Get Random Item from List** `cands` → `selected`, `screen` = `card`, к следующему обороту.
-      - **mood** → `mood` уже есть (повтор после «↻ Не то…») → сразу промпт «Настроение». Иначе **Ask for Input** «Какое настроение?» → `mood`. Уточнение: **Use Model** промпт «Уточнение» → `questions` (0–2). **Repeat with Each**: **Choose from List** `options` + «Своё…» (prompt = `q`); «Своё…» → **Ask for Input**; → **Add to Variable** `answers` строкой `q — ответ`. Отмена/ИИ не ответил → без уточнений. Затем **Use Model** промпт «Настроение» ([запасной путь](../data.md#ответ-ии-use-model); не ответил → `screen` = `menu`) → `picks`. Для каждого `pick.key` → запись из `cands` (ключа нет в `cands` — отбросить) + `reason` → `listItems`.
+      - **mood** → `mood` уже есть (повтор после «↻ Не то…») → сразу промпт «Настроение». Иначе **Ask for Input** «Какое настроение?» → `mood`. Уточнение: **Use Model** промпт «Уточнение» → `questions` (0–2). **Repeat with Each**: **Choose from List** `options` + «Своё…» (prompt = `q`); «Своё…» → **Ask for Input**; → **Add to Variable** `answers` строкой `q — ответ`. Отмена/ИИ не ответил → без уточнений. Затем **Use Model** промпт «Настроение» ([запасной путь](../data.md#ответ-ии-use-model); не ответил → **Show Notification** «ИИ не ответил», `screen` = `menu`) → `picks`. Для каждого `pick.key` → запись из `cands` (ключа нет в `cands` — отбросить) + `reason` → `listItems`. `listItems` пуст → **Show Notification** «ИИ не подобрал из списка» → `screen` = `menu`.
       - **similar** → кеш опустел (всё посмотрено/скрыто) → **Show Notification** «Похожих не осталось» → `screen` = `menu`.
-      - **new** → **Use Model** промпт «Новое» (запасной путь; не ответил → `screen` = `menu`) → `items` (light records + `reason`) → фильтр по `db` (см. после промпта) → `listItems`.
+      - **new** → **Use Model** промпт «Новое» (запасной путь; не ответил → «ИИ не ответил», `screen` = `menu`) → `items` (light records + `reason`) → фильтр по `db` (см. после промпта) → `listItems`. `listItems` пуст → **Show Notification** «Всё предложенное уже в базе» → `screen` = `menu`.
 8. **Repeat with Each** `listItems` → метка `title_ru / title_en (year) — <predicted, иначе IMDb, иначе КП>`; для mood/new — ` · reason` (подзаголовков в Choose from List нет). Для mood/new + «↻ Не то…». + «← Назад».
 9. **Choose from List**:
    - «← Назад» → `listItems`, `feedback`, `shown`, `mood`, `answers` = пусто, `screen` = `menu`;
@@ -111,7 +111,7 @@ stateDiagram-v2
 12. `res.action` = `similar` → `listItems` = `res.items`, `mode` = `similar` (чтобы «Назад» из карточки вёл в этот список, а не в random/today-логику), `screen` = `list`.
 13. `res.action` = `back` или `res` пуст (Card остановилась сама, напр. на проверке настроек) — перечитать `db` (статус мог смениться), затем по `mode`:
     - `today` → **Stop This Shortcut**;
-    - `random` → **Choose from Menu** «Ещё случайный / В меню» → `listItems` пусто, `screen` = `list` / `screen` = `menu`;
+    - `random` → **Choose from Menu** «Дальше?»: Ещё случайный / В меню → `listItems` пусто, `screen` = `list` / `screen` = `menu`;
     - `taste` → `listItems` = пусто (пересчитать), `screen` = `list`;
     - `mood` / `new` / `similar` → кеш: убрать из `listItems` тайтлы, которые теперь в `db` со `status` ∈ {`watched`, `dropped`, `dismissed`} (по `key` или `title_en` lowercase + `year`), `screen` = `list`.
 

@@ -26,8 +26,9 @@ flowchart TD
 
 Плоский список действий для сборки в редакторе — [actions.md](actions.md).
 
-1. **Choose from Menu** «Показать»: Несмотренные / Смотрю / Посмотренные / Бросил / Скрытые / Все → Set Variable `filter` = `unwatched` / `watching` / `watched` / `dropped` / `dismissed` / `all`. «Скрытые» — чтобы вернуть тайтл в рекомендации (Статус в карточке).
-2. **Repeat** 100 раз:
+1. **Get Value** `movies.settings` → `settings`. Пусто → **Show Notification** «Нет movies.settings — см. README, Установка» → **Stop This Shortcut**.
+2. **Choose from Menu** «Показать»: Несмотренные / Смотрю / Посмотренные / Бросил / Скрытые / Все → Set Variable `filter` = `unwatched` / `watching` / `watched` / `dropped` / `dismissed` / `all`; `filterT` = метка пункта. «Скрытые» — чтобы вернуть тайтл в рекомендации (Статус в карточке).
+3. **Repeat** 100 раз:
    1. **Get Value** `movies.items` → **Get Dictionary Value** All Values → `all`.
    2. **Repeat with Each** `all`: **If** `filter` = `all` → берём всё, кроме `status` = `dismissed`; иначе — только `status` = `filter` → **Add to Variable** `items`.
    3. `items` пуст → **Show Notification** «Пусто» → **Stop This Shortcut**.
@@ -36,15 +37,15 @@ flowchart TD
       - Если метка уже есть в `labelMap` (ремейк того же года и т. п.) → дописать ` · key`.
       - **Add to Variable** `labels`; **Set Dictionary Value** метка → `key` в `labelMap`.
    5. Без сортировки — порядок, как отдаёт Data Jar (обычно порядок добавления).
-   6. **Choose from List** `labels` (prompt «filter: N»). Cancel → шорткат завершается.
+   6. **Choose from List** `labels` (prompt «filterT: N», напр. «Смотрю: 3»). Cancel → шорткат завершается.
    7. **Get Dictionary Value** Chosen Item из `labelMap` → `key`.
    8. **Run Shortcut** Movie Card, Input **Dictionary** `{key}` → `res`.
    9. **If** `res.action` = `similar` → показать похожие:
       - **Repeat with Each** `res.items` → метка `title_ru / title_en (year)` + ` — IMDb x` или ` — КП y` (у похожих из poiskkino есть только КП) → `simLabels`, `simMap`.
       - **Add to Variable** `simLabels` «← Назад».
-      - **Choose from List** → «← Назад» → ничего. Иначе → **Run Shortcut** Movie Card `{record: item, saved: false}`.
+      - **Choose from List** (prompt «Похожие») → «← Назад» → ничего. Иначе → **Run Shortcut** Movie Card `{record: item, saved: false}`.
    10. Очистить `items`, `labels`, `labelMap`, `simLabels`, `simMap` (Set Variable пустым) — следующий оборот перечитывает базу (статус мог измениться).
-3. End Repeat.
+4. End Repeat.
 
 ## Промпты ИИ
 

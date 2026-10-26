@@ -42,7 +42,8 @@ flowchart TD
 
 Плоский список действий для сборки в редакторе — [actions.md](actions.md). Экспорт собранного шортката — [shortcut.xml](shortcut.xml).
 
-1. **If** Shortcut Input has any value → Set Variable `query` = Shortcut Input. Otherwise → **Ask for Input** (Text, «Что добавить?») → `query`. End If.
+1. **Get Value** `movies.settings` → `settings`. Пусто → **Show Notification** «Нет movies.settings — см. README, Установка» → **Stop This Shortcut**. Из `settings` — `tags`, `type_labels`.
+   **If** Shortcut Input has any value → Set Variable `query` = Shortcut Input. Otherwise → **Ask for Input** (Text, «Что добавить?») → `query`. End If.
 2. **Repeat** 5 раз (пока `ok` пуст) — поиск с превью:
    1. **Run Shortcut** Movie Lookup, Input = `query` → `rec`. Пусто → **Stop This Shortcut**.
    2. **Choose from Menu**, prompt — превью: `title_ru / title_en`, `year · тип · length мин`, `IMDb x · КП y`, `description`, источник (`ai` → «нет в poiskkino»). Пункты: **Да, это он** → `ok` = 1 · **Нет, искать другой** → **Ask for Input** «Уточни запрос (год, актёр, сериал/фильм)», Default = `query` → `query` · **Отмена** → **Stop This Shortcut**.
@@ -64,7 +65,7 @@ flowchart TD
     1. **Find Calendar Events** where Title is «Премьера: title_ru», Limit 1. **If** Calendar Events has any value → **Show Notification** «Премьера уже в Календаре», событие не добавлять. Otherwise:
     2. **Choose from Menu** «Добавить премьеру в Календарь?» Да / Нет.
     3. Да → **Add New Event**: Title «Премьера: title_ru», All Day on, Start Date = `pDate`, End Date = `pDate`.
-13. **Show Notification** «Добавлено: title_ru (year)» + статус.
+13. **Show Notification** «Добавлено: title_ru (year) · статус», без `year` — «Добавлено: title_ru · статус» (статус — метка: Не смотрел / Смотрю / Смотрел).
 14. **If** `my_rating` ≥ 8 → **Choose from Menu** «Показать похожие?» Да / Нет. Да → **Run Shortcut** Movie Card `{key, auto: "similar"}` → `res`. `res.action` = `similar` → список похожих → выбор → Movie Card `{record: item, saved: false}`; «Назад» из карточки → снова список, выход — «← Назад» в списке (`Repeat 20` + `simDone`, как в [Rate](../rate/README.md#шаги), шаг 9).
 
 ## Промпты ИИ
