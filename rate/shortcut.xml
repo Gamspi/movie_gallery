@@ -956,6 +956,12 @@
 									<key>Type</key>
 									<string>WFDictionaryValueVariableAggrandizement</string>
 								</dict>
+								<dict>
+									<key>CoercionItemClass</key>
+									<string>WFStringContentItem</string>
+									<key>Type</key>
+									<string>WFCoercionVariableAggrandizement</string>
+								</dict>
 							</array>
 							<key>Type</key>
 							<string>Variable</string>
@@ -1065,6 +1071,12 @@
 									<string>status</string>
 									<key>Type</key>
 									<string>WFDictionaryValueVariableAggrandizement</string>
+								</dict>
+								<dict>
+									<key>CoercionItemClass</key>
+									<string>WFStringContentItem</string>
+									<key>Type</key>
+									<string>WFCoercionVariableAggrandizement</string>
 								</dict>
 							</array>
 							<key>Type</key>
@@ -1618,6 +1630,12 @@
 													<string>status</string>
 													<key>Type</key>
 													<string>WFDictionaryValueVariableAggrandizement</string>
+												</dict>
+												<dict>
+													<key>CoercionItemClass</key>
+													<string>WFStringContentItem</string>
+													<key>Type</key>
+													<string>WFCoercionVariableAggrandizement</string>
 												</dict>
 											</array>
 											<key>Type</key>

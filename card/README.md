@@ -45,7 +45,7 @@ flowchart TD
 
 ## Шаги
 
-Плоский список действий для сборки в редакторе — [actions.md](actions.md). Экспорт собранного шортката — [shortcut.xml](shortcut.xml); что поправить в нём руками — [FIXES.md](FIXES.md).
+Плоский список действий для сборки в редакторе — [actions.md](actions.md). Экспорт собранного шортката — [shortcut.xml](shortcut.xml).
 
 ### Загрузка
 
