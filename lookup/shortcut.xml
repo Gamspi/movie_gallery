@@ -10316,12 +10316,17 @@ Return ONLY valid JSON, no markdown, no explanations.</string>
 					<string>Variable</string>
 					<key>Variable</key>
 					<dict>
-						<key>OutputName</key>
-						<string>Dictionary Value</string>
-						<key>OutputUUID</key>
-						<string>BEACF81F-5805-4A72-88FA-F665EA8BCC73</string>
-						<key>Type</key>
-						<string>ActionOutput</string>
+						<key>Value</key>
+						<dict>
+							<key>OutputName</key>
+							<string>Dictionary Value</string>
+							<key>OutputUUID</key>
+							<string>BEACF81F-5805-4A72-88FA-F665EA8BCC73</string>
+							<key>Type</key>
+							<string>ActionOutput</string>
+						</dict>
+						<key>WFSerializationType</key>
+						<string>WFTextTokenAttachment</string>
 					</dict>
 				</dict>
 			</dict>
@@ -10383,8 +10388,6 @@ Return ONLY valid JSON, no markdown, no explanations.</string>
 				<string>3B81D6BC-389F-4976-BBB6-936FEC51753E</string>
 				<key>WFCondition</key>
 				<integer>4</integer>
-				<key>WFNumberValue</key>
-				<string>0</string>
 				<key>WFControlFlowMode</key>
 				<integer>0</integer>
 				<key>WFInput</key>
@@ -10393,23 +10396,30 @@ Return ONLY valid JSON, no markdown, no explanations.</string>
 					<string>Variable</string>
 					<key>Variable</key>
 					<dict>
-						<key>Aggrandizements</key>
-						<array>
-							<dict>
-								<key>CoercionItemClass</key>
-								<string>WFNumberContentItem</string>
-								<key>Type</key>
-								<string>WFCoercionVariableAggrandizement</string>
-							</dict>
-						</array>
-						<key>OutputName</key>
-						<string>Dictionary Value</string>
-						<key>OutputUUID</key>
-						<string>0861BABA-4DB5-4D4F-901A-FAA5028676FA</string>
-						<key>Type</key>
-						<string>ActionOutput</string>
+						<key>Value</key>
+						<dict>
+							<key>Aggrandizements</key>
+							<array>
+								<dict>
+									<key>CoercionItemClass</key>
+									<string>WFNumberContentItem</string>
+									<key>Type</key>
+									<string>WFCoercionVariableAggrandizement</string>
+								</dict>
+							</array>
+							<key>OutputName</key>
+							<string>Dictionary Value</string>
+							<key>OutputUUID</key>
+							<string>0861BABA-4DB5-4D4F-901A-FAA5028676FA</string>
+							<key>Type</key>
+							<string>ActionOutput</string>
+						</dict>
+						<key>WFSerializationType</key>
+						<string>WFTextTokenAttachment</string>
 					</dict>
 				</dict>
+				<key>WFNumberValue</key>
+				<string>0</string>
 			</dict>
 		</dict>
 		<dict>
@@ -10482,8 +10492,6 @@ Return ONLY valid JSON, no markdown, no explanations.</string>
 				<string>7D7E8D09-23F7-49E8-9013-6A32C4F93B2E</string>
 				<key>WFCondition</key>
 				<integer>2</integer>
-				<key>WFNumberValue</key>
-				<string>0</string>
 				<key>WFControlFlowMode</key>
 				<integer>0</integer>
 				<key>WFInput</key>
@@ -10492,23 +10500,30 @@ Return ONLY valid JSON, no markdown, no explanations.</string>
 					<string>Variable</string>
 					<key>Variable</key>
 					<dict>
-						<key>Aggrandizements</key>
-						<array>
-							<dict>
-								<key>CoercionItemClass</key>
-								<string>WFNumberContentItem</string>
-								<key>Type</key>
-								<string>WFCoercionVariableAggrandizement</string>
-							</dict>
-						</array>
-						<key>OutputName</key>
-						<string>Dictionary Value</string>
-						<key>OutputUUID</key>
-						<string>0861BABA-4DB5-4D4F-901A-FAA5028676FA</string>
-						<key>Type</key>
-						<string>ActionOutput</string>
+						<key>Value</key>
+						<dict>
+							<key>Aggrandizements</key>
+							<array>
+								<dict>
+									<key>CoercionItemClass</key>
+									<string>WFNumberContentItem</string>
+									<key>Type</key>
+									<string>WFCoercionVariableAggrandizement</string>
+								</dict>
+							</array>
+							<key>OutputName</key>
+							<string>Dictionary Value</string>
+							<key>OutputUUID</key>
+							<string>0861BABA-4DB5-4D4F-901A-FAA5028676FA</string>
+							<key>Type</key>
+							<string>ActionOutput</string>
+						</dict>
+						<key>WFSerializationType</key>
+						<string>WFTextTokenAttachment</string>
 					</dict>
 				</dict>
+				<key>WFNumberValue</key>
+				<string>0</string>
 			</dict>
 		</dict>
 		<dict>
@@ -10638,12 +10653,17 @@ Return ONLY valid JSON, no markdown, no explanations.</string>
 					<string>Variable</string>
 					<key>Variable</key>
 					<dict>
-						<key>OutputName</key>
-						<string>Dictionary Value</string>
-						<key>OutputUUID</key>
-						<string>1744BE60-AA9A-4DBD-BBF8-CCACFBBA5871</string>
-						<key>Type</key>
-						<string>ActionOutput</string>
+						<key>Value</key>
+						<dict>
+							<key>OutputName</key>
+							<string>Dictionary Value</string>
+							<key>OutputUUID</key>
+							<string>1744BE60-AA9A-4DBD-BBF8-CCACFBBA5871</string>
+							<key>Type</key>
+							<string>ActionOutput</string>
+						</dict>
+						<key>WFSerializationType</key>
+						<string>WFTextTokenAttachment</string>
 					</dict>
 				</dict>
 			</dict>
@@ -10715,21 +10735,26 @@ Return ONLY valid JSON, no markdown, no explanations.</string>
 					<string>Variable</string>
 					<key>Variable</key>
 					<dict>
-						<key>Aggrandizements</key>
-						<array>
-							<dict>
-								<key>CoercionItemClass</key>
-								<string>WFStringContentItem</string>
-								<key>Type</key>
-								<string>WFCoercionVariableAggrandizement</string>
-							</dict>
-						</array>
-						<key>OutputName</key>
-						<string>Dictionary Value</string>
-						<key>OutputUUID</key>
-						<string>737DC81A-AA3C-4FAB-99A9-1C254C29A873</string>
-						<key>Type</key>
-						<string>ActionOutput</string>
+						<key>Value</key>
+						<dict>
+							<key>Aggrandizements</key>
+							<array>
+								<dict>
+									<key>CoercionItemClass</key>
+									<string>WFStringContentItem</string>
+									<key>Type</key>
+									<string>WFCoercionVariableAggrandizement</string>
+								</dict>
+							</array>
+							<key>OutputName</key>
+							<string>Dictionary Value</string>
+							<key>OutputUUID</key>
+							<string>737DC81A-AA3C-4FAB-99A9-1C254C29A873</string>
+							<key>Type</key>
+							<string>ActionOutput</string>
+						</dict>
+						<key>WFSerializationType</key>
+						<string>WFTextTokenAttachment</string>
 					</dict>
 				</dict>
 			</dict>
@@ -10774,12 +10799,17 @@ Return ONLY valid JSON, no markdown, no explanations.</string>
 					<string>Variable</string>
 					<key>Variable</key>
 					<dict>
-						<key>OutputName</key>
-						<string>Dictionary Value</string>
-						<key>OutputUUID</key>
-						<string>96905DE4-160A-4A7D-A5D1-EEE6BA15B7CD</string>
-						<key>Type</key>
-						<string>ActionOutput</string>
+						<key>Value</key>
+						<dict>
+							<key>OutputName</key>
+							<string>Dictionary Value</string>
+							<key>OutputUUID</key>
+							<string>96905DE4-160A-4A7D-A5D1-EEE6BA15B7CD</string>
+							<key>Type</key>
+							<string>ActionOutput</string>
+						</dict>
+						<key>WFSerializationType</key>
+						<string>WFTextTokenAttachment</string>
 					</dict>
 				</dict>
 			</dict>
@@ -10860,12 +10890,17 @@ Return ONLY valid JSON, no markdown, no explanations.</string>
 					<string>Variable</string>
 					<key>Variable</key>
 					<dict>
-						<key>OutputName</key>
-						<string>Dictionary Value</string>
-						<key>OutputUUID</key>
-						<string>16BDD7CE-3079-4829-868A-1CC98CC4168D</string>
-						<key>Type</key>
-						<string>ActionOutput</string>
+						<key>Value</key>
+						<dict>
+							<key>OutputName</key>
+							<string>Dictionary Value</string>
+							<key>OutputUUID</key>
+							<string>16BDD7CE-3079-4829-868A-1CC98CC4168D</string>
+							<key>Type</key>
+							<string>ActionOutput</string>
+						</dict>
+						<key>WFSerializationType</key>
+						<string>WFTextTokenAttachment</string>
 					</dict>
 				</dict>
 			</dict>
@@ -10962,10 +10997,15 @@ Return ONLY valid JSON, no markdown, no explanations.</string>
 					<string>Variable</string>
 					<key>Variable</key>
 					<dict>
-						<key>Type</key>
-						<string>Variable</string>
-						<key>VariableName</key>
-						<string>actors</string>
+						<key>Value</key>
+						<dict>
+							<key>Type</key>
+							<string>Variable</string>
+							<key>VariableName</key>
+							<string>actors</string>
+						</dict>
+						<key>WFSerializationType</key>
+						<string>WFTextTokenAttachment</string>
 					</dict>
 				</dict>
 			</dict>
