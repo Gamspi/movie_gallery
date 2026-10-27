@@ -48,7 +48,8 @@
 - `GET /v1.5/movie/search?query=<q>&limit=5` → `{docs,total,page,pages}`; doc: `id, name, enName, alternativeName, type, year, description, shortDescription, movieLength, externalId{imdb,tmdb,kpHD}, poster{url,previewUrl}, rating{kp,imdb,…}, genres[{name,slug,id}], releaseYears, isSeries, seriesLength, ageRating, status`.
 - `GET /v1.5/movie/{id}` → то же + `similarMovies[]`, `seasonsInfo[{number,episodesCount}]`, `premiere{world,russia,digital,cinema}`, `watchability`, `sequelsAndPrequels`.
 - `GET /v1.5/movie?externalId.imdb=<tt>&limit=1` → `{docs:[полная запись]}`.
-- `GET /v1.5/season?movieId=<id>&limit=50&selectFields=number&selectFields=episodesCount` → `{docs:[{number, episodesCount, airDate?}]}` — сезоны (в `movie/{id}` `seasonsInfo` обычно null).
+- `GET /v1.5/season?movieId=<id>&limit=50` (без `selectFields`) → `{docs:[{number, episodesCount, episodes:[{number, airDate}], …}]}` — сезоны и даты серий (в `movie/{id}` `seasonsInfo` обычно null); с `selectFields=number&selectFields=episodesCount` — только счётчики, без `episodes`.
+- Проверено 2026-10-27: `movie/{id}` отдаёт `persons[]` `{name, enName, enProfession, profession, photo}`; `videos.trailers` пуст/null → трейлер ищем через YouTube search; `status` всегда null → статус сериала из `releaseYears[0].end` (0 = идёт).
 - Проверено живым запросом 2026-10-23: `enName` обычно пуст/null (англ. название — в `alternativeName`); `status` обычно null; `releaseYears[].end` = 0 у идущего сериала; `similarMovies[]` без `enName`, `year` бывает пропущен, `rating` только `kp`; ошибка ключа — 401 `{message, statusCode}`; жанры — 32 шт. в `/v1.5/dictionary/genres`, все есть в `genre_map`.
 - Рейтинг `0` → null.
 

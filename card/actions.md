@@ -7,7 +7,8 @@
 Приёмы:
 
 - **Сброс переменной**: `Nothing` → `Set variable x` (поле «to» пустое). Нужен для списков (`Add to Variable` копит между оборотами Repeat) и флагов в начале каждого оборота.
-- **Меню → `act`**: пункты меню только ставят `act`, сами действия — ниже отдельными If. Так общие пункты (ссылки, Постер, Похожие…) не дублируются в двух меню.
+- **Меню → `act`**: пункты только ставят `act`, сами действия — ниже отдельными If. Так общие пункты (ссылки, Постер, Похожие…) не дублируются.
+- **Скрытие пунктов**: Choose from Menu статичен, поэтому главное меню — **Choose from List** по списку `menuItems`, в который неприменимые пункты не добавляются (If → Add to Variable). Метка → `act` через словарь `menuMap`.
 - **Число из словаря** (Data Jar, ответ API, `Repeat Item: поле`) приходит без типа — If не даёт сравнений «больше/меньше». Перед сравнением: `Number [x]` → сравнивать `[Number]`.
 - **Вложенный Repeat** внутри `Repeat 50`: iOS может назвать плашки `Repeat Item 2` / `Repeat Index 2` — бери плашку своего Repeat.
 
@@ -58,6 +59,36 @@ Dictionary
     dropped    Text  Бросил
     dismissed  Text  Не предлагать
 Set variable statusLabels to [Dictionary]
+
+// ── Шаг 8a. Метки статуса сериала ──
+Dictionary
+    ongoing    Text  Идёт
+    completed  Text  Завершён
+    cancelled  Text  Отменён
+Set variable releaseLabels to [Dictionary]
+
+// ── Шаг 8b. Пункт меню → действие ──
+Dictionary
+    Оценить            Text  rate
+    Статус             Text  status
+    Статус сериала     Text  rstatus
+    Теги               Text  tags
+    Заметка            Text  note
+    Спросить ИИ        Text  ask
+    Кинопоиск          Text  kp
+    IMDb               Text  imdb
+    Трейлер            Text  trailer
+    Постер             Text  poster
+    Похожие            Text  similar
+    Поделиться         Text  share
+    Обновить данные    Text  update
+    В календарь        Text  calendar
+    Удалить            Text  delete
+    Назад              Text  back
+    Добавить в список  Text  add
+    Смотрел + оценка   Text  watched
+    Не предлагать      Text  dismiss
+Set variable menuMap to [Dictionary]
 
 // ── Шаг 9. Вход ──
 Get Value for "key" in [Shortcut Input]
@@ -151,6 +182,35 @@ Repeat 50 times
         Nothing
         Set variable lines
 
+        // 14.0 Флаги: будущая премьера, сериал
+        Number 0
+        Set variable isFuture to [Number]
+        Number 0
+        Set variable isSeries to [Number]
+        Get Value for "premiere_date" in [rec]
+        Set variable fDate to [Dictionary Value]
+        // нет premiere_date → 1 января года выхода (год больше текущего = будущая премьера)
+        If [fDate] does not have any value
+            Get Value for "year" in [rec]
+            If [Dictionary Value] has any value
+                Text "[Dictionary Value]-01-01"
+                Set variable fDate to [Text]
+            End If
+        End If
+        If [fDate] has any value
+            Get dates from [fDate]
+            If [Dates] is after [Current Date]
+                Number 1
+                Set variable isFuture to [Number]
+            End If
+        End If
+        Get Value for "type" in [rec]
+        Set variable recType to [Dictionary Value]
+        If Any are true: [recType] is "tv_show", [recType] is "animated_series", [recType] is "anime"
+            Number 1
+            Set variable isSeries to [Number]
+        End If
+
         // 14.1 Названия
         Text "[rec: title_ru] / [rec: title_en]"
         Add [Text] to lines
@@ -189,6 +249,14 @@ Repeat 50 times
         If [Dictionary Value] has any value
             Combine [Dictionary Value] with Custom ", "
             Add [Combined Text] to lines
+        End If
+
+        // 14.3a В ролях (в записи уже первые 5)
+        Get Value for "actors" in [rec]
+        If [Dictionary Value] has any value
+            Combine [Dictionary Value] with Custom ", "
+            Text "В ролях: [Combined Text]"
+            Add [Text] to lines
         End If
 
         // 14.4 Рейтинги
@@ -237,6 +305,23 @@ Repeat 50 times
             End If
         End If
 
+        // 14.5a Сериал: статус выхода и следующая серия
+        If [isSeries] is 1
+            Get Value for "release_status" in [rec]
+            If [Dictionary Value] has any value
+                Get Value for [Dictionary Value] in [releaseLabels]
+                If [Dictionary Value] has any value
+                    Text "Сериал: [Dictionary Value]"
+                    Add [Text] to lines
+                End If
+            End If
+            Get Value for "next_episode" in [rec]
+            If [Dictionary Value] has any value
+                Text "Следующая: [Dictionary Value]"
+                Add [Text] to lines
+            End If
+        End If
+
         // 14.6 Теги
         Get Value for "tags" in [rec]
         If [Dictionary Value] has any value
@@ -261,115 +346,77 @@ Repeat 50 times
         Combine [lines] with New Lines
         Set variable cardText to [Combined Text]
 
-        // 14.9 Меню сохранённой
+        // 14.9 Пункты меню (неприменимые не добавляются)
+        Nothing
+        Set variable menuItems
         If [saved] is "yes"
-            Choose from Menu   (Prompt: [cardText])
-                • Оценить
-                    Text "rate"
-                    Set variable act to [Text]
-                • Статус
-                    Text "status"
-                    Set variable act to [Text]
-                • Теги
-                    Text "tags"
-                    Set variable act to [Text]
-                • Заметка
-                    Text "note"
-                    Set variable act to [Text]
-                • Спросить ИИ
-                    Text "ask"
-                    Set variable act to [Text]
-                • Кинопоиск
-                    Text "kp"
-                    Set variable act to [Text]
-                • IMDb
-                    Text "imdb"
-                    Set variable act to [Text]
-                • Трейлер
-                    Text "trailer"
-                    Set variable act to [Text]
-                • Постер
-                    Text "poster"
-                    Set variable act to [Text]
-                • Похожие
-                    Number 1
-                    Set variable doSimilar to [Number]
-                • Поделиться
-                    Text "share"
-                    Set variable act to [Text]
-                • Обновить данные
-                    Text "update"
-                    Set variable act to [Text]
-                • В календарь
-                    Text "calendar"
-                    Set variable act to [Text]
-                • Удалить
-                    Text "delete"
-                    Set variable act to [Text]
-                • Назад
-                    Text "back"
-                    Set variable act to [Text]
-            End Menu
-
-        // 14.10 Меню несохранённой
+            If [isFuture] is not 1
+                Text "Оценить"
+                Add [Text] to menuItems
+            End If
+            Text "Статус"
+            Add [Text] to menuItems
+            If [isSeries] is 1
+                Text "Статус сериала"
+                Add [Text] to menuItems
+            End If
+            // каждый пункт: Text "…" → Add [Text] to menuItems
+            Теги · Заметка · Спросить ИИ · Кинопоиск · IMDb · Трейлер · Постер · Похожие · Поделиться · Обновить данные
+            If [isFuture] is 1
+                Text "В календарь"
+                Add [Text] to menuItems
+            End If
+            Удалить · Назад
         Otherwise
-            Choose from Menu   (Prompt: [cardText])
-                • Добавить в список
-                    Text "add"
-                    Set variable act to [Text]
-                • Смотрел + оценка
-                    Text "watched"
-                    Set variable act to [Text]
-                • Не предлагать
-                    Text "dismiss"
-                    Set variable act to [Text]
-                • Спросить ИИ
-                    Text "ask"
-                    Set variable act to [Text]
-                • Кинопоиск
-                    Text "kp"
-                    Set variable act to [Text]
-                • IMDb
-                    Text "imdb"
-                    Set variable act to [Text]
-                • Трейлер
-                    Text "trailer"
-                    Set variable act to [Text]
-                • Постер
-                    Text "poster"
-                    Set variable act to [Text]
-                • Похожие
-                    Number 1
-                    Set variable doSimilar to [Number]
-                • Поделиться
-                    Text "share"
-                    Set variable act to [Text]
-                • Назад
-                    Text "back"
-                    Set variable act to [Text]
-            End Menu
+            Добавить в список
+            If [isFuture] is not 1
+                Text "Смотрел + оценка"
+                Add [Text] to menuItems
+            End If
+            Не предлагать · Спросить ИИ · Кинопоиск · IMDb · Трейлер · Постер · Похожие · Поделиться · Назад
+        End If
+
+        // 14.10 Выбор пункта → act
+        Choose from [menuItems]   (Prompt: [cardText])
+        Get Value for [Chosen Item] in [menuMap]
+        Set variable act to [Dictionary Value]
+        If [act] is "similar"
+            Number 1
+            Set variable doSimilar to [Number]
         End If
     End If
 
     // ── Шаг 15. Статус (до «Оценить»: может включить оценку) ──
     If [act] is "status"
-        Choose from Menu   (Prompt: "Статус")
-            • Не смотрел
-                Text "unwatched"
-                Set variable newStatus to [Text]
-            • Смотрю
-                Text "watching"
-                Set variable newStatus to [Text]
-            • Смотрел
-                Text "watched"
-                Set variable newStatus to [Text]
-            • Бросил
-                Text "dropped"
-                Set variable newStatus to [Text]
-            • Не предлагать
-                Text "dismissed"
-                Set variable newStatus to [Text]
-        End Menu
+        // будущая премьера — только «Не смотрел» и «Не предлагать»
+        If [isFuture] is 1
+            Choose from Menu   (Prompt: "Статус")
+                • Не смотрел
+                    Text "unwatched"
+                    Set variable newStatus to [Text]
+                • Не предлагать
+                    Text "dismissed"
+                    Set variable newStatus to [Text]
+            End Menu
+        Otherwise
+            Choose from Menu   (Prompt: "Статус")
+                • Не смотрел
+                    Text "unwatched"
+                    Set variable newStatus to [Text]
+                • Смотрю
+                    Text "watching"
+                    Set variable newStatus to [Text]
+                • Смотрел
+                    Text "watched"
+                    Set variable newStatus to [Text]
+                • Бросил
+                    Text "dropped"
+                    Set variable newStatus to [Text]
+                • Не предлагать
+                    Text "dismissed"
+                    Set variable newStatus to [Text]
+            End Menu
+        End If
         Date   (Current Date)
         Format [Date] with ISO 8601
         Set variable now to [Formatted Date]
@@ -390,6 +437,26 @@ Repeat 50 times
                 End Menu
             End If
         End If
+    End If
+
+    // ── Шаг 15a. Статус сериала ──
+    If [act] is "rstatus"
+        Choose from Menu   (Prompt: "Статус сериала")
+            • Идёт
+                Text "ongoing"
+                Set variable newRS to [Text]
+            • Завершён
+                Text "completed"
+                Set variable newRS to [Text]
+            • Отменён
+                Text "cancelled"
+                Set variable newRS to [Text]
+        End Menu
+        Date   (Current Date)
+        Format [Date] with ISO 8601
+        Set variable now to [Formatted Date]
+        Set Value [newRS] for "movies.items.[key].release_status" (Data Jar)
+        Set Value [now] for "movies.items.[key].updated_date" (Data Jar)
     End If
 
     // ── Шаг 16. Оценить ──
@@ -572,6 +639,9 @@ Repeat 50 times
         Run Shortcut "Movie Lookup" with [lkIn]
         Set variable upd to [Shortcut Result]
         If [upd] has any value
+            // cancelled (вручную) автообновление не перезаписывает
+            Get Value for "release_status" in [rec]
+            Set variable oldRS to [Dictionary Value]
             // только непустые поля, без пользовательских и key
             List
                 title_en
@@ -587,6 +657,7 @@ Repeat 50 times
                 premiere_date
                 seasons_count
                 release_status
+                actors
                 description
                 poster_url
                 source
@@ -597,6 +668,110 @@ Repeat 50 times
                     Set Value [Dictionary Value] for "movies.items.[key].[Repeat Item]" (Data Jar)
                 End If
             End Repeat
+            If [oldRS] is "cancelled"
+                Text "cancelled"
+                Set Value [Text] for "movies.items.[key].release_status" (Data Jar)
+            End If
+
+            // 25.1 Сериал: seasons_count + next_episode (+1 запрос poiskkino)
+            Get Value for "movies.items.[key]" (Data Jar)
+            Set variable frRec to [Value]
+            Get Value for "type" in [frRec]
+            Set variable frType to [Dictionary Value]
+            Get Value for "kinopoisk_id" in [frRec]
+            Set variable frKp to [Dictionary Value]
+            Number 0
+            Set variable isSer to [Number]
+            If Any are true: [frType] is "tv_show", [frType] is "animated_series", [frType] is "anime"
+                Number 1
+                Set variable isSer to [Number]
+            End If
+            If [isSer] is 1
+                If [frKp] has any value
+                    Text "https://api.poiskkino.dev/v1.5/season?movieId=[frKp]&limit=50"
+                    Get contents of [Text]   (Method: GET, Headers: X-API-KEY = [apiKey])
+                    Set variable sr to [Contents of URL]
+                    Get Value for "docs" in [sr]
+                    Set variable docs to [Dictionary Value]
+                    If [docs] has any value
+                        // даты сравниваем числом yyyyMMdd
+                        Date   (Current Date)
+                        Format [Date] with Custom "yyyyMMdd"
+                        Number [Formatted Date]
+                        Set variable nowN to [Number]
+                        Number 0
+                        Set variable maxS to [Number]
+                        Number 99999999
+                        Set variable nextKey to [Number]
+                        Number 99999999
+                        Set variable seasonKey to [Number]
+                        Repeat with each item in [docs]
+                            Get Value for "number" in [Repeat Item 2]
+                            Number [Dictionary Value]
+                            Set variable sn to [Number]
+                            Get Value for "airDate" in [Repeat Item 2]
+                            If [Dictionary Value] has any value
+                                // 2026-08-02T00:00:00.000Z → 2026-08-02 → 20260802
+                                Replace "T.*$" with "" in [Dictionary Value]   (Regular Expression: on)
+                                Replace "-" with "" in [Updated Text]
+                                Number [Updated Text]
+                                If [Number] is greater than [nowN]
+                                    // будущий сезон — запасной вариант для next_episode
+                                    If [Number] is less than [seasonKey]
+                                        Set variable seasonKey to [Number]
+                                        Text "Сезон [sn] — <airDate без времени>"
+                                        Set variable seasonText to [Text]
+                                    End If
+                                Otherwise
+                                    // вышедший — для seasons_count
+                                    If [sn] is greater than [maxS]
+                                        Set variable maxS to [sn]
+                                    End If
+                                End If
+                            End If
+                            Get Value for "episodes" in [Repeat Item 2]
+                            If [Dictionary Value] has any value
+                                Repeat with each item in [Dictionary Value]
+                                    Get Value for "airDate" in [Repeat Item 3]
+                                    If [Dictionary Value] has any value
+                                        Replace "T.*$" with "" in [Dictionary Value]   (Regular Expression: on)
+                                        Replace "-" with "" in [Updated Text]
+                                        Number [Updated Text]
+                                        If [Number] is greater than [nowN]
+                                            If [Number] is less than [nextKey]
+                                                Set variable nextKey to [Number]
+                                                Get Value for "number" in [Repeat Item 3]
+                                                Text "S[sn]E[Dictionary Value] — <airDate без времени>"
+                                                Set variable nextText to [Text]
+                                            End If
+                                        End If
+                                    End If
+                                End Repeat
+                            End If
+                        End Repeat
+                        // seasons_count — номер последнего вышедшего сезона (> 0); нет — старое не трогаем
+                        If [maxS] is greater than 0
+                            Set Value [maxS] for "movies.items.[key].seasons_count" (Data Jar)
+                        End If
+                        // next_episode: серия → иначе сезон → иначе убрать поле
+                        If [nextKey] is less than 99999999
+                            Set Value [nextText] for "movies.items.[key].next_episode" (Data Jar)
+                        Otherwise
+                            If [seasonKey] is less than 99999999
+                                Set Value [seasonText] for "movies.items.[key].next_episode" (Data Jar)
+                            Otherwise
+                                Get Value for "next_episode" in [frRec]
+                                If [Dictionary Value] has any value
+                                    Delete Value for "movies.items.[key].next_episode" (Data Jar)
+                                End If
+                            End If
+                        End If
+                    Otherwise
+                        // ответ без docs = ошибка API
+                        Show notification "poiskkino: [sr: statusCode] [sr: message]"
+                    End If
+                End If
+            End If
             Show notification "Обновлено"
         End If
     End If

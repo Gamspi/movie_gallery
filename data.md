@@ -58,7 +58,9 @@ Slug для `ai-`:
 | `age_rating` | Number / null | `ageRating` | 0, 6, 12, 16, 18 |
 | `premiere_date` | Text / null | `premiere.world` → `premiere.russia` | ISO-дата `YYYY-MM-DD` |
 | `seasons_count` | Number / null | `seasonsInfo` (обычно null) → заполняет Movie Seasons через `/v1.5/season` | только сериалы; номер последнего сезона |
-| `release_status` | Text / null | `status` (обычно null) | `filming` \| `pre-production` \| `completed` \| `announced` \| `post-production` |
+| `release_status` | Text / null | вычисляется из `releaseYears` (только сериалы); `cancelled` — пользователь | см. [Release status](#release-status) |
+| `next_episode` | Text / null | Movie Seasons / «Обновить данные» через `/v1.5/season` | только сериалы; ближайшая будущая дата: `S3E5 — 2026-11-12` или `Сезон 4 — 2027-03-01`; нет будущих дат → поле убрать |
+| `actors` | Array of Text (1 шт. — Text) | `persons[]` с `enProfession` = `actor`, первые 5: `name`, иначе `enName` | для карточки и превью Add |
 | `description` | Text | `shortDescription` → первое предложение `description` | кратко |
 | `poster_url` | Text / null | `poster.url` | для Quick Look |
 | `source` | Text | вычисляется | `poiskkino` \| `ai` |
@@ -70,7 +72,7 @@ Slug для `ai-`:
 
 **null** в таблице = ключа в словаре нет (Dictionary в Shortcuts не хранит null). Проверка — `If … has any value`.
 
-Пользовательские поля (не перезаписываются при «Обновить данные»; все остальные — перезаписываются): `my_rating`, `status`, `tags`, `note`, `origin`, `added_date`, `watched_date`, `key`.
+Пользовательские поля (не перезаписываются при «Обновить данные»; все остальные — перезаписываются): `my_rating`, `status`, `tags`, `note`, `origin`, `added_date`, `watched_date`, `key`. Исключение — `release_status` = `cancelled` (поставлен вручную): автообновление его не трогает.
 
 Movie Lookup возвращает запись без `status`, `origin`, `added_date`, `watched_date`, `my_rating`, `tags`, `note` — их ставит вызывающий.
 
@@ -111,7 +113,9 @@ Movie Lookup возвращает запись без `status`, `origin`, `added
   "age_rating": 18,
   "premiere_date": "2022-02-17",
   "seasons_count": 2,
-  "release_status": "filming",
+  "release_status": "ongoing",
+  "next_episode": "S3E5 — 2026-11-12",
+  "actors": ["Адам Скотт", "Бритт Лоуэр", "Патрисия Аркетт"],
   "description": "Сотрудникам корпорации разделили память на рабочую и личную.",
   "poster_url": "https://…",
   "source": "poiskkino",
@@ -133,6 +137,22 @@ Movie Lookup возвращает запись без `status`, `origin`, `added
 | `watched` | Смотрел | посмотрено |
 | `dropped` | Бросил | бросил |
 | `dismissed` | Не предлагать | исключено из рекомендаций |
+
+**Будущая премьера** (ещё не вышел): `premiere_date` есть и > Current Date (через Get Dates from Input); нет `premiere_date` → `year` > текущего года. Такой записи доступны только `unwatched` и `dismissed`: в меню статусов нет «Смотрю», «Смотрел», «Бросил», нет «Оценить» / «Смотрел + оценка». В рекомендации (Recommend) не попадает.
+
+**Новый сезон у «Смотрел»**: Movie Seasons переводит `watched` → `watching`, чтобы сериал снова попал в рекомендации.
+
+### Release status
+
+Только сериалы ([Type](#type): `tv_show`, `animated_series`, `anime`). poiskkino `status` почти всегда null (проверено 2026-10-27) — не используется.
+
+| Значение | Метка (карточка) | Откуда |
+|---|---|---|
+| `ongoing` | Идёт | `releaseYears[0].end` = 0 |
+| `completed` | Завершён | `releaseYears[0].end` > 0 |
+| `cancelled` | Отменён | только вручную в Movie Card; автообновление не перезаписывает |
+
+Нет `releaseYears` → поле не ставить. Movie Seasons пропускает `completed` и `cancelled` (если `seasons_count` уже есть).
 
 ### Type
 
@@ -267,7 +287,17 @@ Action, Adventure, Biography, Comedy, Concert, Crime, Documentary, Drama, Family
 | `length` | сериал: `seriesLength`, иначе `movieLength` |
 | `premiere_date` | `premiere.world`, иначе `premiere.russia`; Get Dates from Input → Format Date `yyyy-MM-dd` |
 | `seasons_count` | Count `seasonsInfo`, если не null (обычно null — тогда пусто, заполнит Movie Seasons) |
+| `release_status` | сериал: Get Value `releaseYears` → If has any value → Get Item at Index 1 → Get Value `end` → Number: 0 → `ongoing`, > 0 → `completed`. Старое значение `cancelled` — не трогать |
+| `actors` | Repeat with Each `persons`: If `enProfession` (Type → Text) is `actor` и Count `actors` < 5 → Add to Variable `name` (нет → `enName`). Пусто → поле не ставить |
 | `description` | `shortDescription`, иначе первое предложение `description` (Split Text по `. ` → первый элемент + `.`) |
+
+## Сезоны poiskkino → `next_episode`, `seasons_count`
+
+`GET /v1.5/season?movieId=<kinopoisk_id>&limit=50` (без `selectFields` — нужны `episodes`) → `docs[{number, airDate, episodesCount, episodes[{number, airDate}]}]`; `airDate` — `2026-08-02T00:00:00.000Z` (проверено 2026-10-27), бывает пусто.
+
+- `seasons_count` — максимум `number > 0` среди сезонов, у которых `airDate` есть и ≤ Current Date (вышедшие). Анонсированный без даты или с будущей датой не считается.
+- `next_episode` — минимум `airDate > Current Date` среди `episodes[]` всех сезонов → `S<season>E<episode> — <yyyy-MM-dd>`. Нет будущих серий, но есть сезон с `airDate > Current Date` → `Сезон <number> — <yyyy-MM-dd>`. Ничего → убрать поле.
+- Минимум — перебором (как [топ](#топ-без-сортировки), N=1, сравнение «меньше»).
 
 ## Топ без сортировки
 

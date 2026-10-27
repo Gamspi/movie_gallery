@@ -2,7 +2,7 @@
 
 ## Назначение
 
-Суб-шорткат: карточка одного тайтла и хаб действий — оценка, статус, теги, заметка, ссылки, постер, похожие, поделиться, обновление данных, удаление. Работает для сохранённой записи и для несохранённой (рекомендация ИИ / похожие).
+Суб-шорткат: карточка одного тайтла и хаб действий — оценка, статус, статус сериала, теги, заметка, ссылки, постер, похожие, поделиться, обновление данных, удаление. Работает для сохранённой записи и для несохранённой (рекомендация ИИ / похожие).
 
 ## Вход / Выход
 
@@ -32,9 +32,9 @@ flowchart TD
     Lazy -->|да| LU[Run Movie Lookup с подсказкой] --> R
     Lazy -->|нет| R
     Load --> R[Repeat: собрать текст карточки]
-    R --> Menu[Choose from Menu]
-    Menu -->|Оценить/Статус/Теги/Заметка| Save[Set Value movies.items.key] --> R
-    Menu -->|Обновить данные| Upd[Run Movie Lookup kinopoisk_id] --> Save
+    R --> Menu[Choose from List: пункты по условиям]
+    Menu -->|Оценить/Статус/Статус сериала/Теги/Заметка| Save[Set Value movies.items.key] --> R
+    Menu -->|Обновить данные| Upd[Run Movie Lookup kinopoisk_id; сериал: +1 запрос season] --> Save
     Menu -->|Постер| QL[Quick Look] --> R
     Menu -->|Кинопоиск/IMDb/Трейлер| Web[Show Web Page] --> R
     Menu -->|Похожие| Sim[similarMovies или ИИ] --> OutS[Stop and Output similar]
@@ -64,17 +64,20 @@ flowchart TD
       title_ru / title_en
       year · <Get Dictionary Value `type` из `typeLabels`> · length мин · age_rating+
       genres (через запятую)
+      В ролях: actors (через запятую, до 5)
       IMDb x · КП y · мой балл z | прогноз p
       Статус: <метка status>
+      Сериал: <Идёт | Завершён | Отменён>   — только сериал, метка release_status
+      Следующая: next_episode               — только если поле есть
       Теги: tags
       Заметка: note
       description
       ```
       Метки — из таблиц [data.md](../data.md#перечисления) через **Dictionary** + **Get Dictionary Value**. `мой балл` — если `my_rating`; `прогноз` — если передан `predicted`.
-   2. **If** `saved` = `yes` → **Choose from Menu** (prompt = Text карточки) с пунктами:
-      Оценить · Статус · Теги · Заметка · Спросить ИИ · Кинопоиск · IMDb · Трейлер · Постер · Похожие · Поделиться · Обновить данные · В календарь · Удалить · Назад.
-      Пункт «В календарь» имеет смысл только при будущей премьере: внутри пункта **If** Get Dates from Input `premiere_date` > Current Date, иначе **Show Notification** «Премьера уже была» (Choose from Menu не умеет скрывать пункты динамически).
-   3. Otherwise → **Choose from Menu**: Добавить в список · Смотрел + оценка · Не предлагать · Спросить ИИ · Кинопоиск · IMDb · Трейлер · Постер · Похожие · Поделиться · Назад.
+   2. **Флаги** (до меню): `isFuture` = 1 при [будущей премьере](../data.md#status) (`premiere_date` > Current Date через Get Dates from Input; нет даты — 1 января года `year` > Current Date), `isSeries` = 1 для `tv_show` / `animated_series` / `anime`.
+   3. **Меню** — **Choose from Menu** статичен и не умеет скрывать пункты, поэтому здесь **Choose from List** (prompt = Text карточки) по списку `menuItems`: неприменимые пункты в список не добавляются (If → Add to Variable). Выбранная метка → `act` через словарь `menuMap` (метка → код действия). Состав:
+      - `saved` = `yes`: Оценить (нет при `isFuture`) · Статус · Статус сериала (только `isSeries`) · Теги · Заметка · Спросить ИИ · Кинопоиск · IMDb · Трейлер · Постер · Похожие · Поделиться · Обновить данные · В календарь (только при `isFuture`) · Удалить · Назад.
+      - Otherwise: Добавить в список · Смотрел + оценка (нет при `isFuture`) · Не предлагать · Спросить ИИ · Кинопоиск · IMDb · Трейлер · Постер · Похожие · Поделиться · Назад.
 
    Перед циклом: вход `auto` = `similar` → сразу раздел [Похожие](#похожие), без меню.
 
@@ -85,17 +88,18 @@ flowchart TD
 | Пункт | Действия |
 |---|---|
 | Оценить | **Ask for Input** (Number, «Оценка 1–10»); If <1 или >10 → Show Notification «1–10», ничего не сохранять. Иначе **Set Value** `movies.items.<key>.my_rating`, `movies.items.<key>.status` = `watched`, `movies.items.<key>.watched_date` = Current Date (ISO), `movies.items.<key>.updated_date` → [после оценки](#после-оценки). |
-| Статус | **Choose from Menu** Не смотрел / Смотрю / Смотрел / Бросил / Не предлагать → **Set Value** `movies.items.<key>.status` + `updated_date`. «Смотрел» → ещё `watched_date` = Current Date (если пусто); без `my_rating` → **Choose from Menu** «Оценить сейчас?» Да / Нет; Да → Оценить (те же шаги). |
+| Статус | **Choose from Menu** Не смотрел / Смотрю / Смотрел / Бросил / Не предлагать (при `isFuture` — отдельное меню только Не смотрел / Не предлагать) → **Set Value** `movies.items.<key>.status` + `updated_date`. «Смотрел» → ещё `watched_date` = Current Date (если пусто); без `my_rating` → **Choose from Menu** «Оценить сейчас?» Да / Нет; Да → Оценить (те же шаги). |
+| Статус сериала | Только `isSeries`. **Choose from Menu** Идёт / Завершён / Отменён → **Set Value** `movies.items.<key>.release_status` (`ongoing` / `completed` / `cancelled`) + `updated_date` ([Release status](../data.md#release-status)). |
 | Теги | **Choose from List** `tagsList`, Select Multiple, pre-selection невозможна → в prompt показать текущие теги. Результат есть → **Set Value** `movies.items.<key>.tags`; пусто → **Delete Value** `movies.items.<key>.tags`. |
 | Заметка | **Ask for Input** Text, Default Answer = `note` → **Set Value** `movies.items.<key>.note`. |
 | Спросить ИИ | `aiOn` = `false` → «ИИ выключен». Иначе **Ask for Input** «Что спросить?» → **Use Model** (Private Cloud Compute, Output: Text, **Follow Up** on) — промпт «Спросить ИИ». Follow Up открывает чат: можно задавать вопросы дальше; закрыл — снова карточка. |
 | Кинопоиск | If `kinopoisk_id` → **Show Web Page** `https://www.kinopoisk.ru/film/<kinopoisk_id>/`. Иначе Show Notification «Нет id Кинопоиска». |
 | IMDb | If `imdb_id` → **Show Web Page** `https://www.imdb.com/title/<imdb_id>/`. Иначе Show Notification «Нет IMDb id». |
 | Трейлер | **Text** `title_en year trailer` → **URL Encode** → **Show Web Page** `https://www.youtube.com/results?search_query=<encoded>`. |
-| Постер | If `poster_url` → **Quick Look** `poster_url` (через **Get Contents of URL** → Quick Look, чтобы показать картинку). Иначе Show Notification «Нет постера». |
+| Постер | If `poster_url` → **Get Contents of URL** `poster_url` → **Quick Look** (картинка). Иначе Show Notification «Нет постера». |
 | Похожие | см. ниже. |
 | Поделиться | **Text**: `title_ru / title_en (year)`, `IMDb x · КП y`, ссылки Кинопоиск/IMDb → **Share**. |
-| Обновить данные | If `kinopoisk_id` → **Dictionary** `{kinopoisk_id}`, иначе `{title_en,title_ru,year,type}` → **Run Shortcut** Movie Lookup → результат пуст (отмена / API недоступно) → ничего не писать. Есть → **Set Value** в `movies.items.<key>` все **непустые** поля результата (пустое не затирает старое, напр. `seasons_count`), **кроме** пользовательских ([data.md](../data.md#запись-moviesitemskey)) и `key`: `title_en`, `title_ru`, `year`, `type`, `genres`, `imdb_id`, `kinopoisk_id`, `ratings`, `length`, `age_rating`, `premiere_date`, `seasons_count`, `release_status`, `description`, `poster_url`, `source`, `updated_date`. Show Notification «Обновлено». |
+| Обновить данные | If `kinopoisk_id` → **Dictionary** `{kinopoisk_id}`, иначе `{title_en,title_ru,year,type}` → **Run Shortcut** Movie Lookup → результат пуст (отмена / API недоступно) → ничего не писать. Есть → **Set Value** в `movies.items.<key>` все **непустые** поля результата (пустое не затирает старое, напр. `seasons_count`), **кроме** пользовательских ([data.md](../data.md#запись-moviesitemskey)) и `key`: `title_en`, `title_ru`, `year`, `type`, `genres`, `imdb_id`, `kinopoisk_id`, `ratings`, `length`, `age_rating`, `premiere_date`, `seasons_count`, `release_status`, `actors`, `description`, `poster_url`, `source`, `updated_date`. Если `release_status` был `cancelled` — вернуть `cancelled` после записи (поставлен вручную, [data.md](../data.md#release-status)). **Сериал** (по свежему `type`): ещё **Get Contents of URL** `https://api.poiskkino.dev/v1.5/season?movieId=<kinopoisk_id>&limit=50` (`X-API-KEY`, без `selectFields`) → нет `docs` → **Show Notification** `poiskkino: <statusCode> <message>`, поля сезонов не трогать; иначе `seasons_count` (макс. `number` > 0 среди сезонов с `airDate` ≤ сегодня; нет — старое не трогать) и `next_episode` (ближайшая будущая серия `S3E5 — 2026-11-12`, иначе будущий сезон `Сезон 4 — 2027-03-01`, иначе **Delete Value** поля) — [алгоритм](../data.md#сезоны-poiskkino--next_episode-seasons_count); даты сравниваются числом `yyyyMMdd` (`airDate` без времени). Show Notification «Обновлено». |
 | В календарь | If **Get Dates from Input** `premiere_date` > Current Date → **Find Calendar Events** where Title is «Премьера: title_ru», Limit 1: есть → **Show Notification** «Премьера уже в Календаре»; нет → **Add New Event**: All Day, Start/End = `premiere_date`, Title «Премьера: title_ru», календарь по умолчанию. Премьера прошла → «Премьера уже была»; `premiere_date` пуст → «Нет даты премьеры». |
 | Удалить | **Choose from Menu** «Удалить title_ru?» Да / Нет. Да → **Delete Value** `movies.items.<key>` → **Stop and Output** `{action:"back"}`. |
 | Назад | **Stop and Output** **Dictionary** `{action: "back"}`. |
@@ -162,7 +166,7 @@ User question: [question]
 ## Data Jar
 
 Читает: `movies.settings`, `movies.items.<key>`, `movies.items` (для исключений в «Похожие» и `[favorites]`).
-Пишет: `movies.items.<key>.my_rating`, `.status`, `.watched_date`, `.tags`, `.note`, `.updated_date`, поля из «Обновить данные»; `movies.items.<key>` целиком при сохранении несохранённой; Delete Value `movies.items.<key>`.
+Пишет: `movies.items.<key>.my_rating`, `.status`, `.release_status`, `.watched_date`, `.tags`, `.note`, `.updated_date`, поля из «Обновить данные» (+ `.seasons_count`, `.next_episode` у сериалов); `movies.items.<key>` целиком при сохранении несохранённой; Delete Value `movies.items.<key>`.
 
 ## Расход запросов poiskkino
 
@@ -170,13 +174,13 @@ User question: [question]
 |---|---|
 | открыть сохранённую | 0 |
 | открыть несохранённую (ленивый Lookup) | 1–2 (с `kinopoisk_id` — 1) |
-| Обновить данные | 1 (без `kinopoisk_id` — ~2) |
+| Обновить данные | 1 (без `kinopoisk_id` — ~2); сериал: +1 (`/v1.5/season`) |
 | Похожие | 1 (ИИ-fallback — 0) |
 
 ## Заметки / ограничения
 
 - Ссылки — **Show Web Page** (встроенный Safari): Done → снова карточка. Open URLs не использовать.
-- Choose from Menu не скрывает пункты по условию — неприменимые пункты внутри проверяют условие и показывают уведомление.
+- Choose from Menu не скрывает пункты по условию — главное меню собрано как Choose from List из `menuItems` (неприменимые не добавляются). Подменю (статусы, статус сериала, «Удалить?») — обычные Choose from Menu; меню статусов при будущей премьере — отдельная ветка If.
 - Repeat 50 — защита от бесконечного цикла (в Shortcuts нет while).
 - Постер через Quick Look по URL: если не открывается — сначала Get Contents of URL (скачать картинку), потом Quick Look.
 - Все записи изменять точечными путями `movies.items.<key>.<field>`, чтобы не затереть параллельные изменения.

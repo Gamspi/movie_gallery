@@ -99,6 +99,15 @@ Repeat 5 times
             Add [Combined Text] to lines
         End If
 
+        // actors — Array of Text; один актёр может лежать Text (data.md)
+        Get Value for "actors" in [rec]
+        If [Dictionary Value] has any value
+            Get Items in Range 1–3 from [Dictionary Value]
+            Combine [Items from List] with Custom ", "
+            Text "В ролях: [Combined Text]"
+            Add [Text] to lines
+        End If
+
         Get Value for "description" in [rec]
         If [Dictionary Value] has any value
             Add [Dictionary Value] to lines
@@ -114,16 +123,49 @@ Repeat 5 times
         Set variable preview to [Combined Text]
 
         // 5.3 Это он?
-        Choose from Menu   (Prompt: [preview])
-            • Да, это он
-                Number 1
-                Set variable ok to [Number]
-            • Нет, искать другой
-                Ask for Text with "Уточни запрос (год, актёр, сериал/фильм)"   (Default Answer: [query])
-                Set variable query to [Provided Input]
-            • Отмена
-                Stop this shortcut
-        End Menu
+        // «Постер» / «Трейлер» после показа возвращают в то же меню: внутренний Repeat 10 + флаг pvDone
+        // (выход — «Да» / «Нет» ставят pvDone = 1; «Отмена» — Stop this shortcut)
+        Number 0
+        Set variable pvDone to [Number]
+        Repeat 10 times
+            If [pvDone] is 0
+                Choose from Menu   (Prompt: [preview])
+                    • Да, это он
+                        Number 1
+                        Set variable ok to [Number]
+                        Number 1
+                        Set variable pvDone to [Number]
+                    • Нет, искать другой
+                        Ask for Text with "Уточни запрос (год, актёр, сериал/фильм)"   (Default Answer: [query])
+                        Set variable query to [Provided Input]
+                        Number 1
+                        Set variable pvDone to [Number]
+                    • Постер
+                        Get Value for "poster_url" in [rec]
+                        If [Dictionary Value] has any value
+                            Get contents of [Dictionary Value]
+                            Quick Look [Contents of URL]
+                        Otherwise
+                            Show notification "Нет постера"
+                        End If
+                    • Трейлер
+                        // title_en, иначе title_ru (формат — data.md, «Ссылки карточки»)
+                        Get Value for "title_en" in [rec]
+                        If [Dictionary Value] has any value
+                            Set variable tName to [Dictionary Value]
+                        Otherwise
+                            Get Value for "title_ru" in [rec]
+                            Set variable tName to [Dictionary Value]
+                        End If
+                        Text "[tName] [rec: year] trailer"
+                        URL-encode [Text]
+                        Text "https://www.youtube.com/results?search_query=[URL Encoded Text]"
+                        Show web page at [Text]
+                    • Отмена
+                        Stop this shortcut
+                End Menu
+            End If
+        End Repeat
     End If
 End Repeat
 

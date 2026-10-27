@@ -467,10 +467,45 @@ If [mId] has any value
         Set "age_rating" to [Dictionary Value] in [rec]
         Set variable rec to [Dictionary]
     End If
-    Get Value for "status" in [m]
+    // release_status — только сериал; poiskkino status не используется
+    If [type] is any of: tv_show, animated_series, anime
+        Get Value for "releaseYears" in [m]
+        If [Dictionary Value] has any value
+            Get Item from [Dictionary Value]   (First Item)
+            Get Value for "end" in [Item from List]
+            If [Dictionary Value as Number] is 0
+                Set "release_status" to ongoing in [rec]
+                Set variable rec to [Dictionary]
+            End If
+            If [Dictionary Value as Number] is greater than 0
+                Set "release_status" to completed in [rec]
+                Set variable rec to [Dictionary]
+            End If
+        End If
+    End If
+
+    // actors — до 5 имён
+    Get Value for "persons" in [m]
     If [Dictionary Value] has any value
-        Set "release_status" to [Dictionary Value] in [rec]
-        Set variable rec to [Dictionary]
+        Repeat with each item in [Dictionary Value]
+            Get Value for "enProfession" in [Repeat Item]
+            If [Dictionary Value as Text] is actor
+                Get Value for "name" in [Repeat Item]
+                If [Dictionary Value] has any value
+                    Add [Dictionary Value] to variable actors
+                Otherwise
+                    Get Value for "enName" in [Repeat Item]
+                    If [Dictionary Value] has any value
+                        Add [Dictionary Value] to variable actors
+                    End If
+                End If
+            End If
+        End Repeat
+        If [actors] has any value
+            Get First 5 Items from [actors]
+            Set "actors" to [Items from List] in [rec]
+            Set variable rec to [Dictionary]
+        End If
     End If
     Get Value for "poster" in [m]
     If [Dictionary Value] has any value

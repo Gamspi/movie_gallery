@@ -86,11 +86,12 @@ Repeat with each item in [Values]
         Set variable ok to [Number]
     End If
 
-    // 4.4 completed и seasons_count есть → больше не проверять
+    // 4.4 completed / cancelled и seasons_count есть → больше не проверять
     Get Value for "seasons_count" in [Repeat Item]
     If [Dictionary Value] has any value
         Get Value for "release_status" in [Repeat Item]
-        If [Dictionary Value] is "completed"
+        Text "|completed|cancelled|"
+        If [Text] contains "|[Dictionary Value: Text]|"
             Number 0
             Set variable ok to [Number]
         End If
@@ -145,6 +146,10 @@ Repeat 30 times
 End Repeat
 
 // ── Шаг 6. Проверка сезонов ──
+// Даты сравниваются числом yyyyMMddHHmm (знак «времени между датами» не нужен)
+Format [nowDate] with Custom "yyyyMMddHHmm"
+Number [Formatted Date]
+Set variable nowNum to [Number]
 Repeat with each item in [picked]
     Set variable key to [Repeat Item]
     Get Value for [key] in [items]
@@ -153,7 +158,7 @@ Repeat with each item in [picked]
     Set variable oldCount to [Dictionary Value]
 
     // 6.1 Запрос
-    Text "https://api.poiskkino.dev/v1.5/season?movieId=[rec: kinopoisk_id]&limit=50&selectFields=number&selectFields=episodesCount"
+    Text "https://api.poiskkino.dev/v1.5/season?movieId=[rec: kinopoisk_id]&limit=50"
     Get contents of [Text]   (Method: GET, Headers: X-API-KEY = [apiKey])
     Set variable m to [Contents of URL]
 
@@ -174,27 +179,89 @@ Repeat with each item in [picked]
             // Ответ валиден → отметка проверки (ротация), даже без изменений
             Set Value [now] for "movies.items.[key].seasons_checked" (Data Jar)
 
-            // 6.3 Номера сезонов (0 — спецвыпуски)
+            // 6.3 Сезоны и серии (0 — спецвыпуски)
             Nothing
             Set variable nums
+            Nothing
+            Set variable epText
+            Nothing
+            Set variable seText
+            Number 999999999999
+            Set variable epBest to [Number]
+            Number 999999999999
+            Set variable seBest to [Number]
             Repeat with each item in [docs]
-                Get Value for "number" in [Repeat Item 2]
+                Set variable season to [Repeat Item 2]
+                Get Value for "number" in [season]
                 Number [Dictionary Value]
-                If [Number] is greater than 0
-                    Add [Number] to nums
+                Set variable sn to [Number]
+                Get Value for "airDate" in [season]
+                Set variable sDate to [Dictionary Value]
+                If [sDate] has any value
+                    Get dates from [sDate]
+                    Format [Dates] with Custom "yyyyMMddHHmm"
+                    Number [Formatted Date]
+                    Set variable sNum to [Number]
+                    If [sNum] is greater than [nowNum]
+                        // будущий сезон — кандидат в next_episode («Сезон N — дата»)
+                        If [sNum] is less than [seBest]
+                            Set variable seBest to [sNum]
+                            Split [sDate] by Custom "T"
+                            Get First Item from [Split Text]
+                            Text "Сезон [sn] — [Item from List]"
+                            Set variable seText to [Text]
+                        End If
+                    Otherwise
+                        // сезон вышел
+                        If [sn] is greater than 0
+                            Add [sn] to nums
+                        End If
+                    End If
                 End If
+
+                // серии сезона — ближайшая будущая → «S<n>E<m> — дата»
+                Get Value for "episodes" in [season]
+                Repeat with each item in [Dictionary Value]
+                    Set variable ep to [Repeat Item 3]
+                    Get Value for "airDate" in [ep]
+                    Set variable eDate to [Dictionary Value]
+                    If [eDate] has any value
+                        Get dates from [eDate]
+                        Format [Dates] with Custom "yyyyMMddHHmm"
+                        Number [Formatted Date]
+                        Set variable eNum to [Number]
+                        If [eNum] is greater than [nowNum]
+                            If [eNum] is less than [epBest]
+                                Set variable epBest to [eNum]
+                                Split [eDate] by Custom "T"
+                                Get First Item from [Split Text]
+                                Get Value for "number" in [ep]
+                                Text "S[sn]E[Dictionary Value] — [Item from List]"
+                                Set variable epText to [Text]
+                            End If
+                        End If
+                    End If
+                End Repeat
             End Repeat
 
+            // 6.4 Новый сезон (анонсы не считаются — только вышедшие)
             If [nums] has any value
                 Calculate Statistics Maximum of [nums]
                 Set variable newCount to [Statistics Result]
 
-                // 6.4 Уведомление (первый запуск — без него)
+                // уведомление (первый запуск — без него); watched → watching
                 If [oldCount] has any value
                     // oldCount не преобразуем при Set variable — нужна проверка «has any value»
                     Number [oldCount]
                     If [newCount] is greater than [Number]
-                        Show notification "Новый сезон: [rec: title_ru] — сезон [newCount]"
+                        Get Value for "status" in [rec]
+                        If [Dictionary Value: Text] is "watched"
+                            Text "watching"
+                            Set Value [Text] for "movies.items.[key].status" (Data Jar)
+                            Show notification "Новый сезон: [rec: title_ru] — сезон [newCount], перевёл в Смотрю"
+                        Otherwise
+                            Show notification "Новый сезон: [rec: title_ru] — сезон [newCount]"
+                        End If
                     End If
                 End If
 
@@ -207,6 +274,36 @@ Repeat with each item in [picked]
                         Set Value [newCount] for "movies.items.[key].seasons_count" (Data Jar)
                         Set Value [now] for "movies.items.[key].updated_date" (Data Jar)
                     End If
+                End If
+            End If
+
+            // 6.6 next_episode: ближайшая серия, иначе сезон, иначе поле убрать
+            Set variable nextNew to [epText]
+            If [nextNew] does not have any value
+                Set variable nextNew to [seText]
+            End If
+            Get Value for "next_episode" in [rec]
+            Set variable oldNext to [Dictionary Value]
+            Number 0
+            Set variable nextChanged to [Number]
+            If [nextNew] has any value
+                If [oldNext] does not have any value
+                    Number 1
+                    Set variable nextChanged to [Number]
+                Otherwise
+                    If [nextNew] is not "[oldNext]"
+                        Number 1
+                        Set variable nextChanged to [Number]
+                    End If
+                End If
+                If [nextChanged] is 1
+                    Set Value [nextNew] for "movies.items.[key].next_episode" (Data Jar)
+                    Set Value [now] for "movies.items.[key].updated_date" (Data Jar)
+                End If
+            Otherwise
+                If [oldNext] has any value
+                    Delete Value for "movies.items.[key].next_episode" (Data Jar)
+                    Set Value [now] for "movies.items.[key].updated_date" (Data Jar)
                 End If
             End If
         End If

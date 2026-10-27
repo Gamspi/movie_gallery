@@ -87,6 +87,7 @@ stateDiagram-v2
 7. **If** `listItems` пуст → построить (иначе — показать кеш: «Похожие», «По настроению», «Новое» после возврата из карточки):
    1. **Кандидаты** (для `taste` / `random` / `mood` / `today`): **Repeat with Each** `db` → оставить, если:
       - `status` ∈ {`unwatched`, `watching`};
+      - не [будущая премьера](../data.md#status): `premiere_date` > Current Date (Get Dates from Input), нет даты → `year` > текущего года (Format Date `yyyy`);
       - `flt.types` пуст или содержит `type`;
       - `flt.genres` пуст или пересекается с `genres` (Repeat по `flt.genres`, If `genres` contains);
       - `flt.maxLen` пуст или `length` пуст или `length` ≤ `maxLen` (для сериалов `length` — длина серии);

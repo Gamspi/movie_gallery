@@ -133,6 +133,24 @@ If [inMode] is "voice"
             Number 0
             Set variable ok to [Number]
         End If
+        Get Value for "premiere_date" in [Repeat Item]
+        If [Dictionary Value] has any value
+            Get dates from [Dictionary Value]
+            If [Dates] is after [Current Date]    // будущая премьера
+                Number 0
+                Set variable ok to [Number]
+            End If
+        Otherwise
+            Get Value for "year" in [Repeat Item]
+            If [Dictionary Value] has any value
+                Number [Dictionary Value]
+                Date (Current Date) → Format Date (Custom "yyyy")
+                If [Number] is greater than [Formatted Date]    // год в будущем
+                    Number 0
+                    Set variable ok to [Number]
+                End If
+            End If
+        End If
         If [fTypes] has any value
             Text "|[Repeat Item: type]|"
             If [fTypesTxt] does not contain [Text]
@@ -723,6 +741,24 @@ Repeat 200 times
             If All are true: [Dictionary Value] is not "unwatched", [Dictionary Value] is not "watching"
                 Number 0
                 Set variable ok to [Number]
+            End If
+            Get Value for "premiere_date" in [Repeat Item]
+            If [Dictionary Value] has any value
+                Get dates from [Dictionary Value]
+                If [Dates] is after [Current Date]    // будущая премьера
+                    Number 0
+                    Set variable ok to [Number]
+                End If
+            Otherwise
+                Get Value for "year" in [Repeat Item]
+                If [Dictionary Value] has any value
+                    Number [Dictionary Value]
+                    Date (Current Date) → Format Date (Custom "yyyy")
+                    If [Number] is greater than [Formatted Date]    // год в будущем
+                        Number 0
+                        Set variable ok to [Number]
+                    End If
+                End If
             End If
             If [fTypes] has any value
                 Text "|[Repeat Item: type]|"

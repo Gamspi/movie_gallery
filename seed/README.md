@@ -65,7 +65,7 @@ flowchart TD
 | `tt0903747` | Во все тяжкие (2008) | сериал watched ★10, `seasons_count` 5, `completed`, есть `seasons_checked` |
 | `tt0944947` | Игра престолов (2011) | сериал **dropped** ★6, заметка, `completed`, `seasons_checked` |
 | `tt4574334` | Очень странные дела (2016) | сериал **watching**, `seasons_count` 4 (занижено — Seasons должен прислать «Новый сезон … — сезон 5»), нет `release_status` и `seasons_checked` (проверяется первым) |
-| `tt10466872` | Разделение (2022) | сериал watching, `filming`, старый `seasons_checked`, recommendation. Если уже есть в живой базе — пропустится |
+| `tt10466872` | Разделение (2022) | сериал watching, `ongoing`, старый `seasons_checked`, recommendation. Если уже есть в живой базе — пропустится |
 | `tt0910970` | ВАЛЛ·И (2008) | тип **animation**, ★8, два тега |
 | `tt0245429` | Унесённые призраками (2001) | тип **anime**, ★10, заметка |
 | `tt2861424` | Рик и Морти (2013) | тип **animated_series**, unwatched, recommendation |

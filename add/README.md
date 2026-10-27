@@ -46,7 +46,7 @@ flowchart TD
    **If** Shortcut Input has any value → Set Variable `query` = Shortcut Input. Otherwise → **Ask for Input** (Text, «Что добавить?») → `query`. End If.
 2. **Repeat** 5 раз (пока `ok` пуст) — поиск с превью:
    1. **Run Shortcut** Movie Lookup, Input = `query` → `rec`. Пусто → **Stop This Shortcut**.
-   2. **Choose from Menu**, prompt — превью: `title_ru / title_en`, `year · тип · length мин`, `IMDb x · КП y`, `description`, источник (`ai` → «нет в poiskkino»). Пункты: **Да, это он** → `ok` = 1 · **Нет, искать другой** → **Ask for Input** «Уточни запрос (год, актёр, сериал/фильм)», Default = `query` → `query` · **Отмена** → **Stop This Shortcut**.
+   2. **Choose from Menu**, prompt — превью: `title_ru / title_en`, `year · тип · length мин`, `IMDb x · КП y`, «В ролях: …» (первые 3 из `actors`, если есть), `description`, источник (`ai` → «нет в poiskkino»). Меню обёрнуто в **Repeat** 10 раз + флаг `pvDone` (пока 0): «Да» / «Нет» ставят `pvDone` = 1, «Постер» / «Трейлер» — нет, и меню появляется снова. Пункты: **Да, это он** → `ok` = 1 · **Нет, искать другой** → **Ask for Input** «Уточни запрос (год, актёр, сериал/фильм)», Default = `query` → `query` · **Постер** → `poster_url` есть → **Get Contents of URL** → **Quick Look**, иначе «Нет постера» · **Трейлер** → **Show Web Page** YouTube-поиск `title_en` (иначе `title_ru`) + `year` + `trailer` ([data.md](../data.md#ссылки-карточки)) · **Отмена** → **Stop This Shortcut**.
 3. `ok` пуст после 5 попыток → **Stop This Shortcut**.
 4. **Get Dictionary Value** `key` из `rec` → `key`.
 5. Дубль по ключу: **Check If Value Exists** `movies.items.<key>` → **If** true → `dupKey` = `key`.
