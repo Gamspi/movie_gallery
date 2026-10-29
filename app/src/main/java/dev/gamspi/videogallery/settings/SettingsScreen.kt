@@ -17,6 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
@@ -26,6 +27,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import dev.gamspi.videogallery.torrents.ProviderId
 import androidx.tv.material3.Button
 import androidx.tv.material3.ButtonDefaults
 import androidx.tv.material3.MaterialTheme
@@ -40,6 +42,16 @@ fun SettingsScreen(
     var kinopoiskKey by rememberSaveable { mutableStateOf(viewModel.kinopoiskApiKey.value.orEmpty()) }
     var tmdbKey by rememberSaveable { mutableStateOf(viewModel.tmdbApiKey.value.orEmpty()) }
     val source = CatalogSource.valueOf(sourceName)
+    val trackerEnabled = remember {
+        mutableStateMapOf<ProviderId, Boolean>().apply {
+            ProviderId.entries.forEach { put(it, viewModel.tracker(it).value.enabled) }
+        }
+    }
+    val trackerUrls = remember {
+        mutableStateMapOf<ProviderId, String>().apply {
+            ProviderId.entries.forEach { put(it, viewModel.tracker(it).value.baseUrl) }
+        }
+    }
     val kinopoiskFocus = remember { FocusRequester() }
     val tmdbFocus = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
@@ -82,8 +94,25 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxWidth(),
         )
         Text("Получить: themoviedb.org → Settings → API")
+        Text("Трекеры", style = MaterialTheme.typography.titleLarge)
+        ProviderId.entries.forEach { id ->
+            val on = trackerEnabled.getValue(id)
+            SourceButton(id.label, on, null) { trackerEnabled[id] = !on }
+            OutlinedTextField(
+                value = trackerUrls.getValue(id),
+                onValueChange = { trackerUrls[id] = it },
+                label = { Text("Адрес ${id.label}") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { focusManager.moveFocus(FocusDirection.Down) }),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
         Button(onClick = {
-            viewModel.save(source, kinopoiskKey, tmdbKey)
+            val trackers = ProviderId.entries.associateWith {
+                TrackerConfig(trackerEnabled.getValue(it), trackerUrls.getValue(it))
+            }
+            viewModel.save(source, kinopoiskKey, tmdbKey, trackers)
             onBack()
         }) { Text("Сохранить") }
     }
@@ -93,7 +122,7 @@ fun SettingsScreen(
 private fun SourceButton(
     label: String,
     selected: Boolean,
-    focusRequester: FocusRequester,
+    focusRequester: FocusRequester?,
     onClick: () -> Unit,
 ) {
     Button(
@@ -106,6 +135,6 @@ private fun SourceButton(
         } else {
             ButtonDefaults.colors()
         },
-        modifier = Modifier.focusRequester(focusRequester),
+        modifier = if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier,
     ) { Text(if (selected) "✓ $label" else label) }
 }

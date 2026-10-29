@@ -1,5 +1,6 @@
 package dev.gamspi.videogallery.settings
 
+import dev.gamspi.videogallery.torrents.ProviderId
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -49,6 +50,31 @@ class SettingsRepository @Inject constructor(private val store: SecretStore) {
         _catalogSource.value = source
         refreshActive()
     }
+
+    private val trackerFlows: Map<ProviderId, MutableStateFlow<TrackerConfig>> =
+        ProviderId.entries.associateWith { id ->
+            val def = defaultTracker(id)
+            MutableStateFlow(
+                TrackerConfig(
+                    enabled = store.get(enabledKey(id))?.let { it == "true" } ?: def.enabled,
+                    baseUrl = store.get(urlKey(id))?.takeIf { it.isNotBlank() } ?: def.baseUrl,
+                ),
+            )
+        }
+
+    fun tracker(id: ProviderId): StateFlow<TrackerConfig> = trackerFlows.getValue(id)
+
+    fun setTrackers(configs: Map<ProviderId, TrackerConfig>) {
+        val normalized = configs.mapValues { (id, c) -> TrackerConfig(c.enabled, normalizeTrackerUrl(id, c.baseUrl)) }
+        for ((id, c) in normalized) {
+            store.put(enabledKey(id), c.enabled.toString())
+            store.put(urlKey(id), c.baseUrl)
+        }
+        for ((id, c) in normalized) trackerFlows.getValue(id).value = c
+    }
+
+    private fun enabledKey(id: ProviderId) = "tracker_${id.name}_enabled"
+    private fun urlKey(id: ProviderId) = "tracker_${id.name}_url"
 
     private val _activeCatalog = MutableStateFlow(computeActive())
     val activeCatalog: StateFlow<ActiveCatalog> = _activeCatalog
