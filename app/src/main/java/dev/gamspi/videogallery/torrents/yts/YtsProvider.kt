@@ -7,6 +7,8 @@ import dev.gamspi.videogallery.torrents.TorrentProvider
 import dev.gamspi.videogallery.torrents.TorrentResult
 import dev.gamspi.videogallery.torrents.magnetOf
 import dev.gamspi.videogallery.torrents.parseQuality
+import dev.gamspi.videogallery.torrents.await
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
@@ -51,11 +53,15 @@ class YtsProvider(
                     .addPathSegments("api/v2/list_movies.json")
                     .addQueryParameter("query_term", imdb)
                     .build()
-                client.newCall(Request.Builder().url(url).build()).execute().use { resp ->
+                client.newCall(Request.Builder().url(url).build()).await().use { resp ->
                     if (!resp.isSuccessful) throw ProviderUnavailableException()
-                    json.decodeFromString<YtsResponse>(resp.body.string()).data.movies
+                    withContext(Dispatchers.IO) {
+                        json.decodeFromString<YtsResponse>(resp.body.string()).data.movies
+                    }
                 }
             } catch (e: ProviderUnavailableException) {
+                throw e
+            } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 throw ProviderUnavailableException()

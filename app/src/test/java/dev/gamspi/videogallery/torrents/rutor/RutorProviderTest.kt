@@ -58,6 +58,24 @@ class RutorProviderTest {
     }
 
     @Test
+    fun fallbackFails_returnsEmptyFirstResult() = runBlocking {
+        enqueue("<html><body></body></html>")
+        enqueue("", 503)
+        val r = provider().search(movie())
+        assertTrue(r.isEmpty())
+        assertEquals(2, server.requestCount)
+    }
+
+    @Test
+    fun yearFilter_respectsDigitBoundaries() = runBlocking {
+        val html = fixture().replace("1999", "21999")
+        enqueue(html)
+        enqueue("<html><body></body></html>")
+        val r = provider().search(movie(1999))
+        assertTrue(r.isEmpty())
+    }
+
+    @Test
     fun http503_unavailable() {
         enqueue("", 503)
         val e = runCatching { runBlocking { provider().search(movie()) } }.exceptionOrNull()

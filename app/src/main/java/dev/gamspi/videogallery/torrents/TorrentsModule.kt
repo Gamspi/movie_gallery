@@ -19,7 +19,8 @@ object TorrentsModule {
     @Singleton
     fun provideTorrentSearch(settings: SettingsRepository): TorrentSearch {
         val client = OkHttpClient.Builder()
-            .connectTimeout(15, TimeUnit.SECONDS)
+            .callTimeout(15, TimeUnit.SECONDS)
+            .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(15, TimeUnit.SECONDS)
             .writeTimeout(15, TimeUnit.SECONDS)
             .build()

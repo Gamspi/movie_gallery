@@ -7,6 +7,8 @@ import dev.gamspi.videogallery.torrents.TorrentProvider
 import dev.gamspi.videogallery.torrents.TorrentResult
 import dev.gamspi.videogallery.torrents.magnetOf
 import dev.gamspi.videogallery.torrents.parseQuality
+import dev.gamspi.videogallery.torrents.await
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
@@ -41,11 +43,13 @@ class ApibayProvider(
                 .addQueryParameter("q", query)
                 .addQueryParameter("cat", "200")
                 .build()
-            client.newCall(Request.Builder().url(url).build()).execute().use { resp ->
+            client.newCall(Request.Builder().url(url).build()).await().use { resp ->
                 if (!resp.isSuccessful) throw ProviderUnavailableException()
-                json.decodeFromString<List<ApibayItem>>(resp.body.string())
+                withContext(Dispatchers.IO) { json.decodeFromString<List<ApibayItem>>(resp.body.string()) }
             }
         } catch (e: ProviderUnavailableException) {
+            throw e
+        } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             throw ProviderUnavailableException()

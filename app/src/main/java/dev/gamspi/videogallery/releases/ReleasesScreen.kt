@@ -60,6 +60,12 @@ private fun ReleasesContent(content: ReleasesUiState.Content, onFilter: (Quality
     val allFocus = remember { FocusRequester() }
     val firstRowFocus = remember { FocusRequester() }
     var notice by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(notice) {
+        if (notice != null) {
+            kotlinx.coroutines.delay(3000)
+            notice = null
+        }
+    }
     val visible = content.visible
     // Initial focus only: first row if any, otherwise the «Все» filter.
     LaunchedEffect(Unit) {
