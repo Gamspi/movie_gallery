@@ -13,6 +13,10 @@ hiltNavigationCompose = "1.4.0"
 retrofit = "3.0.0"
 okhttp = "5.5.1"
 serializationJson = "1.12.0"
+navigationCompose = "2.10.2"
+coil = "3.6.3"
+turbine = "1.2.1"
+coroutinesTest = "1.11.0"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
@@ -32,6 +36,11 @@ retrofit-kotlinx-serialization = { module = "com.squareup.retrofit2:converter-ko
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
 okhttp-mockwebserver3 = { module = "com.squareup.okhttp3:mockwebserver3", version.ref = "okhttp" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serializationJson" }
+androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigationCompose" }
+coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
+coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = "coil" }
+turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutinesTest" }
 junit = { module = "junit:junit", version.ref = "junit" }
 
 [plugins]

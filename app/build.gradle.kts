@@ -46,9 +46,14 @@ dependencies {
     implementation(libs.retrofit.kotlinx.serialization)
     implementation(libs.okhttp)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.androidx.navigation.compose)
+    implementation(libs.coil.compose)
+    implementation(libs.coil.network.okhttp)
     ksp(libs.hilt.compiler)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(libs.junit)
     testImplementation(libs.okhttp.mockwebserver3)
+    testImplementation(libs.turbine)
+    testImplementation(libs.kotlinx.coroutines.test)
 }
