@@ -6,5 +6,6 @@ if ($LASTEXITCODE -ne 0) {
     docker build -t $Tag (Join-Path $Root 'docker')
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
-docker run --rm -v "${Root}:/work" -v videogallery-gradle-cache:/root/.gradle -w /work $Tag @args
+# videogallery-android-home keeps debug.keystore stable, so debug APKs update in place on the TV
+docker run --rm -v "${Root}:/work" -v videogallery-gradle-cache:/root/.gradle -v videogallery-android-home:/root/.android -w /work $Tag @args
 exit $LASTEXITCODE
