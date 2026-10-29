@@ -1,0 +1,5 @@
+{"status":"ok","data":{"movie_count":1,"movies":[{"id":1,"title_long":"The Matrix (1999)","imdb_code":"tt0133093","torrents":[
+{"hash":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","quality":"1080p","type":"bluray","seeds":100,"peers":10,"size_bytes":1932735283},
+{"hash":"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB","quality":"720p","type":"web","seeds":50,"peers":5,"size_bytes":900000000},
+{"hash":"","quality":"3D","type":"bluray","seeds":1,"peers":1,"size_bytes":1}
+]}]}}
