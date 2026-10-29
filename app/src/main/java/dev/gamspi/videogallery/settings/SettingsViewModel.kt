@@ -20,9 +20,9 @@ class SettingsViewModel @Inject constructor(
         source: CatalogSource,
         kinopoiskKey: String,
         tmdbKey: String,
-        trackers: Map<ProviderId, TrackerConfig> = emptyMap(),
+        trackers: Map<ProviderId, TrackerConfig>,
     ) {
         repository.update(source, kinopoiskKey, tmdbKey)
-        if (trackers.isNotEmpty()) repository.setTrackers(trackers)
+        repository.setTrackers(trackers)
     }
 }

@@ -2,6 +2,7 @@ package dev.gamspi.videogallery.settings
 
 import app.cash.turbine.test
 import kotlinx.coroutines.runBlocking
+import dev.gamspi.videogallery.torrents.ProviderId
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -83,5 +84,47 @@ class SettingsRepositoryTest {
             expectNoEvents()
         }
         assertEquals("kp", repo.kinopoiskApiKey.value)
+    }
+
+    @Test
+    fun trackerDefaults() {
+        val repo = SettingsRepository(FakeSecretStore())
+        assertEquals(TrackerConfig(true, "https://rutor.info/"), repo.tracker(ProviderId.Rutor).value)
+        assertEquals(TrackerConfig(true, "https://apibay.org/"), repo.tracker(ProviderId.Apibay).value)
+        assertEquals(TrackerConfig(false, "https://yts.lt/"), repo.tracker(ProviderId.Yts).value)
+    }
+
+    @Test
+    fun setTrackers_normalizesUrl_blankFallsBack() {
+        val repo = SettingsRepository(FakeSecretStore())
+        repo.setTrackers(
+            mapOf(
+                ProviderId.Rutor to TrackerConfig(true, "  rutor.info  "),
+                ProviderId.Apibay to TrackerConfig(false, "   "),
+                ProviderId.Yts to TrackerConfig(true, "http://yts.example/x"),
+            ),
+        )
+        assertEquals("https://rutor.info/", repo.tracker(ProviderId.Rutor).value.baseUrl)
+        assertEquals(TrackerConfig(false, "https://apibay.org/"), repo.tracker(ProviderId.Apibay).value)
+        assertEquals("http://yts.example/x/", repo.tracker(ProviderId.Yts).value.baseUrl)
+    }
+
+    @Test
+    fun setTrackers_persists() {
+        val store = FakeSecretStore()
+        val repo = SettingsRepository(store)
+        repo.setTrackers(
+            mapOf(
+                ProviderId.Yts to TrackerConfig(true, "https://y.io/"),
+                ProviderId.Rutor to TrackerConfig(false, "https://r.io/"),
+            ),
+        )
+        assertEquals("true", store.get("tracker_Yts_enabled"))
+        assertEquals("https://y.io/", store.get("tracker_Yts_url"))
+        assertEquals("false", store.get("tracker_Rutor_enabled"))
+        assertEquals(TrackerConfig(true, "https://y.io/"), repo.tracker(ProviderId.Yts).value)
+        val reread = SettingsRepository(store)
+        assertEquals(TrackerConfig(true, "https://y.io/"), reread.tracker(ProviderId.Yts).value)
+        assertEquals(TrackerConfig(false, "https://r.io/"), reread.tracker(ProviderId.Rutor).value)
     }
 }

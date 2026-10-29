@@ -17,7 +17,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
@@ -42,15 +41,11 @@ fun SettingsScreen(
     var kinopoiskKey by rememberSaveable { mutableStateOf(viewModel.kinopoiskApiKey.value.orEmpty()) }
     var tmdbKey by rememberSaveable { mutableStateOf(viewModel.tmdbApiKey.value.orEmpty()) }
     val source = CatalogSource.valueOf(sourceName)
-    val trackerEnabled = remember {
-        mutableStateMapOf<ProviderId, Boolean>().apply {
-            ProviderId.entries.forEach { put(it, viewModel.tracker(it).value.enabled) }
-        }
+    val trackerEnabled = ProviderId.entries.associateWith { id ->
+        rememberSaveable(id.name) { mutableStateOf(viewModel.tracker(id).value.enabled) }
     }
-    val trackerUrls = remember {
-        mutableStateMapOf<ProviderId, String>().apply {
-            ProviderId.entries.forEach { put(it, viewModel.tracker(it).value.baseUrl) }
-        }
+    val trackerUrls = ProviderId.entries.associateWith { id ->
+        rememberSaveable(id.name + "_url") { mutableStateOf(viewModel.tracker(id).value.baseUrl) }
     }
     val kinopoiskFocus = remember { FocusRequester() }
     val tmdbFocus = remember { FocusRequester() }
@@ -96,11 +91,11 @@ fun SettingsScreen(
         Text("Получить: themoviedb.org → Settings → API")
         Text("Трекеры", style = MaterialTheme.typography.titleLarge)
         ProviderId.entries.forEach { id ->
-            val on = trackerEnabled.getValue(id)
-            SourceButton(id.label, on, null) { trackerEnabled[id] = !on }
+            val on = trackerEnabled.getValue(id).value
+            SourceButton(id.label, on, null) { trackerEnabled.getValue(id).value = !on }
             OutlinedTextField(
-                value = trackerUrls.getValue(id),
-                onValueChange = { trackerUrls[id] = it },
+                value = trackerUrls.getValue(id).value,
+                onValueChange = { trackerUrls.getValue(id).value = it },
                 label = { Text("Адрес ${id.label}") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
@@ -110,7 +105,7 @@ fun SettingsScreen(
         }
         Button(onClick = {
             val trackers = ProviderId.entries.associateWith {
-                TrackerConfig(trackerEnabled.getValue(it), trackerUrls.getValue(it))
+                TrackerConfig(trackerEnabled.getValue(it).value, trackerUrls.getValue(it).value)
             }
             viewModel.save(source, kinopoiskKey, tmdbKey, trackers)
             onBack()
