@@ -12,6 +12,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.tv.material3.Text
 import dev.gamspi.videogallery.gallery.GalleryScreen
+import dev.gamspi.videogallery.search.SearchScreen
 import dev.gamspi.videogallery.settings.SettingsScreen
 
 @Composable
@@ -26,8 +27,13 @@ fun AppNavHost() {
             )
         }
         composable("settings") { SettingsScreen(onBack = { nav.popBackStack() }) }
-        // Stubs: replaced by Task 5 / Task 6
-        composable("search") { Stub("Поиск — скоро") }
+        composable("search") {
+            SearchScreen(
+                onOpenMovie = { nav.navigate("movie/$it") },
+                onOpenSettings = { nav.navigate("settings") },
+            )
+        }
+        // Stub: replaced by Task 6
         composable("movie/{id}", arguments = listOf(navArgument("id") { type = NavType.IntType })) {
             Stub("Фильм #${it.arguments?.getInt("id")} — скоро")
         }
