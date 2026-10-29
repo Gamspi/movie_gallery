@@ -27,7 +27,12 @@ fun CatalogException.toErrorKind(): ErrorKind = when (this) {
 }
 
 @Composable
-fun ErrorView(kind: ErrorKind, onRetry: () -> Unit, onOpenSettings: () -> Unit) {
+fun ErrorView(
+    kind: ErrorKind,
+    onRetry: () -> Unit,
+    onOpenSettings: () -> Unit,
+    autoFocus: Boolean = true,
+) {
     val message = when (kind) {
         ErrorKind.MissingKey -> "Нужен ключ TMDB"
         ErrorKind.BadKey -> "Ключ TMDB неверный"
@@ -36,7 +41,7 @@ fun ErrorView(kind: ErrorKind, onRetry: () -> Unit, onOpenSettings: () -> Unit) 
     }
     val needsSettings = kind == ErrorKind.MissingKey || kind == ErrorKind.BadKey
     val focus = remember { FocusRequester() }
-    LaunchedEffect(kind) { runCatching { focus.requestFocus() } }
+    if (autoFocus) LaunchedEffect(kind) { runCatching { focus.requestFocus() } }
     Column(
         modifier = Modifier.fillMaxSize().padding(48.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterVertically),

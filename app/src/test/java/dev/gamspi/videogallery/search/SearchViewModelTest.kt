@@ -112,7 +112,7 @@ class SearchViewModelTest {
             vm.onQueryChange("abc")
             advanceTimeBy(500)
             assertEquals(SearchUiState.Loading, awaitItem())
-            awaitItem()
+            assertEquals(SearchUiState.Results(listOf(movie(1))), awaitItem())
             vm.onQueryChange("")
             advanceTimeBy(500)
             assertEquals(SearchUiState.Idle, awaitItem())

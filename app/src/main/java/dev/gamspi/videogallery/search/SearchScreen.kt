@@ -9,13 +9,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -44,9 +48,18 @@ fun SearchScreen(
     var text by rememberSaveable { mutableStateOf("") }
     val fieldFocus = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
+    // Survive navigation: one-time field focus and the last focused result card.
+    var initialFocusDone by rememberSaveable { mutableStateOf(false) }
+    var focusedMovieId by rememberSaveable { mutableIntStateOf(-1) }
+    // Per composition: was the card focus restore already issued.
+    var restoreHandled by remember { mutableStateOf(false) }
+    val gridState = rememberLazyGridState()
     LaunchedEffect(Unit) {
         viewModel.onQueryChange(text) // restore the query after process/back-stack restore
-        fieldFocus.requestFocus()
+        if (!initialFocusDone && focusedMovieId == -1) {
+            initialFocusDone = true
+            fieldFocus.requestFocus()
+        }
     }
     Column(
         modifier = Modifier.fillMaxSize().padding(48.dp),
@@ -70,15 +83,36 @@ fun SearchScreen(
                 SearchUiState.Loading -> Text("Загрузка…")
                 SearchUiState.Empty -> Text("Ничего не найдено", style = MaterialTheme.typography.headlineMedium)
                 is SearchUiState.Error ->
-                    ErrorView(s.kind, onRetry = viewModel::retry, onOpenSettings = onOpenSettings)
+                    ErrorView(
+                        s.kind,
+                        onRetry = viewModel::retry,
+                        onOpenSettings = onOpenSettings,
+                        autoFocus = false, // do not steal focus from the text field while typing
+                    )
                 is SearchUiState.Results -> LazyVerticalGrid(
+                    state = gridState,
                     columns = GridCells.Fixed(5),
                     modifier = Modifier.fillMaxSize(),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     items(s.movies, key = { it.id }) { movie ->
-                        MovieCard(movie = movie, onClick = { onOpenMovie(movie.id) })
+                        val requester = remember { FocusRequester() }
+                        if (movie.id == focusedMovieId && !restoreHandled) {
+                            // The card is composed and attached by the time this runs (after first frame).
+                            LaunchedEffect(Unit) {
+                                withFrameNanos { }
+                                restoreHandled = true
+                                requester.requestFocus()
+                            }
+                        }
+                        MovieCard(
+                            movie = movie,
+                            onClick = { onOpenMovie(movie.id) },
+                            modifier = Modifier
+                                .focusRequester(requester)
+                                .onFocusChanged { if (it.hasFocus) focusedMovieId = movie.id },
+                        )
                     }
                 }
             }
