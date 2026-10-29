@@ -16,7 +16,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -35,18 +34,19 @@ import dev.gamspi.videogallery.ui.components.ErrorView
 @Composable
 fun DetailsScreen(
     onOpenSettings: () -> Unit,
+    onWatch: () -> Unit,
     viewModel: DetailsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     when (val s = state) {
         DetailsUiState.Loading -> Box(Modifier.fillMaxSize(), Alignment.Center) { Text("Загрузка…") }
         is DetailsUiState.Error -> ErrorView(s.kind, onRetry = viewModel::retry, onOpenSettings = onOpenSettings)
-        is DetailsUiState.Content -> DetailsContent(s.details)
+        is DetailsUiState.Content -> DetailsContent(s.details, onWatch)
     }
 }
 
 @Composable
-private fun DetailsContent(details: MovieDetails) {
+private fun DetailsContent(details: MovieDetails, onWatch: () -> Unit) {
     val movie = details.movie
     val watchFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) {
@@ -99,19 +99,11 @@ private fun DetailsContent(details: MovieDetails) {
                 if (movie.overview.isNotBlank()) {
                     Text(movie.overview, style = MaterialTheme.typography.bodyMedium, maxLines = 8, overflow = TextOverflow.Ellipsis)
                 }
-                // Stage 1: no playback yet. Enabled-but-no-op so it can hold default focus
-                // (a disabled TV Button is not focusable); dimmed to look inactive.
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                Button(
+                    onClick = onWatch,
+                    modifier = Modifier.focusRequester(watchFocus),
                 ) {
-                    Button(
-                        onClick = {},
-                        modifier = Modifier.focusRequester(watchFocus).alpha(0.5f),
-                    ) {
-                        Text("Смотреть")
-                    }
-                    Text("Скоро", style = MaterialTheme.typography.labelLarge)
+                    Text("Смотреть")
                 }
             }
         }

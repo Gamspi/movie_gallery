@@ -15,6 +15,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import dev.gamspi.videogallery.details.DetailsScreen
 import dev.gamspi.videogallery.gallery.GalleryScreen
+import dev.gamspi.videogallery.releases.ReleasesScreen
 import dev.gamspi.videogallery.search.SearchScreen
 import dev.gamspi.videogallery.settings.SettingsScreen
 import dev.gamspi.videogallery.settings.SettingsViewModel
@@ -41,7 +42,13 @@ fun AppNavHost() {
             )
         }
         composable("movie/{id}", arguments = listOf(navArgument("id") { type = NavType.IntType })) { entry ->
-            DetailsScreen(onOpenSettings = { nav.navigateOnce(entry, "settings") })
+            DetailsScreen(
+                onOpenSettings = { nav.navigateOnce(entry, "settings") },
+                onWatch = { nav.navigateOnce(entry, "releases/${entry.arguments?.getInt("id")}") },
+            )
+        }
+        composable("releases/{id}", arguments = listOf(navArgument("id") { type = NavType.IntType })) { entry ->
+            ReleasesScreen(onOpenSettings = { nav.navigateOnce(entry, "settings") })
         }
     }
     }
