@@ -7,7 +7,8 @@ import dev.gamspi.videogallery.catalog.model.MovieDetails
 private const val POSTER_BASE = "https://image.tmdb.org/t/p/w342"
 private const val BACKDROP_BASE = "https://image.tmdb.org/t/p/w1280"
 
-private fun yearOf(date: String?): Int? = date?.take(4)?.takeIf { it.length == 4 }?.toIntOrNull()
+private fun yearOf(date: String?): Int? =
+    date?.take(4)?.takeIf { it.length == 4 && it.all(Char::isDigit) }?.toInt()
 
 private fun movie(
     id: Int,
@@ -17,7 +18,7 @@ private fun movie(
     posterPath: String?,
     overview: String?,
 ): Movie {
-    val t = title.orEmpty()
+    val t = title?.takeIf { it.isNotBlank() } ?: originalTitle.orEmpty()
     return Movie(
         id = id,
         title = t,

@@ -7,6 +7,7 @@ import dev.gamspi.videogallery.catalog.model.Movie
 import dev.gamspi.videogallery.catalog.model.MovieDetails
 import dev.gamspi.videogallery.settings.SettingsRepository
 import java.io.IOException
+import kotlinx.serialization.SerializationException
 import java.util.concurrent.TimeUnit
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
@@ -41,6 +42,12 @@ class TmdbCatalogRepository(
             return block()
         } catch (e: HttpException) {
             throw if (e.code() == 401) CatalogException.Unauthorized else CatalogException.Http(e.code())
+        } catch (e: MissingKeyException) {
+            throw CatalogException.MissingApiKey
+        } catch (e: SerializationException) {
+            throw CatalogException.Parse
+        } catch (e: IllegalArgumentException) {
+            throw CatalogException.Parse
         } catch (e: IOException) {
             throw CatalogException.Network
         }
@@ -56,7 +63,7 @@ class TmdbCatalogRepository(
                 .writeTimeout(15, TimeUnit.SECONDS)
                 .addInterceptor { chain ->
                     // key is read per request so a changed key applies without restart
-                    val key = settings.tmdbApiKey.value ?: throw IOException("TMDB key missing")
+                    val key = settings.tmdbApiKey.value ?: throw MissingKeyException()
                     val url = chain.request().url.newBuilder()
                         .addQueryParameter("api_key", key)
                         .addQueryParameter("language", "ru-RU")
@@ -75,3 +82,5 @@ class TmdbCatalogRepository(
         }
     }
 }
+
+private class MissingKeyException : IOException("TMDB key missing")

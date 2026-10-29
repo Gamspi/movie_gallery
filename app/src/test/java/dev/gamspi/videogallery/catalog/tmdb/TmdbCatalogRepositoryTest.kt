@@ -143,4 +143,16 @@ class TmdbCatalogRepositoryTest {
         }
         Unit
     }
+
+    @Test
+    fun garbageBody_throwsParse() = runBlocking {
+        server.enqueue(MockResponse.Builder().body("<html>captive portal</html>").build())
+        try {
+            repo().popular()
+            throw AssertionError("expected Parse")
+        } catch (e: CatalogException.Parse) {
+            // expected
+        }
+        Unit
+    }
 }
