@@ -20,6 +20,7 @@
 ## Стек
 
 - Kotlin, Gradle (Kotlin DSL), minSdk 26, targetSdk — последний стабильный
+- Каталог: Kinopoisk API Unofficial (по умолчанию), TMDB — опционально (заблокирован в РФ geo-DNS)
 - Jetpack Compose for TV (`androidx.tv:tv-material`)
 - Media3 / ExoPlayer + ffmpeg-расширение (аудио DTS/TrueHD/AC3)
 - libtorrent4j — торрент-движок
@@ -34,7 +35,7 @@
 
 | Модуль | Задача | Интерфейс |
 |---|---|---|
-| `catalog` | TMDB: популярное, жанры, поиск, карточка фильма (название, оригинальное название, год, постер, описание, imdb id) | `CatalogRepository` |
+| `catalog` | Kinopoisk API Unofficial (по умолчанию) или TMDB (опционально, в РФ блок geo-DNS), выбор в настройках: популярное, жанры, поиск, карточка фильма (название, оригинальное название, год, постер, описание, imdb id) | `CatalogRepository` |
 | `search` | Поиск раздач по фильму, сведение результатов | `TorrentProvider`, `TorrentSearch` |
 | `torrent` | Загрузка и стрим одного торрента | `TorrentStreamer` |
 | `player` | ExoPlayer, выбор аудио, оверлей двух субтитров, управление пультом | `PlayerScreen` |
@@ -113,7 +114,7 @@ ML Kit on-device. Модель языка скачивается при перв
 
 ## Настройки
 
-- TMDB API key, OpenSubtitles API key
+- Источник каталога (Кинопоиск по умолчанию / TMDB), ключ Кинопоиска, TMDB API key, OpenSubtitles API key
 - RuTracker логин/пароль
 - Prowlarr: вкл/выкл, адрес, API-ключ
 - Включённые провайдеры

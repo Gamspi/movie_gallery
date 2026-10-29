@@ -14,9 +14,46 @@ class SettingsRepository @Inject constructor(private val store: SecretStore) {
         val value = key.trim().ifEmpty { null }
         store.put(KEY_TMDB, value)
         _tmdbApiKey.value = value
+        refreshActive()
+    }
+
+    private val _kinopoiskApiKey = MutableStateFlow(store.get(KEY_KINOPOISK))
+    val kinopoiskApiKey: StateFlow<String?> = _kinopoiskApiKey
+
+    fun setKinopoiskApiKey(key: String) {
+        val value = key.trim().ifEmpty { null }
+        store.put(KEY_KINOPOISK, value)
+        _kinopoiskApiKey.value = value
+        refreshActive()
+    }
+
+    private val _catalogSource = MutableStateFlow(
+        CatalogSource.entries.firstOrNull { it.name == store.get(KEY_SOURCE) } ?: CatalogSource.Kinopoisk,
+    )
+    val catalogSource: StateFlow<CatalogSource> = _catalogSource
+
+    fun setCatalogSource(source: CatalogSource) {
+        store.put(KEY_SOURCE, source.name)
+        _catalogSource.value = source
+        refreshActive()
+    }
+
+    private val _activeCatalog = MutableStateFlow(computeActive())
+    val activeCatalog: StateFlow<ActiveCatalog> = _activeCatalog
+
+    private fun computeActive(): ActiveCatalog {
+        val source = _catalogSource.value
+        val key = if (source == CatalogSource.Kinopoisk) _kinopoiskApiKey.value else _tmdbApiKey.value
+        return ActiveCatalog(source, key)
+    }
+
+    private fun refreshActive() {
+        _activeCatalog.value = computeActive()
     }
 
     private companion object {
         const val KEY_TMDB = "tmdb_api_key"
+        const val KEY_KINOPOISK = "kinopoisk_api_key"
+        const val KEY_SOURCE = "catalog_source"
     }
 }
