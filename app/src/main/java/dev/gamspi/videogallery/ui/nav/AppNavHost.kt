@@ -1,16 +1,12 @@
 package dev.gamspi.videogallery.ui.nav
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import androidx.tv.material3.Text
+import dev.gamspi.videogallery.details.DetailsScreen
 import dev.gamspi.videogallery.gallery.GalleryScreen
 import dev.gamspi.videogallery.search.SearchScreen
 import dev.gamspi.videogallery.settings.SettingsScreen
@@ -33,14 +29,8 @@ fun AppNavHost() {
                 onOpenSettings = { nav.navigate("settings") },
             )
         }
-        // Stub: replaced by Task 6
         composable("movie/{id}", arguments = listOf(navArgument("id") { type = NavType.IntType })) {
-            Stub("Фильм #${it.arguments?.getInt("id")} — скоро")
+            DetailsScreen(onOpenSettings = { nav.navigate("settings") })
         }
     }
-}
-
-@Composable
-private fun Stub(text: String) {
-    Box(Modifier.fillMaxSize(), Alignment.Center) { Text(text) }
 }
