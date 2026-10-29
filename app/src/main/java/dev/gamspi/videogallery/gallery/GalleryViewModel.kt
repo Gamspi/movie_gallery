@@ -71,7 +71,7 @@ class GalleryViewModel @Inject constructor(
                 }
             }
         }
-        listOf(MovieRow("Популярное", popular.await())) + genreRows.mapNotNull { it.await() }
+        listOf(MovieRow("Популярное", popular.await())) + genreRows.mapNotNull { it.await() }.filter { it.movies.isNotEmpty() }
     }
 
     private companion object {

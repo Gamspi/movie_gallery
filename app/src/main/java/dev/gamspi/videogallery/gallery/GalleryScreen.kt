@@ -9,17 +9,24 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.tv.material3.Button
 import androidx.tv.material3.MaterialTheme
@@ -34,7 +41,7 @@ fun GalleryScreen(
     onOpenSettings: () -> Unit,
     viewModel: GalleryViewModel = hiltViewModel(),
 ) {
-    val state by viewModel.state.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
     when (val s = state) {
         GalleryUiState.Loading -> Box(Modifier.fillMaxSize(), Alignment.Center) { Text("Ð—Ð°Ð³Ñ€ÑƒÐ·ÐºÐ°â€¦") }
         is GalleryUiState.Error ->
@@ -50,36 +57,65 @@ private fun GalleryContent(
     onOpenSearch: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
-    val firstCardFocus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { runCatching { firstCardFocus.requestFocus() } }
+    // Survive navigation (saved with the back stack entry): last focused card and one-time initial focus.
+    var focusedRow by rememberSaveable { mutableIntStateOf(-1) }
+    var focusedMovieId by rememberSaveable { mutableIntStateOf(-1) }
+    var initialFocusDone by rememberSaveable { mutableStateOf(false) }
+    // Per composition: was the focus request for this appearance already issued.
+    var restoreHandled by remember { mutableStateOf(false) }
+    val listState = rememberLazyListState()
+
     LazyColumn(
+        state = listState,
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 48.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Button(onClick = onOpenSearch) { Text("ÐŸÐ¾Ð¸ÑÐº") }
-                Button(onClick = onOpenSettings) { Text("ÐÐ°ÑÑ‚Ñ€Ð¾Ð¹ÐºÐ¸") }
+                Button(onClick = onOpenSearch) { Text("Ïîèñê") }
+                Button(onClick = onOpenSettings) { Text("Íàñòðîéêè") }
             }
         }
-        content.rows.forEachIndexed { rowIndex, row ->
-            item(key = "row-$rowIndex") {
-                Column {
-                    Text(
-                        row.title,
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.padding(bottom = 8.dp),
-                    )
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        items(row.movies, key = { it.id }) { movie ->
-                            val isFirst = rowIndex == 0 && movie == row.movies.first()
-                            MovieCard(
-                                movie = movie,
-                                onClick = { onOpenMovie(movie.id) },
-                                modifier = if (isFirst) Modifier.focusRequester(firstCardFocus) else Modifier,
-                            )
+        itemsIndexed(content.rows, key = { index, _ -> "row-$index" }) { rowIndex, row ->
+            // Saved per row (inside the lazy item), so horizontal scroll position is restored too.
+            val rowState = rememberLazyListState()
+            Column {
+                Text(
+                    row.title,
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+                LazyRow(state = rowState, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    itemsIndexed(row.movies, key = { _, m -> m.id }) { index, movie ->
+                        val saved = focusedMovieId != -1
+                        val isTarget = if (saved) {
+                            rowIndex == focusedRow && movie.id == focusedMovieId
+                        } else {
+                            !initialFocusDone && rowIndex == 0 && index == 0
                         }
+                        val requester = remember { FocusRequester() }
+                        if (isTarget && !restoreHandled) {
+                            // The card is composed and attached by the time this runs (after first frame).
+                            LaunchedEffect(Unit) {
+                                withFrameNanos { }
+                                restoreHandled = true
+                                initialFocusDone = true
+                                requester.requestFocus()
+                            }
+                        }
+                        MovieCard(
+                            movie = movie,
+                            onClick = { onOpenMovie(movie.id) },
+                            modifier = Modifier
+                                .focusRequester(requester)
+                                .onFocusChanged {
+                                    if (it.hasFocus) {
+                                        focusedRow = rowIndex
+                                        focusedMovieId = movie.id
+                                    }
+                                },
+                        )
                     }
                 }
             }

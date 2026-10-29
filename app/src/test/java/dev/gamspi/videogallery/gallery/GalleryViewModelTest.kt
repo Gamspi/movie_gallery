@@ -88,6 +88,30 @@ class GalleryViewModelTest {
             assertTrue(awaitItem() is GalleryUiState.Content)
         }
         assertEquals(2, repo.popularCalls)
+        assertEquals(2, repo.genresCalls)
+    }
+
+    @Test
+    fun load_genresUnauthorized_errorBadKey() = runTest {
+        repo.popularResult = { listOf(movie(1)) }
+        repo.genresResult = { throw CatalogException.Unauthorized }
+        val vm = GalleryViewModel(repo, settings())
+        vm.state.test {
+            assertEquals(GalleryUiState.Loading, awaitItem())
+            assertEquals(GalleryUiState.Error(ErrorKind.BadKey), awaitItem())
+        }
+    }
+
+    @Test
+    fun load_emptyGenreRow_skipped() = runTest {
+        happyRepo(2)
+        repo.byGenreResult = { if (it == 1) emptyList() else listOf(movie(it)) }
+        val vm = GalleryViewModel(repo, settings())
+        vm.state.test {
+            assertEquals(GalleryUiState.Loading, awaitItem())
+            val content = awaitItem() as GalleryUiState.Content
+            assertEquals(listOf("Популярное", "G2"), content.rows.map { it.title })
+        }
     }
 
     @Test
