@@ -1,0 +1,22 @@
+{
+  "total": 2,
+  "totalPages": 1,
+  "items": [
+    {
+      "kinopoiskId": 301,
+      "nameRu": "Матрица",
+      "nameOriginal": "The Matrix",
+      "year": 1999,
+      "type": "FILM",
+      "posterUrlPreview": "https://kinopoiskapiunofficial.tech/images/posters/kp_small/301.jpg"
+    },
+    {
+      "kinopoiskId": 435,
+      "nameRu": "Зелёная миля",
+      "nameOriginal": "The Green Mile",
+      "year": 1999,
+      "type": "FILM",
+      "posterUrlPreview": "https://kinopoiskapiunofficial.tech/images/posters/kp_small/435.jpg"
+    }
+  ]
+}

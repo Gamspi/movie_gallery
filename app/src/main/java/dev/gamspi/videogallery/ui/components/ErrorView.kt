@@ -23,7 +23,7 @@ fun CatalogException.toErrorKind(): ErrorKind = when (this) {
     CatalogException.MissingApiKey -> ErrorKind.MissingKey
     CatalogException.Unauthorized -> ErrorKind.BadKey
     CatalogException.Network -> ErrorKind.Network
-    CatalogException.Parse, is CatalogException.Http -> ErrorKind.Other
+    CatalogException.Parse, CatalogException.QuotaExceeded, is CatalogException.Http -> ErrorKind.Other
 }
 
 @Composable

@@ -1,0 +1,58 @@
+{
+  "total": 5,
+  "totalPages": 1,
+  "items": [
+    {
+      "kinopoiskId": 301,
+      "imdbId": "tt0133093",
+      "nameRu": "Матрица",
+      "nameEn": null,
+      "nameOriginal": "The Matrix",
+      "countries": [{"country": "США"}],
+      "genres": [{"genre": "фантастика"}],
+      "ratingKinopoisk": 8.5,
+      "year": 1999,
+      "type": "FILM",
+      "posterUrl": "https://kinopoiskapiunofficial.tech/images/posters/kp/301.jpg",
+      "posterUrlPreview": "https://kinopoiskapiunofficial.tech/images/posters/kp_small/301.jpg"
+    },
+    {
+      "kinopoiskId": 77044,
+      "nameRu": "Игра престолов",
+      "nameOriginal": "Game of Thrones",
+      "year": 2011,
+      "type": "TV_SERIES",
+      "posterUrl": "https://kinopoiskapiunofficial.tech/images/posters/kp/77044.jpg",
+      "posterUrlPreview": "https://kinopoiskapiunofficial.tech/images/posters/kp_small/77044.jpg"
+    },
+    {
+      "kinopoiskId": 600,
+      "imdbId": null,
+      "nameRu": null,
+      "nameEn": null,
+      "nameOriginal": "Original Only",
+      "year": null,
+      "type": "FILM",
+      "posterUrl": null,
+      "posterUrlPreview": null
+    },
+    {
+      "kinopoiskId": 700,
+      "nameRu": "Год строкой",
+      "nameOriginal": "Year As String",
+      "year": "2001",
+      "type": "FILM",
+      "posterUrl": "https://kinopoiskapiunofficial.tech/images/posters/kp/700.jpg",
+      "posterUrlPreview": null
+    },
+    {
+      "kinopoiskId": 800,
+      "nameRu": "",
+      "nameEn": "English Only",
+      "nameOriginal": "",
+      "year": "нет",
+      "posterUrl": null,
+      "posterUrlPreview": ""
+    }
+  ]
+}

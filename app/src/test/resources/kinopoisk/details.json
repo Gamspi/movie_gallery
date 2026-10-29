@@ -1,0 +1,15 @@
+{
+  "kinopoiskId": 301,
+  "imdbId": "tt0133093",
+  "nameRu": "Матрица",
+  "nameEn": null,
+  "nameOriginal": "The Matrix",
+  "posterUrl": "https://kinopoiskapiunofficial.tech/images/posters/kp/301.jpg",
+  "posterUrlPreview": "https://kinopoiskapiunofficial.tech/images/posters/kp_small/301.jpg",
+  "coverUrl": "https://avatars.mds.yandex.net/get-ott/1648503/2a0000016b6c1a2f/orig",
+  "year": 1999,
+  "filmLength": 136,
+  "description": "Хакер Нео узнаёт, что мир вокруг — симуляция.",
+  "type": "FILM",
+  "genres": [{"genre": "фантастика"}, {"genre": "боевик"}]
+}
