@@ -73,8 +73,8 @@ private fun GalleryContent(
     ) {
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Button(onClick = onOpenSearch) { Text("Ïîèñê") }
-                Button(onClick = onOpenSettings) { Text("Íàñòðîéêè") }
+                Button(onClick = onOpenSearch) { Text("ÐŸÐ¾Ð¸ÑÐº") }
+                Button(onClick = onOpenSettings) { Text("ÐÐ°ÑÑ‚Ñ€Ð¾Ð¹ÐºÐ¸") }
             }
         }
         itemsIndexed(content.rows, key = { index, _ -> "row-$index" }) { rowIndex, row ->
