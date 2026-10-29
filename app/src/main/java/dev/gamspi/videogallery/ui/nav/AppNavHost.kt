@@ -1,6 +1,9 @@
 package dev.gamspi.videogallery.ui.nav
 
 import androidx.compose.runtime.Composable
+import androidx.lifecycle.Lifecycle
+import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -15,22 +18,27 @@ import dev.gamspi.videogallery.settings.SettingsScreen
 fun AppNavHost() {
     val nav = rememberNavController()
     NavHost(navController = nav, startDestination = "gallery") {
-        composable("gallery") {
+        composable("gallery") { entry ->
             GalleryScreen(
-                onOpenMovie = { nav.navigate("movie/$it") },
-                onOpenSearch = { nav.navigate("search") },
-                onOpenSettings = { nav.navigate("settings") },
+                onOpenMovie = { nav.navigateOnce(entry, "movie/$it") },
+                onOpenSearch = { nav.navigateOnce(entry, "search") },
+                onOpenSettings = { nav.navigateOnce(entry, "settings") },
             )
         }
         composable("settings") { SettingsScreen(onBack = { nav.popBackStack() }) }
-        composable("search") {
+        composable("search") { entry ->
             SearchScreen(
-                onOpenMovie = { nav.navigate("movie/$it") },
-                onOpenSettings = { nav.navigate("settings") },
+                onOpenMovie = { nav.navigateOnce(entry, "movie/$it") },
+                onOpenSettings = { nav.navigateOnce(entry, "settings") },
             )
         }
-        composable("movie/{id}", arguments = listOf(navArgument("id") { type = NavType.IntType })) {
-            DetailsScreen(onOpenSettings = { nav.navigate("settings") })
+        composable("movie/{id}", arguments = listOf(navArgument("id") { type = NavType.IntType })) { entry ->
+            DetailsScreen(onOpenSettings = { nav.navigateOnce(entry, "settings") })
         }
     }
+}
+
+/** Ignore repeated clicks (double OK) once the source screen is no longer resumed. */
+private fun NavController.navigateOnce(from: NavBackStackEntry, route: String) {
+    if (from.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) navigate(route)
 }

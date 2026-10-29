@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.aspectRatio
@@ -22,6 +21,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -97,7 +97,7 @@ private fun DetailsContent(details: MovieDetails) {
                     Text(details.genres.joinToString(", "), style = MaterialTheme.typography.bodyLarge)
                 }
                 if (movie.overview.isNotBlank()) {
-                    Text(movie.overview, style = MaterialTheme.typography.bodyMedium, maxLines = 8)
+                    Text(movie.overview, style = MaterialTheme.typography.bodyMedium, maxLines = 8, overflow = TextOverflow.Ellipsis)
                 }
                 // Stage 1: no playback yet. Enabled-but-no-op so it can hold default focus
                 // (a disabled TV Button is not focusable); dimmed to look inactive.

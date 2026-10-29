@@ -7,13 +7,15 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.gamspi.videogallery.catalog.CatalogException
 import dev.gamspi.videogallery.catalog.CatalogRepository
 import dev.gamspi.videogallery.catalog.model.MovieDetails
+import dev.gamspi.videogallery.settings.SettingsRepository
 import dev.gamspi.videogallery.ui.components.ErrorKind
 import dev.gamspi.videogallery.ui.components.toErrorKind
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 sealed interface DetailsUiState {
@@ -36,30 +38,33 @@ fun formatRuntime(min: Int?): String? {
 @HiltViewModel
 class DetailsViewModel @Inject constructor(
     private val catalog: CatalogRepository,
+    settings: SettingsRepository,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
     private val id: Int = checkNotNull(savedStateHandle["id"])
     private val _state = MutableStateFlow<DetailsUiState>(DetailsUiState.Loading)
     val state: StateFlow<DetailsUiState> = _state
-    private var job: Job? = null
+    private val retryTick = MutableStateFlow(0)
 
     init {
-        load()
+        viewModelScope.launch {
+            combine(settings.tmdbApiKey, retryTick) { key, tick -> key to tick }
+                .collectLatest { load() }
+        }
     }
 
-    fun retry() = load()
+    fun retry() {
+        retryTick.value++
+    }
 
-    private fun load() {
-        job?.cancel()
+    private suspend fun load() {
         _state.value = DetailsUiState.Loading
-        job = viewModelScope.launch {
-            _state.value = try {
-                DetailsUiState.Content(catalog.details(id))
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: CatalogException) {
-                DetailsUiState.Error(e.toErrorKind())
-            }
+        _state.value = try {
+            DetailsUiState.Content(catalog.details(id))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: CatalogException) {
+            DetailsUiState.Error(e.toErrorKind())
         }
     }
 }

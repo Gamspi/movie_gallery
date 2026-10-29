@@ -6,6 +6,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.gamspi.videogallery.catalog.CatalogException
 import dev.gamspi.videogallery.catalog.CatalogRepository
 import dev.gamspi.videogallery.catalog.model.Movie
+import dev.gamspi.videogallery.settings.SettingsRepository
 import dev.gamspi.videogallery.ui.components.ErrorKind
 import dev.gamspi.videogallery.ui.components.toErrorKind
 import javax.inject.Inject
@@ -36,16 +37,20 @@ sealed interface SearchUiState {
 @HiltViewModel
 class SearchViewModel @Inject constructor(
     private val catalog: CatalogRepository,
+    settings: SettingsRepository,
 ) : ViewModel() {
     private val query = MutableStateFlow("")
     private val retryTick = MutableStateFlow(0)
 
+    // Eagerly: the VM lives with its back-stack entry; a restart on return from the details
+    // screen would re-search and wipe the grid (and the restored card focus).
     val state: StateFlow<SearchUiState> = combine(
         query.map { it.trim() }.debounce(DEBOUNCE_MS).distinctUntilChanged(),
         retryTick,
-    ) { q, _ -> q }
+        settings.tmdbApiKey,
+    ) { q, _, _ -> q }
         .flatMapLatest { q -> if (q.isEmpty()) flowOf(SearchUiState.Idle) else search(q) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SearchUiState.Idle)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, SearchUiState.Idle)
 
     fun onQueryChange(q: String) {
         query.value = q

@@ -98,6 +98,19 @@ class TmdbCatalogRepositoryTest {
     }
 
     @Test
+    fun key_isReadPerRequest() = runBlocking {
+        val settings = SettingsRepository(FakeSecretStore(mapOf("tmdb_api_key" to "A")))
+        val repo = TmdbCatalogRepository.create(server.url("/3/").toString(), settings)
+        enqueueFixture("popular.json")
+        enqueueFixture("popular.json")
+        repo.popular()
+        settings.setTmdbApiKey("B")
+        repo.popular()
+        assertEquals("A", server.takeRequest().url.queryParameter("api_key"))
+        assertEquals("B", server.takeRequest().url.queryParameter("api_key"))
+    }
+
+    @Test
     fun missingKey_throwsMissingApiKey() = runBlocking {
         try {
             repo(key = null).popular()
@@ -134,7 +147,8 @@ class TmdbCatalogRepositoryTest {
 
     @Test
     fun ioError_throwsNetwork() = runBlocking {
-        server.enqueue(MockResponse.Builder().onRequestStart(SocketEffect.CloseSocket()).build())
+        // two responses: OkHttp may retry once on connection failure; avoid waiting on an empty queue
+        repeat(2) { server.enqueue(MockResponse.Builder().onRequestStart(SocketEffect.CloseSocket()).build()) }
         try {
             repo().popular()
             throw AssertionError("expected Network")

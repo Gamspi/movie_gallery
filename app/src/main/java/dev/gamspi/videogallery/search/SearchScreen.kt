@@ -48,18 +48,15 @@ fun SearchScreen(
     var text by rememberSaveable { mutableStateOf("") }
     val fieldFocus = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
-    // Survive navigation: one-time field focus and the last focused result card.
-    var initialFocusDone by rememberSaveable { mutableStateOf(false) }
+    // Survive navigation: the last focused result card.
     var focusedMovieId by rememberSaveable { mutableIntStateOf(-1) }
     // Per composition: was the card focus restore already issued.
     var restoreHandled by remember { mutableStateOf(false) }
     val gridState = rememberLazyGridState()
     LaunchedEffect(Unit) {
         viewModel.onQueryChange(text) // restore the query after process/back-stack restore
-        if (!initialFocusDone && focusedMovieId == -1) {
-            initialFocusDone = true
-            fieldFocus.requestFocus()
-        }
+        // No card to restore (first entry, or return from Settings/Error): focus the field.
+        if (focusedMovieId == -1) fieldFocus.requestFocus()
     }
     Column(
         modifier = Modifier.fillMaxSize().padding(48.dp),
