@@ -140,6 +140,12 @@ class KinopoiskCatalogRepositoryTest {
     }
 
     @Test
+    fun nonAsciiKey_badKey_noRequest() = runBlocking {
+        assertEquals(CatalogException.Unauthorized, expectFailure { repo("ключ123").popular() })
+        assertEquals(0, server.requestCount)
+    }
+
+    @Test
     fun http401_unauthorized() = runBlocking {
         server.enqueue(MockResponse.Builder().code(401).body("{}").build())
         assertEquals(CatalogException.Unauthorized, expectFailure { repo().popular() })

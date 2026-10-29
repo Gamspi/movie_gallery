@@ -38,6 +38,18 @@ class SettingsRepository @Inject constructor(private val store: SecretStore) {
         refreshActive()
     }
 
+    fun update(source: CatalogSource, kinopoiskKey: String, tmdbKey: String) {
+        val kp = kinopoiskKey.trim().ifEmpty { null }
+        val tm = tmdbKey.trim().ifEmpty { null }
+        store.put(KEY_KINOPOISK, kp)
+        store.put(KEY_TMDB, tm)
+        store.put(KEY_SOURCE, source.name)
+        _kinopoiskApiKey.value = kp
+        _tmdbApiKey.value = tm
+        _catalogSource.value = source
+        refreshActive()
+    }
+
     private val _activeCatalog = MutableStateFlow(computeActive())
     val activeCatalog: StateFlow<ActiveCatalog> = _activeCatalog
 

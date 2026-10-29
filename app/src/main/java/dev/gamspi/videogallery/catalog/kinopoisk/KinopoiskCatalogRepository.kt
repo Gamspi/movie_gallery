@@ -40,7 +40,9 @@ class KinopoiskCatalogRepository(
         items.orEmpty().filter { it.isFilm() }.map { it.toMovie() }
 
     private suspend fun <T> call(block: suspend () -> T): T {
-        if (settings.kinopoiskApiKey.value.isNullOrBlank()) throw CatalogException.MissingApiKey
+        val key = settings.kinopoiskApiKey.value
+        if (key.isNullOrBlank()) throw CatalogException.MissingApiKey
+        if (!key.isHeaderSafe()) throw CatalogException.Unauthorized
         try {
             return block()
         } catch (e: HttpException) {
@@ -51,6 +53,8 @@ class KinopoiskCatalogRepository(
             }
         } catch (e: MissingKeyException) {
             throw CatalogException.MissingApiKey
+        } catch (e: BadKeyException) {
+            throw CatalogException.Unauthorized
         } catch (e: SerializationException) {
             throw CatalogException.Parse
         } catch (e: IllegalArgumentException) {
@@ -71,6 +75,7 @@ class KinopoiskCatalogRepository(
                 .addInterceptor { chain ->
                     // key is read per request so a changed key applies without restart
                     val key = settings.kinopoiskApiKey.value ?: throw MissingKeyException()
+                    if (!key.isHeaderSafe()) throw BadKeyException()
                     chain.proceed(chain.request().newBuilder().header("X-API-KEY", key).build())
                 }
                 .build()
@@ -87,3 +92,7 @@ class KinopoiskCatalogRepository(
 }
 
 private class MissingKeyException : IOException("Kinopoisk key missing")
+
+private class BadKeyException : IOException("Kinopoisk key has invalid characters")
+
+private fun String.isHeaderSafe(): Boolean = all { it in '!'..'~' }

@@ -14,8 +14,6 @@ class SettingsViewModel @Inject constructor(
     val catalogSource: StateFlow<CatalogSource> = repository.catalogSource
 
     fun save(source: CatalogSource, kinopoiskKey: String, tmdbKey: String) {
-        repository.setKinopoiskApiKey(kinopoiskKey)
-        repository.setTmdbApiKey(tmdbKey)
-        repository.setCatalogSource(source)
+        repository.update(source, kinopoiskKey, tmdbKey)
     }
 }

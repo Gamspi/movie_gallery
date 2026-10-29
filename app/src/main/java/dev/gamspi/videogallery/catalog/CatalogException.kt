@@ -5,6 +5,6 @@ sealed class CatalogException : Exception() {
     data object Unauthorized : CatalogException()
     data object Network : CatalogException()
     data object QuotaExceeded : CatalogException()
-    data object Parse: CatalogException()
+    data object Parse : CatalogException()
     data class Http(val code: Int) : CatalogException()
 }

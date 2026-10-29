@@ -1,5 +1,7 @@
 package dev.gamspi.videogallery.settings
 
+import app.cash.turbine.test
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -69,5 +71,17 @@ class SettingsRepositoryTest {
     fun initialValue_readFromStore() {
         val repo = SettingsRepository(FakeSecretStore(mapOf("tmdb_api_key" to "xyz")))
         assertEquals("xyz", repo.tmdbApiKey.value)
+    }
+
+    @Test
+    fun update_emitsActiveCatalogOnce() = runBlocking {
+        val repo = SettingsRepository(FakeSecretStore())
+        repo.activeCatalog.test {
+            assertEquals(ActiveCatalog(CatalogSource.Kinopoisk, null), awaitItem())
+            repo.update(CatalogSource.Tmdb, "kp", "tm")
+            assertEquals(ActiveCatalog(CatalogSource.Tmdb, "tm"), awaitItem())
+            expectNoEvents()
+        }
+        assertEquals("kp", repo.kinopoiskApiKey.value)
     }
 }
