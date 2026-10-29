@@ -9,6 +9,7 @@ plugins {
 android {
     namespace = "dev.gamspi.videogallery"
     compileSdk = 37
+    // pinned to the build-tools installed in the Docker image; AGP default (36.0.0) would be downloaded
     buildToolsVersion = "37.0.0"
 
     defaultConfig {
