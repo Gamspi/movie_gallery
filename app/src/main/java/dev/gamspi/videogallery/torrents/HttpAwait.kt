@@ -1,7 +1,6 @@
 package dev.gamspi.videogallery.torrents
 
 import java.io.IOException
-import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.Call
@@ -13,7 +12,8 @@ suspend fun Call.await(): Response = suspendCancellableCoroutine { cont ->
     cont.invokeOnCancellation { cancel() }
     enqueue(object : Callback {
         override fun onResponse(call: Call, response: Response) {
-            if (cont.isActive) cont.resume(response) else response.close()
+            // close if cancelled between resume and dispatch, so the response never leaks
+            cont.resume(response) { _, _, _ -> response.close() }
         }
 
         override fun onFailure(call: Call, e: IOException) {
