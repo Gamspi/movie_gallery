@@ -47,7 +47,7 @@ class SearchViewModel @Inject constructor(
     val state: StateFlow<SearchUiState> = combine(
         query.map { it.trim() }.debounce(DEBOUNCE_MS).distinctUntilChanged(),
         retryTick,
-        settings.tmdbApiKey,
+        settings.activeCatalog,
     ) { q, _, _ -> q }
         .flatMapLatest { q -> if (q.isEmpty()) flowOf(SearchUiState.Idle) else search(q) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, SearchUiState.Idle)

@@ -1,6 +1,10 @@
 package dev.gamspi.videogallery.ui.nav
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavController
@@ -13,10 +17,14 @@ import dev.gamspi.videogallery.details.DetailsScreen
 import dev.gamspi.videogallery.gallery.GalleryScreen
 import dev.gamspi.videogallery.search.SearchScreen
 import dev.gamspi.videogallery.settings.SettingsScreen
+import dev.gamspi.videogallery.settings.SettingsViewModel
+import dev.gamspi.videogallery.ui.components.LocalCatalogSource
 
 @Composable
 fun AppNavHost() {
     val nav = rememberNavController()
+    val source by hiltViewModel<SettingsViewModel>().catalogSource.collectAsState()
+    CompositionLocalProvider(LocalCatalogSource provides source) {
     NavHost(navController = nav, startDestination = "gallery") {
         composable("gallery") { entry ->
             GalleryScreen(
@@ -35,6 +43,7 @@ fun AppNavHost() {
         composable("movie/{id}", arguments = listOf(navArgument("id") { type = NavType.IntType })) { entry ->
             DetailsScreen(onOpenSettings = { nav.navigateOnce(entry, "settings") })
         }
+    }
     }
 }
 

@@ -16,14 +16,16 @@ import androidx.tv.material3.Button
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import dev.gamspi.videogallery.catalog.CatalogException
+import dev.gamspi.videogallery.settings.CatalogSource
 
-enum class ErrorKind { MissingKey, BadKey, Network, Other }
+enum class ErrorKind { MissingKey, BadKey, QuotaExceeded, Network, Other }
 
 fun CatalogException.toErrorKind(): ErrorKind = when (this) {
     CatalogException.MissingApiKey -> ErrorKind.MissingKey
     CatalogException.Unauthorized -> ErrorKind.BadKey
     CatalogException.Network -> ErrorKind.Network
-    CatalogException.Parse, CatalogException.QuotaExceeded, is CatalogException.Http -> ErrorKind.Other
+    CatalogException.QuotaExceeded -> ErrorKind.QuotaExceeded
+    CatalogException.Parse, is CatalogException.Http -> ErrorKind.Other
 }
 
 @Composable
@@ -33,9 +35,11 @@ fun ErrorView(
     onOpenSettings: () -> Unit,
     autoFocus: Boolean = true,
 ) {
+    val tmdb = LocalCatalogSource.current == CatalogSource.Tmdb
     val message = when (kind) {
-        ErrorKind.MissingKey -> "Нужен ключ TMDB"
-        ErrorKind.BadKey -> "Ключ TMDB неверный"
+        ErrorKind.MissingKey -> if (tmdb) "Нужен ключ TMDB" else "Нужен ключ Кинопоиска"
+        ErrorKind.BadKey -> if (tmdb) "Ключ TMDB неверный" else "Ключ Кинопоиска неверный"
+        ErrorKind.QuotaExceeded -> "Лимит запросов на сегодня исчерпан"
         ErrorKind.Network -> "Нет сети"
         ErrorKind.Other -> "Ошибка загрузки"
     }

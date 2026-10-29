@@ -5,6 +5,7 @@ import dev.gamspi.videogallery.catalog.CatalogException
 import dev.gamspi.videogallery.catalog.FakeCatalogRepository
 import dev.gamspi.videogallery.catalog.model.Genre
 import dev.gamspi.videogallery.catalog.model.Movie
+import dev.gamspi.videogallery.settings.CatalogSource
 import dev.gamspi.videogallery.settings.FakeSecretStore
 import dev.gamspi.videogallery.settings.SettingsRepository
 import dev.gamspi.videogallery.ui.components.ErrorKind
@@ -27,7 +28,7 @@ class GalleryViewModelTest {
 
     private fun movie(id: Int) = Movie(id, "M$id", "O$id", 2020, null, "")
     private fun settings(key: String? = "k") =
-        SettingsRepository(FakeSecretStore(if (key == null) emptyMap() else mapOf("tmdb_api_key" to key)))
+        SettingsRepository(FakeSecretStore(mapOf("catalog_source" to "Tmdb") + if (key == null) emptyMap() else mapOf("tmdb_api_key" to key)))
 
     @Before fun setUp() = Dispatchers.setMain(StandardTestDispatcher())
     @After fun tearDown() = Dispatchers.resetMain()
@@ -128,6 +129,26 @@ class GalleryViewModelTest {
             assertEquals(GalleryUiState.Loading, awaitItem())
             assertTrue(awaitItem() is GalleryUiState.Content)
         }
+    }
+
+    @Test
+    fun sourceChanged_reloads() = runTest {
+        happyRepo(1)
+        val settings = settings()
+        val vm = GalleryViewModel(repo, settings)
+        vm.state.test {
+            assertEquals(GalleryUiState.Loading, awaitItem())
+            assertTrue(awaitItem() is GalleryUiState.Content)
+            settings.setCatalogSource(CatalogSource.Kinopoisk)
+            assertEquals(GalleryUiState.Loading, awaitItem())
+            assertTrue(awaitItem() is GalleryUiState.Content)
+        }
+        assertEquals(2, repo.popularCalls)
+    }
+
+    @Test
+    fun quotaExceeded_mapsToKind() {
+        assertEquals(ErrorKind.QuotaExceeded, CatalogException.QuotaExceeded.toErrorKind())
     }
 
     @Test

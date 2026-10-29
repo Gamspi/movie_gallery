@@ -48,7 +48,7 @@ class DetailsViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            combine(settings.tmdbApiKey, retryTick) { key, tick -> key to tick }
+            combine(settings.activeCatalog, retryTick) { active, tick -> active to tick }
                 .collectLatest { load() }
         }
     }

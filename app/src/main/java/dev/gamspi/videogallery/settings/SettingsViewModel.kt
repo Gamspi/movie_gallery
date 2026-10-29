@@ -10,6 +10,7 @@ class SettingsViewModel @Inject constructor(
     private val repository: SettingsRepository,
 ) : ViewModel() {
     val tmdbApiKey: StateFlow<String?> = repository.tmdbApiKey
+    val catalogSource: StateFlow<CatalogSource> = repository.catalogSource
 
     fun save(key: String) = repository.setTmdbApiKey(key)
 }

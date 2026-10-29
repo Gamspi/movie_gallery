@@ -6,6 +6,7 @@ import dev.gamspi.videogallery.catalog.CatalogException
 import dev.gamspi.videogallery.catalog.FakeCatalogRepository
 import dev.gamspi.videogallery.catalog.model.Movie
 import dev.gamspi.videogallery.catalog.model.MovieDetails
+import dev.gamspi.videogallery.settings.CatalogSource
 import dev.gamspi.videogallery.settings.FakeSecretStore
 import dev.gamspi.videogallery.settings.SettingsRepository
 import dev.gamspi.videogallery.ui.components.ErrorKind
@@ -34,7 +35,7 @@ class DetailsViewModelTest {
     )
 
     private fun settings(key: String? = "k") =
-        SettingsRepository(FakeSecretStore(if (key == null) emptyMap() else mapOf("tmdb_api_key" to key)))
+        SettingsRepository(FakeSecretStore(mapOf("catalog_source" to "Tmdb") + if (key == null) emptyMap() else mapOf("tmdb_api_key" to key)))
 
     @Before fun setUp() = Dispatchers.setMain(StandardTestDispatcher())
     @After fun tearDown() = Dispatchers.resetMain()
@@ -76,6 +77,21 @@ class DetailsViewModelTest {
             assertEquals(DetailsUiState.Error(ErrorKind.MissingKey), awaitItem())
             repo.detailsResult = { details(it) }
             settings.setTmdbApiKey("new")
+            assertEquals(DetailsUiState.Loading, awaitItem())
+            assertEquals(DetailsUiState.Content(details(3)), awaitItem())
+        }
+        assertEquals(listOf(3, 3), repo.detailsCalls)
+    }
+
+    @Test
+    fun sourceChanged_reloads() = runTest {
+        repo.detailsResult = { details(it) }
+        val settings = settings()
+        val vm = DetailsViewModel(repo, settings, SavedStateHandle(mapOf("id" to 3)))
+        vm.state.test {
+            assertEquals(DetailsUiState.Loading, awaitItem())
+            assertEquals(DetailsUiState.Content(details(3)), awaitItem())
+            settings.setCatalogSource(CatalogSource.Kinopoisk)
             assertEquals(DetailsUiState.Loading, awaitItem())
             assertEquals(DetailsUiState.Content(details(3)), awaitItem())
         }

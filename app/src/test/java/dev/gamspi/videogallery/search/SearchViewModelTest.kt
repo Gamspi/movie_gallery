@@ -4,6 +4,7 @@ import app.cash.turbine.test
 import dev.gamspi.videogallery.catalog.CatalogException
 import dev.gamspi.videogallery.catalog.FakeCatalogRepository
 import dev.gamspi.videogallery.catalog.model.Movie
+import dev.gamspi.videogallery.settings.CatalogSource
 import dev.gamspi.videogallery.settings.FakeSecretStore
 import dev.gamspi.videogallery.settings.SettingsRepository
 import dev.gamspi.videogallery.ui.components.ErrorKind
@@ -25,7 +26,7 @@ class SearchViewModelTest {
 
     private fun movie(id: Int) = Movie(id, "M$id", "O$id", 2020, null, "")
     private fun settings(key: String? = "k") =
-        SettingsRepository(FakeSecretStore(if (key == null) emptyMap() else mapOf("tmdb_api_key" to key)))
+        SettingsRepository(FakeSecretStore(mapOf("catalog_source" to "Tmdb") + if (key == null) emptyMap() else mapOf("tmdb_api_key" to key)))
 
     @Before fun setUp() = Dispatchers.setMain(StandardTestDispatcher())
     @After fun tearDown() = Dispatchers.resetMain()
@@ -144,6 +145,25 @@ class SearchViewModelTest {
             assertEquals(SearchUiState.Loading, awaitItem())
             assertEquals(SearchUiState.Results(listOf(movie(1))), awaitItem())
         }
+    }
+
+    @Test
+    fun sourceChanged_researches() = runTest {
+        repo.searchResult = { listOf(movie(1)) }
+        val settings = settings()
+        val vm = SearchViewModel(repo, settings)
+        vm.state.test {
+            assertEquals(SearchUiState.Idle, awaitItem())
+            vm.onQueryChange("abc")
+            advanceTimeBy(500)
+            assertEquals(SearchUiState.Loading, awaitItem())
+            assertEquals(SearchUiState.Results(listOf(movie(1))), awaitItem())
+            settings.setCatalogSource(CatalogSource.Kinopoisk)
+            advanceTimeBy(1)
+            assertEquals(SearchUiState.Loading, awaitItem())
+            assertEquals(SearchUiState.Results(listOf(movie(1))), awaitItem())
+        }
+        assertEquals(listOf("abc", "abc"), repo.searchCalls)
     }
 
     @Test
