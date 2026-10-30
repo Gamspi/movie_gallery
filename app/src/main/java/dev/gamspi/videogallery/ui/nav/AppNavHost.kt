@@ -40,7 +40,7 @@ fun AppNavHost() {
             SettingsScreen(
                 onBack = { nav.popBackStack() },
                 onPlayTest = { url ->
-                    nav.navigateOnce(entry, "player?url=${Uri.encode(url)}&title=${Uri.encode("Тест")}&key=")
+                    nav.navigateOnce(entry, "player?url=${Uri.encode(url)}&title=${Uri.encode("Тест")}")
                 },
             )
         }

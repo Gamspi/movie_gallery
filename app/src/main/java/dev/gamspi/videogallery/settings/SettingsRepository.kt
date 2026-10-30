@@ -37,7 +37,7 @@ class SettingsRepository @Inject constructor(private val store: SecretStore) {
         _testUrl.value = value
     }
 
-    private val _catalogSource =MutableStateFlow(
+    private val _catalogSource = MutableStateFlow(
         CatalogSource.entries.firstOrNull { it.name == store.get(KEY_SOURCE) } ?: CatalogSource.Kinopoisk,
     )
     val catalogSource: StateFlow<CatalogSource> = _catalogSource
