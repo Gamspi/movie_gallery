@@ -5,6 +5,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import dev.gamspi.videogallery.stream.StreamManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -21,11 +22,12 @@ private const val SAVE_INTERVAL_MS = 10_000L
 class PlayerViewModel internal constructor(
     savedState: SavedStateHandle,
     private val store: PlaybackStore,
+    private val manager: StreamManager,
     private val clock: () -> Long,
 ) : ViewModel() {
     @Inject
-    constructor(savedState: SavedStateHandle, store: PlaybackStore) :
-        this(savedState, store, SystemClock::elapsedRealtime)
+    constructor(savedState: SavedStateHandle, store: PlaybackStore, manager: StreamManager) :
+        this(savedState, store, manager, SystemClock::elapsedRealtime)
 
     private val url: String = savedState.get<String>("url").orEmpty()
     private val key: String = savedState.get<String>("key").orEmpty().ifEmpty { "url:$url" }
@@ -33,6 +35,19 @@ class PlayerViewModel internal constructor(
         PlayerUiState(title = savedState.get<String>("title").orEmpty(), url = url),
     )
     val state: StateFlow<PlayerUiState> = _state
+
+    private val isTorrent = key.startsWith("bt:")
+
+    /** Download status line; only for torrent sessions. */
+    val statusLine: StateFlow<String?> = if (isTorrent) manager.statusLine else MutableStateFlow(null)
+
+    fun clearError() {
+        _state.value = _state.value.copy(error = null)
+    }
+
+    public override fun onCleared() {
+        if (isTorrent) manager.stop()
+    }
 
     private var resumeComputed = false
     private var lastSaveAt: Long? = null

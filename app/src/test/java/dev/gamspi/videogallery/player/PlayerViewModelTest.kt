@@ -1,6 +1,18 @@
 package dev.gamspi.videogallery.player
 
 import androidx.lifecycle.SavedStateHandle
+import dev.gamspi.videogallery.stream.FakeTorrentEngine
+import dev.gamspi.videogallery.stream.StreamManager
+import dev.gamspi.videogallery.stream.StreamServer
+import dev.gamspi.videogallery.stream.StreamState
+import dev.gamspi.videogallery.stream.TorrentFile
+import java.io.File
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -9,9 +21,19 @@ class PlayerViewModelTest {
     private val store = FakePlaybackStore()
     private var now = 0L
 
-    private fun vm(url: String = "http://x/a.mp4", key: String = "") = PlayerViewModel(
+    private fun vm(
+        url: String = "http://x/a.mp4",
+        key: String = "",
+        manager: StreamManager = StreamManager(
+            FakeTorrentEngine(),
+            StreamServer(CoroutineScope(Dispatchers.Unconfined)),
+            File("unused"),
+            CoroutineScope(Dispatchers.Unconfined),
+        ),
+    ) = PlayerViewModel(
         SavedStateHandle(mapOf("url" to url, "title" to "T", "key" to key)),
         store,
+        manager,
     ) { now }
 
     private fun track(lang: String?, label: String? = null) =
@@ -98,5 +120,53 @@ class PlayerViewModelTest {
         val vm = vm(url = "http://x/a.mp4")
         vm.onPauseOrExit(500_000, 3_600_000)
         assertEquals(500_000L, store.positions["url:http://x/a.mp4"])
+    }
+
+    @Test
+    fun clearError_resetsError() {
+        val vm = vm()
+        vm.onError("X")
+        assertEquals("X", vm.state.value.error)
+        vm.clearError()
+        assertNull(vm.state.value.error)
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun btKey_exposesStatusLine() = runTest {
+        val engine = FakeTorrentEngine().apply { files = listOf(TorrentFile(0, "a.mkv", 10L * 1024 * 1024)) }
+        val sm = StreamManager(engine, StreamServer(backgroundScope), File("unused"), backgroundScope)
+        sm.start("magnet:abc", "Film")
+        runCurrent()
+        val bt = vm(key = "bt:abc:0", manager = sm)
+        assertEquals(sm.statusLine.value, bt.statusLine.value)
+        assertTrue(bt.statusLine.value!!.contains("пира"))
+        sm.stop()
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun btKey_clearedStopsSession() = runTest {
+        val engine = FakeTorrentEngine().apply { files = listOf(TorrentFile(0, "a.mkv", 10L * 1024 * 1024)) }
+        val sm = StreamManager(engine, StreamServer(backgroundScope), File("unused"), backgroundScope)
+        sm.start("magnet:abc", "Film")
+        runCurrent()
+        assertTrue(sm.state.value is StreamState.Buffering)
+        vm(key = "bt:abc:0", manager = sm).onCleared()
+        assertEquals(StreamState.Idle, sm.state.value)
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun urlKey_noStatus_noStop() = runTest {
+        val engine = FakeTorrentEngine().apply { files = listOf(TorrentFile(0, "a.mkv", 10L * 1024 * 1024)) }
+        val sm = StreamManager(engine, StreamServer(backgroundScope), File("unused"), backgroundScope)
+        sm.start("magnet:abc", "Film")
+        runCurrent()
+        val vm = vm(key = "", manager = sm)
+        assertNull(vm.statusLine.value)
+        vm.onCleared()
+        assertTrue(sm.state.value is StreamState.Buffering)
+        sm.stop()
     }
 }

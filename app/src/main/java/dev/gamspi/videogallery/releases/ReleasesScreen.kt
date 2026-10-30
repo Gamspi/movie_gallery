@@ -12,9 +12,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,27 +43,25 @@ fun releaseInfoLine(r: TorrentResult): String =
 @Composable
 fun ReleasesScreen(
     onOpenSettings: () -> Unit,
+    onPlay: (TorrentResult) -> Unit,
     viewModel: ReleasesViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     when (val s = state) {
         ReleasesUiState.Loading -> Box(Modifier.fillMaxSize(), Alignment.Center) { Text("Ищем раздачи…") }
         is ReleasesUiState.Error -> ErrorView(s.kind, onRetry = viewModel::retry, onOpenSettings = onOpenSettings)
-        is ReleasesUiState.Content -> ReleasesContent(s, viewModel::setFilter)
+        is ReleasesUiState.Content -> ReleasesContent(s, viewModel::setFilter, onPlay)
     }
 }
 
 @Composable
-private fun ReleasesContent(content: ReleasesUiState.Content, onFilter: (Quality?) -> Unit) {
+private fun ReleasesContent(
+    content: ReleasesUiState.Content,
+    onFilter: (Quality?) -> Unit,
+    onPlay: (TorrentResult) -> Unit,
+) {
     val allFocus = remember { FocusRequester() }
     val firstRowFocus = remember { FocusRequester() }
-    var notice by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(notice) {
-        if (notice != null) {
-            kotlinx.coroutines.delay(3000)
-            notice = null
-        }
-    }
     val visible = content.visible
     // Initial focus only: first row if any, otherwise the «Все» filter.
     LaunchedEffect(Unit) {
@@ -89,7 +85,6 @@ private fun ReleasesContent(content: ReleasesUiState.Content, onFilter: (Quality
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
-        notice?.let { Text(it, style = MaterialTheme.typography.bodyLarge) }
         if (visible.isEmpty()) {
             Box(Modifier.fillMaxSize(), Alignment.Center) {
                 Text(
@@ -105,7 +100,7 @@ private fun ReleasesContent(content: ReleasesUiState.Content, onFilter: (Quality
                 itemsIndexed(visible, key = { _, r -> r.infoHash }) { index, r ->
                     ListItem(
                         selected = false,
-                        onClick = { notice = "Воспроизведение — скоро" },
+                        onClick = { onPlay(r) },
                         headlineContent = { Text(r.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
                         supportingContent = { Text(releaseInfoLine(r)) },
                         modifier = Modifier.fillMaxWidth()

@@ -13,6 +13,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.NavOptionsBuilder
 import androidx.navigation.navArgument
 import dev.gamspi.videogallery.details.DetailsScreen
 import dev.gamspi.videogallery.gallery.GalleryScreen
@@ -21,6 +22,7 @@ import dev.gamspi.videogallery.releases.ReleasesScreen
 import dev.gamspi.videogallery.search.SearchScreen
 import dev.gamspi.videogallery.settings.SettingsScreen
 import dev.gamspi.videogallery.settings.SettingsViewModel
+import dev.gamspi.videogallery.stream.StreamScreen
 import dev.gamspi.videogallery.ui.components.LocalCatalogSource
 
 @Composable
@@ -63,13 +65,40 @@ fun AppNavHost() {
             )
         }
         composable("releases/{id}", arguments = listOf(navArgument("id") { type = NavType.IntType })) { entry ->
-            ReleasesScreen(onOpenSettings = { nav.navigateOnce(entry, "settings") })
+            ReleasesScreen(
+                onOpenSettings = { nav.navigateOnce(entry, "settings") },
+                onPlay = { r ->
+                    nav.navigateOnce(entry, "stream?magnet=${Uri.encode(r.magnet)}&title=${Uri.encode(r.title)}")
+                },
+            )
+        }
+        composable(
+            STREAM_ROUTE,
+            arguments = listOf("magnet", "title").map {
+                navArgument(it) { type = NavType.StringType; defaultValue = "" }
+            },
+        ) { entry ->
+            StreamScreen(
+                onReady = { url, key, title ->
+                    nav.navigateOnce(
+                        entry,
+                        "player?url=${Uri.encode(url)}&title=${Uri.encode(title)}&key=${Uri.encode(key)}",
+                    ) { popUpTo(STREAM_ROUTE) { inclusive = true } }
+                },
+                onBack = { nav.popBackStack() },
+            )
         }
     }
     }
 }
 
 /** Ignore repeated clicks (double OK) once the source screen is no longer resumed. */
-private fun NavController.navigateOnce(from: NavBackStackEntry, route: String) {
-    if (from.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) navigate(route)
+private fun NavController.navigateOnce(
+    from: NavBackStackEntry,
+    route: String,
+    builder: NavOptionsBuilder.() -> Unit = {},
+) {
+    if (from.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) navigate(route, builder)
 }
+
+private const val STREAM_ROUTE = "stream?magnet={magnet}&title={title}"

@@ -21,6 +21,7 @@ fun PlayerOverlay(
     durationMs: Long,
     playWhenReady: Boolean,
     buffering: Boolean,
+    statusLine: String? = null,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -46,5 +47,6 @@ fun PlayerOverlay(
             Text(shown, color = Color.White)
             Text("↓ Аудио", color = Color(0xFFBBBBBB))
         }
+        statusLine?.let { Text(it, color = Color(0xFFBBBBBB)) }
     }
 }

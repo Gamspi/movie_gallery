@@ -7,6 +7,7 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -39,7 +40,11 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.Tracks
 import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
 import androidx.media3.ui.PlayerView
 import androidx.tv.material3.Button
 import androidx.tv.material3.Text
@@ -62,12 +67,20 @@ private fun remoteKeyOf(keyCode: Int): RemoteKey? = when (keyCode) {
 fun PlayerScreen(onBack: () -> Unit) {
     val vm = hiltViewModel<PlayerViewModel>()
     val state by vm.state.collectAsState()
+    val statusLine by vm.statusLine.collectAsState()
+    var lastPositionMs by remember { mutableLongStateOf(0L) }
     val context = LocalContext.current
     val view = LocalView.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
     val player = remember {
-        ExoPlayer.Builder(context).build().apply {
+        ExoPlayer.Builder(context)
+            .setLoadControl(
+                DefaultLoadControl.Builder()
+                    .setBufferDurationsMs(15_000, 60_000, 2_500, 5_000)
+                    .build(),
+            )
+            .build().apply {
             trackSelectionParameters = trackSelectionParameters.buildUpon()
                 .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
                 .build()
@@ -144,12 +157,18 @@ fun PlayerScreen(onBack: () -> Unit) {
             }
 
             override fun onPlayerError(error: PlaybackException) {
+                lastPositionMs = player.currentPosition
                 vm.onError(error.errorCodeName)
             }
         }
         player.addListener(listener)
         if (state.url.isNotEmpty()) {
-            player.setMediaItem(MediaItem.fromUri(state.url))
+            val factory = DefaultMediaSourceFactory(
+                DefaultHttpDataSource.Factory()
+                    .setConnectTimeoutMs(30_000)
+                    .setReadTimeoutMs(60_000),
+            ).setLoadErrorHandlingPolicy(DefaultLoadErrorHandlingPolicy(10))
+            player.setMediaSource(factory.createMediaSource(MediaItem.fromUri(state.url)))
             player.prepare()
         } else {
             vm.onError("EMPTY_URL")
@@ -286,7 +305,16 @@ fun PlayerScreen(onBack: () -> Unit) {
         val offer = state.resumeOffer
         val error = state.error
         when {
-            error != null -> ErrorContent(error, errorFocus, ::exit)
+            error != null -> ErrorContent(
+                error = error,
+                focus = errorFocus,
+                onRetry = {
+                    vm.clearError()
+                    player.prepare()
+                    player.seekTo(lastPositionMs)
+                },
+                onBack = ::exit,
+            )
             offer != null -> ResumeContent(
                 offer = offer,
                 durationMs = durationMs,
@@ -309,6 +337,7 @@ fun PlayerScreen(onBack: () -> Unit) {
                         durationMs = durationMs,
                         playWhenReady = playWhenReady,
                         buffering = buffering,
+                        statusLine = statusLine,
                         modifier = Modifier.align(Alignment.BottomCenter),
                     )
                 }
@@ -349,13 +378,21 @@ private fun ResumeContent(
 }
 
 @Composable
-private fun ErrorContent(error: String, focus: FocusRequester, onBack: () -> Unit) {
+private fun ErrorContent(
+    error: String,
+    focus: FocusRequester,
+    onRetry: () -> Unit,
+    onBack: () -> Unit,
+) {
     LaunchedEffect(Unit) { focus.requestFocus() }
     Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text("Не удалось воспроизвести", color = Color.White)
             Text(error, color = Color(0xFFBBBBBB))
-            Button(onClick = onBack, modifier = Modifier.focusRequester(focus)) { Text("Назад") }
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(onClick = onRetry, modifier = Modifier.focusRequester(focus)) { Text("Повторить") }
+                Button(onClick = onBack) { Text("Назад") }
+            }
         }
     }
 }
