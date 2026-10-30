@@ -1,5 +1,7 @@
 package dev.gamspi.videogallery.player
 
+import java.util.Locale
+
 private const val MIN_RESUME_MS = 60_000L
 
 fun isFinished(positionMs: Long, durationMs: Long): Boolean =
@@ -17,8 +19,8 @@ fun formatTime(ms: Long, durationMs: Long): String {
     val m = (total % 3600) / 60
     val s = total % 60
     return if (durationMs >= 3_600_000L) {
-        "%d:%02d:%02d".format(h, m, s)
+        "%d:%02d:%02d".format(Locale.ROOT, h, m, s)
     } else {
-        "%d:%02d".format(total / 60, s)
+        "%d:%02d".format(Locale.ROOT, total / 60, s)
     }
 }
