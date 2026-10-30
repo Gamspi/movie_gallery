@@ -28,6 +28,9 @@ interface TorrentEngine {
     fun filePath(hash: String, fileIndex: Int): File
 
     fun remove(hash: String, deleteFiles: Boolean)
+
+    /** Сбрасывает все дедлайны кусков (перемотка). */
+    fun clearDeadlines(hash: String) {}
 }
 
 sealed interface StreamState {

@@ -4,6 +4,7 @@ import java.io.File
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -27,30 +28,50 @@ class StreamManagerTest {
         val removed = mutableListOf<Pair<String, Boolean>>()
         val selected = mutableListOf<Pair<String, Int>>()
         val added = mutableListOf<String>()
+        val live = mutableSetOf<String>()
+        var addDelayMs = 0L
+        var statusError = false
+        var spanOffset = 0L
+        val prioritized = mutableListOf<Pair<IntRange, Int>>()
+        var cleared = 0
         override val pieceFinished = MutableSharedFlow<Pair<String, Int>>(extraBufferCapacity = 64)
 
         override suspend fun add(magnet: String, saveDir: File): String {
             addError?.let { throw it }
+            if (addDelayMs > 0) kotlinx.coroutines.delay(addDelayMs)
             added += magnet
-            return magnet.removePrefix("magnet:").lowercase()
+            val hash = magnet.removePrefix("magnet:").lowercase()
+            live += hash
+            return hash
         }
 
         override suspend fun awaitMetadata(hash: String): List<TorrentFile> =
             metadata?.invoke() ?: files
 
         override fun fileSpan(hash: String, fileIndex: Int) =
-            FileSpan(0, files.first { it.index == fileIndex }.size, 1024 * 1024)
+            FileSpan(spanOffset, files.first { it.index == fileIndex }.size, 1024 * 1024)
 
         override fun selectFile(hash: String, fileIndex: Int) {
             selected += hash to fileIndex
         }
 
         override fun havePiece(hash: String, piece: Int) = piece in have
-        override fun prioritize(hash: String, pieces: IntRange, deadlineMs: Int) {}
-        override fun status(hash: String) = EngineStatus(2_202_010, 3, 0.5f)
+        override fun prioritize(hash: String, pieces: IntRange, deadlineMs: Int) {
+            prioritized += pieces to deadlineMs
+        }
+
+        override fun clearDeadlines(hash: String) {
+            cleared++
+        }
+
+        override fun status(hash: String): EngineStatus {
+            if (statusError) throw IllegalStateException("status")
+            return EngineStatus(2_202_010, 3, 0.5f)
+        }
         override fun filePath(hash: String, fileIndex: Int) = File("unused")
         override fun remove(hash: String, deleteFiles: Boolean) {
             removed += hash to deleteFiles
+            live -= hash
         }
     }
 
@@ -179,5 +200,103 @@ class StreamManagerTest {
         runCurrent()
         assertEquals(StreamState.Failed("Не удалось запустить раздачу"), sm.state.value)
         sm.stop()
+    }
+
+    @Test
+    fun stop_duringAdd_removesTorrent() = runTest {
+        engine.files = listOf(TorrentFile(0, "a.mkv", 10 * mib))
+        engine.addDelayMs = 1_000
+        val sm = manager()
+        sm.start("magnet:hhh", "Film")
+        advanceTimeBy(500)
+        sm.stop()
+        advanceTimeBy(2_000)
+        assertEquals(StreamState.Idle, sm.state.value)
+        assertTrue(engine.live.isEmpty())
+        assertTrue(engine.removed.contains("hhh" to true))
+    }
+
+    @Test
+    fun doubleChooseFile_startsOneBuffer() = runTest {
+        engine.files = listOf(TorrentFile(0, "a.mkv", 10 * mib), TorrentFile(1, "b.mp4", 20 * mib))
+        val sm = manager()
+        sm.start("magnet:iii", "Film")
+        runCurrent()
+        sm.chooseFile(0)
+        sm.chooseFile(1)
+        runCurrent()
+        assertEquals(listOf("iii" to 0), engine.selected)
+        sm.stop()
+    }
+
+    @Test
+    fun statusFailsAfterReady_keepsReady() = runTest {
+        engine.files = listOf(TorrentFile(0, "a.mkv", 10 * mib))
+        val sm = manager()
+        sm.start("magnet:jjj", "Film")
+        runCurrent()
+        engine.have += 0..9
+        advanceTimeBy(1_100)
+        assertTrue(sm.state.value is StreamState.Ready)
+        engine.statusError = true
+        advanceTimeBy(3_000)
+        assertTrue(sm.state.value is StreamState.Ready)
+        assertTrue(engine.removed.isEmpty())
+        sm.stop()
+    }
+
+    private fun source(span: FileSpan = FileSpan(3 * mib, 100 * mib, 1024 * 1024)) =
+        EnginePieceSource(engine, "h", span, File("unused"), readAheadBytes = 4 * mib)
+
+    @Test
+    fun awaitRange_mapsOffsetToPieces_andWaitsForEvent() = runTest {
+        val src = source()
+        var done = false
+        val job = launch { src.awaitRange(0, 10); done = true }
+        runCurrent()
+        // file offset 3 MiB, piece 1 MiB: byte 0 is piece 3
+        assertEquals(3..3, engine.prioritized.first().first)
+        assertTrue(!done)
+        engine.have += 3
+        engine.pieceFinished.emit("h" to 3)
+        runCurrent()
+        assertTrue(done)
+        job.join()
+    }
+
+    @Test
+    fun awaitRange_missedEvent_pollsHavePiece() = runTest {
+        val src = source()
+        var done = false
+        launch { src.awaitRange(0, 10); done = true }
+        runCurrent()
+        engine.have += 3 // no event emitted
+        advanceTimeBy(1_100)
+        assertTrue(done)
+    }
+
+    @Test
+    fun awaitRange_alreadyHave_returnsImmediately() = runTest {
+        engine.have += 3
+        var done = false
+        launch { source().awaitRange(0, 10); done = true }
+        runCurrent()
+        assertTrue(done)
+    }
+
+    @Test
+    fun awaitRange_readAheadStepped_andSeekClears() = runTest {
+        engine.have += 3..80
+        val src = source()
+        src.awaitRange(0, 10)
+        val deadlines = engine.prioritized.map { it.second }
+        assertEquals(deadlines.sorted(), deadlines)
+        assertTrue(deadlines.size > 1)
+        assertEquals(0, engine.cleared)
+        val before = engine.prioritized.size
+        src.awaitRange(1, 11) // same pieces, already deadlined
+        assertEquals(before, engine.prioritized.size)
+        src.awaitRange(50 * mib, 50 * mib + 10) // seek
+        assertEquals(1, engine.cleared)
     }
 }
