@@ -31,7 +31,7 @@ class StreamManager(
     private val metadataTimeoutMs: Long = 60_000,
     private val tickMs: Long = 1_000,
 ) {
-    private class Session(val title: String) {
+    private class Session(val id: Long, val title: String) {
         private var hashValue: String? = null
         @Volatile var job: Job? = null
         @Volatile var files: List<TorrentFile> = emptyList()
@@ -55,11 +55,20 @@ class StreamManager(
 
     private val lock = Any()
     private var session: Session? = null
+    private var counter = 0L
+
+    /** Id of the latest started session (0 before any start). */
+    fun currentSessionId(): Long = synchronized(lock) { counter }
+
+    /** Stops the session only if [id] is still the current one. */
+    fun stopIf(id: Long) {
+        val current = synchronized(lock) { session?.id == id }
+        if (current) stop()
+    }
 
     fun start(magnet: String, title: String) {
         stop()
-        val s = Session(title)
-        synchronized(lock) { session = s }
+        val s = synchronized(lock) { Session(++counter, title).also { session = it } }
         _state.value = StreamState.FetchingMetadata
         s.job = scope.launch {
             try {

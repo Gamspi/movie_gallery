@@ -12,12 +12,14 @@ class StreamViewModel @Inject constructor(
     private val manager: StreamManager,
 ) : ViewModel() {
     val state: StateFlow<StreamState> = manager.state
+    private val sessionId: Long
 
     init {
         manager.start(
             savedState.get<String>("magnet").orEmpty(),
             savedState.get<String>("title").orEmpty(),
         )
+        sessionId = manager.currentSessionId()
     }
 
     fun chooseFile(index: Int) = manager.chooseFile(index)
@@ -25,7 +27,7 @@ class StreamViewModel @Inject constructor(
     fun cancel() = manager.stop()
 
     /** After Ready the player owns the session; before that, leaving the screen cancels it. */
-    public override fun onCleared() {
-        if (manager.state.value !is StreamState.Ready) manager.stop()
+    override fun onCleared() {
+        if (manager.state.value !is StreamState.Ready) manager.stopIf(sessionId)
     }
 }

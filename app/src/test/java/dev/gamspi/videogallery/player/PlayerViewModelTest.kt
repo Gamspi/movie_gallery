@@ -3,6 +3,7 @@ package dev.gamspi.videogallery.player
 import androidx.lifecycle.SavedStateHandle
 import dev.gamspi.videogallery.stream.FakeTorrentEngine
 import dev.gamspi.videogallery.stream.StreamManager
+import dev.gamspi.videogallery.stream.clearViaStore
 import dev.gamspi.videogallery.stream.StreamServer
 import dev.gamspi.videogallery.stream.StreamState
 import dev.gamspi.videogallery.stream.TorrentFile
@@ -152,7 +153,7 @@ class PlayerViewModelTest {
         sm.start("magnet:abc", "Film")
         runCurrent()
         assertTrue(sm.state.value is StreamState.Buffering)
-        vm(key = "bt:abc:0", manager = sm).onCleared()
+        vm(key = "bt:abc:0", manager = sm).clearViaStore()
         assertEquals(StreamState.Idle, sm.state.value)
     }
 
@@ -165,7 +166,22 @@ class PlayerViewModelTest {
         runCurrent()
         val vm = vm(key = "", manager = sm)
         assertNull(vm.statusLine.value)
-        vm.onCleared()
+        vm.clearViaStore()
+        assertTrue(sm.state.value is StreamState.Buffering)
+        sm.stop()
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun btKey_oldVmCleared_afterNewSession_newSurvives() = runTest {
+        val engine = FakeTorrentEngine().apply { files = listOf(TorrentFile(0, "a.mkv", 10L * 1024 * 1024)) }
+        val sm = StreamManager(engine, StreamServer(backgroundScope), File("unused"), backgroundScope)
+        sm.start("magnet:abc", "Film")
+        runCurrent()
+        val old = vm(key = "bt:abc:0", manager = sm)
+        sm.start("magnet:def", "Film2")
+        runCurrent()
+        old.clearViaStore()
         assertTrue(sm.state.value is StreamState.Buffering)
         sm.stop()
     }

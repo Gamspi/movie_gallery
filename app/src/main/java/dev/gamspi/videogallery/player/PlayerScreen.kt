@@ -81,11 +81,11 @@ fun PlayerScreen(onBack: () -> Unit) {
                     .build(),
             )
             .build().apply {
-            trackSelectionParameters = trackSelectionParameters.buildUpon()
-                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
-                .build()
-            playWhenReady = false
-        }
+                trackSelectionParameters = trackSelectionParameters.buildUpon()
+                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                    .build()
+                playWhenReady = false
+            }
     }
 
     var playWhenReady by remember { mutableStateOf(false) }

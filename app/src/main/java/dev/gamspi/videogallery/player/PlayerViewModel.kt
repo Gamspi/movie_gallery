@@ -37,6 +37,7 @@ class PlayerViewModel internal constructor(
     val state: StateFlow<PlayerUiState> = _state
 
     private val isTorrent = key.startsWith("bt:")
+    private val sessionId = manager.currentSessionId()
 
     /** Download status line; only for torrent sessions. */
     val statusLine: StateFlow<String?> = if (isTorrent) manager.statusLine else MutableStateFlow(null)
@@ -45,8 +46,8 @@ class PlayerViewModel internal constructor(
         _state.value = _state.value.copy(error = null)
     }
 
-    public override fun onCleared() {
-        if (isTorrent) manager.stop()
+    override fun onCleared() {
+        if (isTorrent) manager.stopIf(sessionId)
     }
 
     private var resumeComputed = false

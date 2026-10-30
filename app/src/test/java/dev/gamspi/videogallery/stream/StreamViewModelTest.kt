@@ -63,7 +63,7 @@ class StreamViewModelTest {
         val sm = manager()
         val vm = vm(sm)
         runCurrent()
-        vm.onCleared()
+        vm.clearViaStore()
         assertEquals(StreamState.Idle, sm.state.value)
     }
 
@@ -75,8 +75,21 @@ class StreamViewModelTest {
         engine.have += 0..9
         advanceTimeBy(1_100)
         assertTrue(sm.state.value is StreamState.Ready)
-        vm.onCleared()
+        vm.clearViaStore()
         assertTrue(sm.state.value is StreamState.Ready)
         sm.stop()
+    }
+
+    @Test
+    fun oldVmCleared_afterNewSession_newSurvives() = runTest {
+        val sm = manager()
+        val old = vm(sm)
+        runCurrent()
+        val fresh = vm(sm)
+        runCurrent()
+        old.clearViaStore()
+        assertTrue(sm.state.value is StreamState.Buffering)
+        fresh.clearViaStore()
+        assertEquals(StreamState.Idle, sm.state.value)
     }
 }

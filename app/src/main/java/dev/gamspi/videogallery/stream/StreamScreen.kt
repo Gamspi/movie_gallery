@@ -21,12 +21,15 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.Button
 import androidx.tv.material3.ListItem
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import dev.gamspi.videogallery.torrents.formatSize
+import kotlinx.coroutines.flow.first
 
 @Composable
 fun StreamScreen(
@@ -35,6 +38,7 @@ fun StreamScreen(
     viewModel: StreamViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     fun back() {
         viewModel.cancel()
@@ -46,7 +50,11 @@ fun StreamScreen(
     val ready = state as? StreamState.Ready
     if (ready != null) {
         // Keyed on the Ready value: fires once per Ready, never on plain recomposition.
-        LaunchedEffect(ready) { onReady(ready.url, ready.key, ready.title) }
+        // Waits for RESUMED: navigateOnce drops the call otherwise (enter transition, back from Home).
+        LaunchedEffect(ready) {
+            lifecycleOwner.lifecycle.currentStateFlow.first { it.isAtLeast(Lifecycle.State.RESUMED) }
+            onReady(ready.url, ready.key, ready.title)
+        }
     }
 
     Box(Modifier.fillMaxSize().padding(48.dp), contentAlignment = Alignment.Center) {
@@ -58,7 +66,7 @@ fun StreamScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text("Буферизация ${s.percent} %", style = MaterialTheme.typography.titleMedium)
-                Text(s.status, style = MaterialTheme.typography.bodyMedium)
+                if (s.status.isNotBlank()) Text(s.status, style = MaterialTheme.typography.bodyMedium)
             }
             is StreamState.ChooseFile -> ChooseFileList(s.files, viewModel::chooseFile)
             is StreamState.Failed -> FailedContent(s.message, ::back)
