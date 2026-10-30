@@ -50,8 +50,7 @@ private const val POLL_MS = 500L
 
 private fun remoteKeyOf(keyCode: Int): RemoteKey? = when (keyCode) {
     KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> RemoteKey.Center
-    KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, KeyEvent.KEYCODE_MEDIA_PLAY, KeyEvent.KEYCODE_MEDIA_PAUSE ->
-        RemoteKey.PlayPause
+    KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> RemoteKey.PlayPause
     KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_MEDIA_REWIND -> RemoteKey.Left
     KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> RemoteKey.Right
     KeyEvent.KEYCODE_DPAD_DOWN -> RemoteKey.Down
@@ -76,7 +75,8 @@ fun PlayerScreen(onBack: () -> Unit) {
         }
     }
 
-    var isPlaying by remember { mutableStateOf(false) }
+    var playWhenReady by remember { mutableStateOf(false) }
+    var buffering by remember { mutableStateOf(false) }
     var positionMs by remember { mutableLongStateOf(0L) }
     var durationMs by remember { mutableLongStateOf(0L) }
     var audio by remember { mutableStateOf(emptyList<AudioTrack>()) }
@@ -120,16 +120,27 @@ fun PlayerScreen(onBack: () -> Unit) {
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
+                buffering = playbackState == Player.STATE_BUFFERING
+                if (playbackState == Player.STATE_ENDED) {
+                    val d = durationOrZero()
+                    vm.onPauseOrExit(d, d)
+                    exit()
+                    return
+                }
                 if (playbackState != Player.STATE_READY || started) return
                 started = true
                 val d = durationOrZero()
                 durationMs = d
                 if (d > 0) vm.onDuration(d)
-                if (vm.state.value.resumeOffer == null) player.play()
+                if (vm.state.value.resumeOffer == null &&
+                    lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+                ) {
+                    player.play()
+                }
             }
 
-            override fun onIsPlayingChanged(playing: Boolean) {
-                isPlaying = playing
+            override fun onPlayWhenReadyChanged(playWhenReady2: Boolean, reason: Int) {
+                playWhenReady = playWhenReady2
             }
 
             override fun onPlayerError(error: PlaybackException) {
@@ -171,8 +182,8 @@ fun PlayerScreen(onBack: () -> Unit) {
         }
     }
 
-    LaunchedEffect(overlayTick, isPlaying) {
-        if (isPlaying) {
+    LaunchedEffect(overlayTick, playWhenReady) {
+        if (playWhenReady) {
             delay(OVERLAY_HIDE_MS)
             overlayVisible = false
         } else {
@@ -180,8 +191,8 @@ fun PlayerScreen(onBack: () -> Unit) {
         }
     }
 
-    DisposableEffect(isPlaying) {
-        view.keepScreenOn = isPlaying
+    DisposableEffect(playWhenReady) {
+        view.keepScreenOn = playWhenReady
         onDispose { view.keepScreenOn = false }
     }
 
@@ -222,8 +233,24 @@ fun PlayerScreen(onBack: () -> Unit) {
             .focusRequester(rootFocus)
             .focusable()
             .onPreviewKeyEvent { ev ->
-                val key = remoteKeyOf(ev.nativeKeyEvent.keyCode)
+                val keyCode = ev.nativeKeyEvent.keyCode
                 val isDown = ev.type == KeyEventType.KeyDown
+                if ((keyCode == KeyEvent.KEYCODE_MEDIA_PLAY || keyCode == KeyEvent.KEYCODE_MEDIA_PAUSE) &&
+                    !menuOpen && state.resumeOffer == null && state.error == null
+                ) {
+                    overlayVisible = true
+                    overlayTick++
+                    if (isDown && ev.nativeKeyEvent.repeatCount == 0) {
+                        if (keyCode == KeyEvent.KEYCODE_MEDIA_PLAY) {
+                            player.play()
+                        } else {
+                            player.pause()
+                            vm.onPauseOrExit(player.currentPosition, durationOrZero())
+                        }
+                    }
+                    return@onPreviewKeyEvent true
+                }
+                val key = remoteKeyOf(keyCode)
                 if (key == RemoteKey.Back) {
                     // Consume both down and up so the system back handler does not pop a second time.
                     if (isDown && ev.nativeKeyEvent.repeatCount == 0) onBackKey()
@@ -253,6 +280,7 @@ fun PlayerScreen(onBack: () -> Unit) {
                 }
             },
             modifier = Modifier.fillMaxSize(),
+            onRelease = { it.player = null },
         )
 
         val offer = state.resumeOffer
@@ -269,6 +297,7 @@ fun PlayerScreen(onBack: () -> Unit) {
                 },
                 onRestart = {
                     vm.dismissResume()
+                    player.seekTo(0)
                     player.play()
                 },
             )
@@ -278,7 +307,8 @@ fun PlayerScreen(onBack: () -> Unit) {
                         title = state.title,
                         positionMs = positionMs,
                         durationMs = durationMs,
-                        isPlaying = isPlaying,
+                        playWhenReady = playWhenReady,
+                        buffering = buffering,
                         modifier = Modifier.align(Alignment.BottomCenter),
                     )
                 }

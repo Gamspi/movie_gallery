@@ -1,5 +1,7 @@
 package dev.gamspi.videogallery.player
 
+import java.util.Locale
+
 data class AudioTrack(
     val group: Int,
     val index: Int,
@@ -15,7 +17,10 @@ private fun String?.realLanguage(): String? =
     this?.takeIf { it.isNotBlank() && !it.equals("und", ignoreCase = true) }
 
 fun AudioTrack.displayName(ordinal: Int): String {
-    val lang = language.realLanguage()?.lowercase()?.replaceFirstChar { it.uppercase() }
+    val lang = language.realLanguage()?.let { l ->
+        (runCatching { Locale.forLanguageTag(l).isO3Language }.getOrNull()?.takeIf { it.isNotEmpty() } ?: l)
+            .lowercase().replaceFirstChar { it.uppercase() }
+    }
     val lbl = label?.takeIf { it.isNotBlank() }
     val base = if (lang == null && lbl == null) {
         "Дорожка $ordinal"

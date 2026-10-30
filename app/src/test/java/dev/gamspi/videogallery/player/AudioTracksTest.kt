@@ -16,6 +16,12 @@ class AudioTracksTest {
     @Test fun displayName_languageLabelCodec() =
         assertEquals("Rus, MVO LostFilm · AC3", t(0, "rus", "MVO LostFilm", "ac3").displayName(1))
 
+    @Test fun displayName_twoLetterLanguage_threeLetter() {
+        assertEquals("Rus · AC3", t(0, "ru", null, "ac3").displayName(1))
+        assertEquals("Eng · AC3", t(0, "en", null, "ac3").displayName(1))
+        assertEquals("Rus · AC3", t(0, "rus", null, "ac3").displayName(1))
+    }
+
     @Test fun displayName_noLanguageNoLabel_ordinal() =
         assertEquals("Дорожка 2", t(1, "und", null, null).displayName(2))
 

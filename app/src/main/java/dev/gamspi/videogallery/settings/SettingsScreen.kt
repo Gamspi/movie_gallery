@@ -22,7 +22,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import android.view.KeyEvent
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -51,11 +57,16 @@ fun SettingsScreen(
     }
     val kinopoiskFocus = remember { FocusRequester() }
     val tmdbFocus = remember { FocusRequester() }
-    val focusManager = LocalFocusManager.current
-    // Initial focus on the button of the source selected when the screen opened.
+    val playFocus = remember { FocusRequester() }
+    var returnToPlay by rememberSaveable { mutableStateOf(false) }
+    // Initial focus: «Играть» when returning from the player, else the button of the selected source.
     val initialSource = remember { source }
     LaunchedEffect(Unit) {
-        if (initialSource == CatalogSource.Kinopoisk) kinopoiskFocus.requestFocus() else tmdbFocus.requestFocus()
+        when {
+            returnToPlay -> playFocus.requestFocus()
+            initialSource == CatalogSource.Kinopoisk -> kinopoiskFocus.requestFocus()
+            else -> tmdbFocus.requestFocus()
+        }
     }
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(48.dp),
@@ -71,38 +82,26 @@ fun SettingsScreen(
                 sourceName = CatalogSource.Tmdb.name
             }
         }
-        OutlinedTextField(
+        TvTextField(
             value = kinopoiskKey,
             onValueChange = { kinopoiskKey = it },
-            label = { Text("Ключ Кинопоиска") },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { focusManager.moveFocus(FocusDirection.Down) }),
-            modifier = Modifier.fillMaxWidth(),
+            label = "Ключ Кинопоиска",
         )
         Text("Получить: kinopoiskapiunofficial.tech → Профиль")
-        OutlinedTextField(
+        TvTextField(
             value = tmdbKey,
             onValueChange = { tmdbKey = it },
-            label = { Text("Ключ TMDB API") },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { focusManager.moveFocus(FocusDirection.Down) }),
-            modifier = Modifier.fillMaxWidth(),
+            label = "Ключ TMDB API",
         )
         Text("Получить: themoviedb.org → Settings → API")
         Text("Трекеры", style = MaterialTheme.typography.titleLarge)
         ProviderId.entries.forEach { id ->
             val on = trackerEnabled.getValue(id).value
             SourceButton(id.label, on, null) { trackerEnabled.getValue(id).value = !on }
-            OutlinedTextField(
+            TvTextField(
                 value = trackerUrls.getValue(id).value,
                 onValueChange = { trackerUrls.getValue(id).value = it },
-                label = { Text("Адрес ${id.label}") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { focusManager.moveFocus(FocusDirection.Down) }),
-                modifier = Modifier.fillMaxWidth(),
+                label = "Адрес ${id.label}",
             )
         }
         Button(onClick = {
@@ -112,23 +111,71 @@ fun SettingsScreen(
             viewModel.save(source, kinopoiskKey, tmdbKey, trackers)
             onBack()
         }) { Text("Сохранить") }
-        OutlinedTextField(
+        TvTextField(
             value = testUrl,
             onValueChange = { testUrl = it },
-            label = { Text("Тестовый URL") },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { focusManager.moveFocus(FocusDirection.Down) }),
-            modifier = Modifier.fillMaxWidth(),
+            label = "Тестовый URL",
         )
         Button(
             onClick = {
+                returnToPlay = true
                 viewModel.setTestUrl(testUrl)
                 onPlayTest(testUrl.trim())
             },
             enabled = testUrl.isNotBlank(),
+            modifier = Modifier.focusRequester(playFocus),
         ) { Text("Играть") }
     }
+}
+
+/** Text field safe for D-pad: read-only until OK is pressed, so Up/Down never get trapped. */
+@Composable
+private fun TvTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+) {
+    val focusManager = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    var editing by remember { mutableStateOf(false) }
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        singleLine = true,
+        readOnly = !editing,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+        keyboardActions = KeyboardActions(onDone = {
+            editing = false
+            focusManager.moveFocus(FocusDirection.Down)
+        }),
+        modifier = Modifier
+            .fillMaxWidth()
+            .onFocusChanged { if (!it.hasFocus) editing = false }
+            .onPreviewKeyEvent { ev ->
+                if (editing) return@onPreviewKeyEvent false
+                val code = ev.nativeKeyEvent.keyCode
+                val isDown = ev.type == KeyEventType.KeyDown
+                when (code) {
+                    KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> {
+                        if (isDown) {
+                            focusManager.moveFocus(
+                                if (code == KeyEvent.KEYCODE_DPAD_UP) FocusDirection.Up else FocusDirection.Down,
+                            )
+                        }
+                        true
+                    }
+                    KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> {
+                        if (isDown) {
+                            editing = true
+                            keyboard?.show()
+                        }
+                        true
+                    }
+                    else -> false
+                }
+            },
+    )
 }
 
 @Composable

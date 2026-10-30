@@ -19,7 +19,8 @@ fun PlayerOverlay(
     title: String,
     positionMs: Long,
     durationMs: Long,
-    isPlaying: Boolean,
+    playWhenReady: Boolean,
+    buffering: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -37,7 +38,12 @@ fun PlayerOverlay(
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             val time = formatTime(positionMs, durationMs) +
                 if (durationMs > 0) " / " + formatTime(durationMs, durationMs) else ""
-            Text(if (isPlaying) time else "Пауза · $time", color = Color.White)
+            val shown = when {
+                !playWhenReady -> "Пауза · $time"
+                buffering -> "Загрузка… · $time"
+                else -> time
+            }
+            Text(shown, color = Color.White)
             Text("↓ Аудио", color = Color(0xFFBBBBBB))
         }
     }
