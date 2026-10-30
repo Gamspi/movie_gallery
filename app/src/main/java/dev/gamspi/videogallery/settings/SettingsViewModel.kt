@@ -14,6 +14,10 @@ class SettingsViewModel @Inject constructor(
     val kinopoiskApiKey: StateFlow<String?> = repository.kinopoiskApiKey
     val catalogSource: StateFlow<CatalogSource> = repository.catalogSource
 
+    val testUrl: StateFlow<String?> = repository.testUrl
+
+    fun setTestUrl(url: String) = repository.setTestUrl(url)
+
     fun tracker(id: ProviderId): StateFlow<TrackerConfig> = repository.tracker(id)
 
     fun save(

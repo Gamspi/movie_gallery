@@ -35,8 +35,10 @@ import androidx.tv.material3.Text
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
+    onPlayTest: (String) -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
+    var testUrl by rememberSaveable { mutableStateOf(viewModel.testUrl.value.orEmpty()) }
     var sourceName by rememberSaveable { mutableStateOf(viewModel.catalogSource.value.name) }
     var kinopoiskKey by rememberSaveable { mutableStateOf(viewModel.kinopoiskApiKey.value.orEmpty()) }
     var tmdbKey by rememberSaveable { mutableStateOf(viewModel.tmdbApiKey.value.orEmpty()) }
@@ -110,6 +112,22 @@ fun SettingsScreen(
             viewModel.save(source, kinopoiskKey, tmdbKey, trackers)
             onBack()
         }) { Text("Сохранить") }
+        OutlinedTextField(
+            value = testUrl,
+            onValueChange = { testUrl = it },
+            label = { Text("Тестовый URL") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { focusManager.moveFocus(FocusDirection.Down) }),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Button(
+            onClick = {
+                viewModel.setTestUrl(testUrl)
+                onPlayTest(testUrl.trim())
+            },
+            enabled = testUrl.isNotBlank(),
+        ) { Text("Играть") }
     }
 }
 

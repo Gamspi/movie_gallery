@@ -1,5 +1,6 @@
 package dev.gamspi.videogallery.ui.nav
 
+import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
@@ -15,6 +16,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import dev.gamspi.videogallery.details.DetailsScreen
 import dev.gamspi.videogallery.gallery.GalleryScreen
+import dev.gamspi.videogallery.player.PlayerScreen
 import dev.gamspi.videogallery.releases.ReleasesScreen
 import dev.gamspi.videogallery.search.SearchScreen
 import dev.gamspi.videogallery.settings.SettingsScreen
@@ -34,7 +36,20 @@ fun AppNavHost() {
                 onOpenSettings = { nav.navigateOnce(entry, "settings") },
             )
         }
-        composable("settings") { SettingsScreen(onBack = { nav.popBackStack() }) }
+        composable("settings") { entry ->
+            SettingsScreen(
+                onBack = { nav.popBackStack() },
+                onPlayTest = { url ->
+                    nav.navigateOnce(entry, "player?url=${Uri.encode(url)}&title=${Uri.encode("Тест")}&key=")
+                },
+            )
+        }
+        composable(
+            "player?url={url}&title={title}&key={key}",
+            arguments = listOf("url", "title", "key").map {
+                navArgument(it) { type = NavType.StringType; defaultValue = "" }
+            },
+        ) { PlayerScreen(onBack = { nav.popBackStack() }) }
         composable("search") { entry ->
             SearchScreen(
                 onOpenMovie = { nav.navigateOnce(entry, "movie/$it") },

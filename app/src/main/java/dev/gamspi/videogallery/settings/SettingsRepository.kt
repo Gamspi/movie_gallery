@@ -28,7 +28,16 @@ class SettingsRepository @Inject constructor(private val store: SecretStore) {
         refreshActive()
     }
 
-    private val _catalogSource = MutableStateFlow(
+    private val _testUrl = MutableStateFlow(store.get(KEY_TEST_URL))
+    val testUrl: StateFlow<String?> = _testUrl
+
+    fun setTestUrl(url: String) {
+        val value = url.trim().ifEmpty { null }
+        store.put(KEY_TEST_URL, value)
+        _testUrl.value = value
+    }
+
+    private val _catalogSource =MutableStateFlow(
         CatalogSource.entries.firstOrNull { it.name == store.get(KEY_SOURCE) } ?: CatalogSource.Kinopoisk,
     )
     val catalogSource: StateFlow<CatalogSource> = _catalogSource
@@ -93,5 +102,6 @@ class SettingsRepository @Inject constructor(private val store: SecretStore) {
         const val KEY_TMDB = "tmdb_api_key"
         const val KEY_KINOPOISK = "kinopoisk_api_key"
         const val KEY_SOURCE = "catalog_source"
+        const val KEY_TEST_URL = "test_url"
     }
 }

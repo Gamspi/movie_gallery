@@ -127,4 +127,17 @@ class SettingsRepositoryTest {
         assertEquals(TrackerConfig(true, "https://y.io/"), reread.tracker(ProviderId.Yts).value)
         assertEquals(TrackerConfig(false, "https://r.io/"), reread.tracker(ProviderId.Rutor).value)
     }
+
+    @Test
+    fun testUrl_trimsAndBlankClears() {
+        val store = FakeSecretStore()
+        val repo = SettingsRepository(store)
+        assertNull(repo.testUrl.value)
+        repo.setTestUrl("  http://x/a.mp4 ")
+        assertEquals("http://x/a.mp4", repo.testUrl.value)
+        assertEquals("http://x/a.mp4", store.get("test_url"))
+        repo.setTestUrl("  ")
+        assertNull(repo.testUrl.value)
+        assertNull(store.get("test_url"))
+    }
 }
