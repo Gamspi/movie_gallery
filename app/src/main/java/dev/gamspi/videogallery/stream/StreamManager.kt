@@ -207,7 +207,11 @@ internal class EnginePieceSource(
         setDeadlines(start, endInclusive)
         for (piece in span.piecesFor(start, endInclusive)) {
             // Subscribe first, then check; the timeout re-checks in case an event was dropped.
+            var first = true
             while (!engine.havePiece(hash, piece)) {
+                // Another connection's seek may have cleared our deadline: re-apply after each timeout.
+                if (!first) engine.prioritize(hash, piece..piece, RANGE_DEADLINE_MS)
+                first = false
                 withTimeoutOrNull(HAVE_POLL_MS) {
                     engine.pieceFinished
                         .onSubscription { if (engine.havePiece(hash, piece)) emit(hash to piece) }

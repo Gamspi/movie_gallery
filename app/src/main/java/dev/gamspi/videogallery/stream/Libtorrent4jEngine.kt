@@ -3,6 +3,7 @@ package dev.gamspi.videogallery.stream
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -32,6 +33,8 @@ import org.libtorrent4j.swig.torrent_flags_t
 private const val UPLOAD_LIMIT_BYTES = 1024 * 1024
 private const val REMOVE_WAIT_MS = 5_000L
 private const val POLL_MS = 1_000L
+private const val ADD_WAIT_MS = 5_000
+private const val ADD_POLL_MS = 50L
 
 /** One hash rule everywhere: v1 if present, else the best (truncated v2). */
 private fun InfoHash.key(): String = (if (hasV1()) v1 else best).toHex().lowercase()
@@ -61,10 +64,9 @@ class Libtorrent4jEngine : TorrentEngine {
 
         override fun alert(alert: Alert<*>) {
             when (alert) {
-                is PieceFinishedAlert -> pieces.tryEmit(alert.handle().infoHash().toHex().lowercase() to alert.pieceIndex())
+                is PieceFinishedAlert -> pieces.tryEmit(keyOf(alert.handle()) to alert.pieceIndex())
                 is MetadataReceivedAlert -> {
-                    val hash = alert.handle().infoHash().toHex().lowercase()
-                    runCatching { ignoreAll(alert.handle()) }
+                    val hash = keyOf(alert.handle())
                     metadata.getOrPut(hash) { CompletableDeferred() }.complete(Unit)
                 }
                 is TorrentRemovedAlert -> finishRemoval(alert.infoHashes.key(), deleted = false)
@@ -74,6 +76,10 @@ class Libtorrent4jEngine : TorrentEngine {
             }
         }
     }
+
+    /** Same key rule as add/remove (TorrentHandle has no infoHashes(); use the torrent info). */
+    private fun keyOf(h: TorrentHandle): String =
+        runCatching { h.torrentFile()?.infoHashes()?.key() }.getOrNull() ?: h.infoHash().toHex().lowercase()
 
     private fun finishRemoval(hash: String, deleted: Boolean) {
         val p = removing[hash] ?: return
@@ -112,6 +118,14 @@ class Libtorrent4jEngine : TorrentEngine {
         val dir = File(saveDir, hash).also { it.mkdirs() }
         metadata.getOrPut(hash) { CompletableDeferred() }
         sm.download(magnet, dir, torrent_flags_t())
+        // download() is asynchronous: wait until the handle exists, or remove() could not find it.
+        val sha = Sha1Hash.parseHex(hash)
+        var waited = 0
+        while (sm.find(sha) == null) {
+            if (waited >= ADD_WAIT_MS) error("torrent was not added: $hash")
+            delay(ADD_POLL_MS)
+            waited += ADD_POLL_MS.toInt()
+        }
         return hash
     }
 

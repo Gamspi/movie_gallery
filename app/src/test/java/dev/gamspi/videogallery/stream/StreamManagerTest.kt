@@ -299,4 +299,16 @@ class StreamManagerTest {
         src.awaitRange(50 * mib, 50 * mib + 10) // seek
         assertEquals(1, engine.cleared)
     }
+
+    @Test
+    fun awaitRange_reappliesDeadlineAfterTimeout() = runTest {
+        val src = source()
+        launch { src.awaitRange(0, 10) }
+        runCurrent()
+        val before = engine.prioritized.count { it.first == 3..3 }
+        advanceTimeBy(1_100)
+        assertTrue(engine.prioritized.count { it.first == 3..3 } > before)
+        engine.have += 3
+        advanceTimeBy(1_100)
+    }
 }
