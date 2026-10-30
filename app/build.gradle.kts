@@ -18,6 +18,7 @@ android {
         targetSdk = 37
         versionCode = 1
         versionName = "1.0"
+        ndk { abiFilters += "armeabi-v7a" }
     }
 
     compileOptions {
@@ -53,6 +54,8 @@ dependencies {
     implementation(libs.coil.network.okhttp)
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.ui)
+    implementation(libs.libtorrent4j)
+    implementation(libs.libtorrent4j.android.arm)
     ksp(libs.hilt.compiler)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
