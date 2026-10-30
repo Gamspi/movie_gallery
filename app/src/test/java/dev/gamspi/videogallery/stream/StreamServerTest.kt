@@ -10,13 +10,13 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.withTimeout
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -166,7 +166,6 @@ class StreamServerTest {
             Socket("127.0.0.1", port).close()
             fail("expected connection refused")
         } catch (e: ConnectException) {
-            assertNull(null)
         }
     }
 
@@ -190,5 +189,89 @@ class StreamServerTest {
         server.stop()
         withTimeout(2000) { cancelled.await() }
         sock.close()
+    }
+
+    private fun portOf(url: String) = url.substringAfter("127.0.0.1:").substringBefore("/").toInt()
+
+    @Test fun suffixRange() {
+        val url = server.start(FakeSource(bytes))
+        get(url, "bytes=-100").use { r ->
+            assertEquals(206, r.code)
+            assertEquals("bytes 900-999/1000", r.header("Content-Range"))
+            assertTrue(bytes.copyOfRange(900, 1000).contentEquals(r.body.bytes()))
+        }
+    }
+
+    @Test fun clampedRange() {
+        val url = server.start(FakeSource(bytes))
+        get(url, "bytes=900-5000").use { r ->
+            assertEquals(206, r.code)
+            assertEquals("bytes 900-999/1000", r.header("Content-Range"))
+            assertEquals(100, r.body.bytes().size)
+        }
+    }
+
+    @Test fun invalidRange_treatedAsAbsent() {
+        val url = server.start(FakeSource(bytes))
+        get(url, "bytes=500-100").use { assertEquals(200, it.code) }
+        get(url, "bytes=abc").use { assertEquals(200, it.code) }
+    }
+
+    @Test fun lowercaseRangeHeader() {
+        val url = server.start(FakeSource(bytes))
+        Socket("127.0.0.1", portOf(url)).use { sock ->
+            sock.soTimeout = 3000
+            sock.getOutputStream().write("GET /stream HTTP/1.1\r\nrange: BYTES=10-19\r\n\r\n".toByteArray())
+            val text = String(sock.getInputStream().readBytes(), Charsets.ISO_8859_1)
+            assertTrue(text, text.startsWith("HTTP/1.1 206"))
+            assertTrue(text, text.contains("Content-Range: bytes 10-19/1000"))
+        }
+    }
+
+    @Test fun method405_hasAllow() {
+        val url = server.start(FakeSource(bytes))
+        client.newCall(Request.Builder().url(url).delete().build()).execute().use {
+            assertEquals(405, it.code)
+            assertEquals("GET, HEAD", it.header("Allow"))
+        }
+    }
+
+    @Test fun rapidConnectClose_cancelsEveryAwait() = runBlocking {
+        val entered = AtomicInteger()
+        val cancelled = AtomicInteger()
+        val src = FakeSource(bytes) { _, _ ->
+            entered.incrementAndGet()
+            try {
+                CompletableDeferred<Unit>().await()
+            } finally {
+                cancelled.incrementAndGet()
+            }
+        }
+        val port = portOf(server.start(src))
+        repeat(30) { i ->
+            val sock = Socket("127.0.0.1", port)
+            sock.getOutputStream().write("GET /stream HTTP/1.1\r\n\r\n".toByteArray())
+            sock.getOutputStream().flush()
+            withTimeout(2000) { while (entered.get() < i + 1) delay(5) }
+            sock.close()
+        }
+        withTimeout(3000) { while (cancelled.get() < 30) delay(5) }
+        assertEquals(30, cancelled.get())
+    }
+
+    @Test fun stalledClient_doesNotBlockOthers_andStopCleansUp() {
+        val url = server.start(FakeSource(bytes))
+        val stalled = Socket("127.0.0.1", portOf(url))
+        get(url).use { r -> assertEquals(200, r.code); assertEquals(1000, r.body.bytes().size) }
+        stalled.soTimeout = 3000
+        server.stop()
+        // stop() closed the live connection: the stalled client sees EOF/reset instead of hanging
+        val r = try {
+            stalled.getInputStream().read()
+        } catch (e: java.io.IOException) {
+            -1
+        }
+        assertEquals(-1, r)
+        stalled.close()
     }
 }

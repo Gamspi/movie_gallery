@@ -1,11 +1,13 @@
 package dev.gamspi.videogallery.stream
 
+import java.io.BufferedInputStream
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
 import java.net.InetAddress
 import java.net.ServerSocket
 import java.net.Socket
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -24,7 +26,7 @@ class StreamServer(private val scope: CoroutineScope) {
     @Synchronized
     fun start(source: PieceSource): String {
         stop()
-        val ss = ServerSocket(0, 50, InetAddress.getLoopbackAddress())
+        val ss = ServerSocket(0, 50, InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1)))
         val sc = CoroutineScope(SupervisorJob(scope.coroutineContext[Job]) + Dispatchers.IO)
         serverSocket = ss
         serverScope = sc
@@ -35,7 +37,8 @@ class StreamServer(private val scope: CoroutineScope) {
                 } catch (_: IOException) {
                     break
                 }
-                launch { serve(socket, source) }
+                live.add(socket)
+                sc.launch { serve(socket, source) }
             }
         }
         return "http://127.0.0.1:${ss.localPort}/stream"
@@ -47,18 +50,28 @@ class StreamServer(private val scope: CoroutineScope) {
         serverSocket = null
         serverScope?.cancel()
         serverScope = null
+        live.forEach { runCatching { it.close() } }
+        live.clear()
     }
+
+    private val live: MutableSet<Socket> = java.util.concurrent.ConcurrentHashMap.newKeySet()
 
     private suspend fun serve(socket: Socket, source: PieceSource) {
         try {
             socket.use {
-                val input = socket.getInputStream()
+                socket.soTimeout = 10_000
+                val input = BufferedInputStream(socket.getInputStream())
                 val output = socket.getOutputStream()
                 val req = readRequest(input) ?: return
+                socket.soTimeout = 0
                 handle(socket, input, output, req, source)
             }
-        } catch (_: IOException) {
-            // client gone
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            // IO errors and source failures end only this connection
+        } finally {
+            live.remove(socket)
         }
     }
 
@@ -92,22 +105,25 @@ class StreamServer(private val scope: CoroutineScope) {
         return sb.toString()
     }
 
-    /** Parsed inclusive range or null when unsatisfiable/invalid. */
+    /** Inclusive range; null = absent/invalid (serve whole file); [LongRange.EMPTY] = unsatisfiable (416). */
     private fun parseRange(header: String, length: Long): LongRange? {
-        val spec = header.trim().removePrefix("bytes=").takeIf { header.trim().startsWith("bytes=") } ?: return null
-        val first = spec.substringBefore(',').trim()
+        val h = header.trim()
+        if (!h.startsWith("bytes=", ignoreCase = true)) return null
+        val first = h.substring(6).substringBefore(',').trim()
         val dash = first.indexOf('-')
         if (dash < 0) return null
         val a = first.substring(0, dash).trim()
         val b = first.substring(dash + 1).trim()
         return if (a.isEmpty()) {
             val n = b.toLongOrNull() ?: return null
-            if (n <= 0 || length == 0L) return null
+            if (n <= 0) return null
+            if (length == 0L) return LongRange.EMPTY
             maxOf(0L, length - n)..(length - 1)
         } else {
             val start = a.toLongOrNull() ?: return null
-            val end = if (b.isEmpty()) length - 1 else (b.toLongOrNull() ?: return null)
-            if (start >= length || end < start) return null
+            val end = if (b.isEmpty()) Long.MAX_VALUE else (b.toLongOrNull() ?: return null)
+            if (start < 0 || end < start) return null
+            if (start >= length) return LongRange.EMPTY
             start..minOf(end, length - 1)
         }
     }
@@ -120,17 +136,19 @@ class StreamServer(private val scope: CoroutineScope) {
         source: PieceSource,
     ) {
         val path = req.path.substringBefore('?')
-        if (path != "/stream") return respond(output, 404, "Not Found")
-        if (req.method != "GET" && req.method != "HEAD") return respond(output, 405, "Method Not Allowed")
+        if (path != "/stream") return respond(socket, output, 404, "Not Found")
+        if (req.method != "GET" && req.method != "HEAD") return respond(socket, output, 405, "Method Not Allowed", "Allow: GET, HEAD")
 
         val length = source.length
         val range = req.range
-        val (status, reason, span) = if (range == null) {
+        val parsed = range?.let { parseRange(it, length) }
+        if (parsed != null && parsed.isEmpty()) {
+            return respond(socket, output, 416, "Range Not Satisfiable", "Content-Range: bytes */$length")
+        }
+        val (status, reason, span) = if (parsed == null) {
             Triple(200, "OK", 0L until length)
         } else {
-            val r = parseRange(range, length)
-                ?: return respond(output, 416, "Range Not Satisfiable", "Content-Range: bytes */$length")
-            Triple(206, "Partial Content", r)
+            Triple(206, "Partial Content", parsed)
         }
         val count = if (span.isEmpty()) 0L else span.last - span.first + 1
         val headers = buildString {
@@ -180,7 +198,7 @@ class StreamServer(private val scope: CoroutineScope) {
         }
     }
 
-    private fun respond(output: OutputStream, code: Int, reason: String, extra: String? = null) {
+    private fun respond(socket: Socket, output: OutputStream, code: Int, reason: String, extra: String? = null) {
         val h = buildString {
             append("HTTP/1.1 $code $reason\r\n")
             if (extra != null) append("$extra\r\n")
@@ -188,5 +206,6 @@ class StreamServer(private val scope: CoroutineScope) {
         }
         output.write(h.toByteArray(Charsets.ISO_8859_1))
         output.flush()
+        runCatching { socket.shutdownOutput() }
     }
 }
