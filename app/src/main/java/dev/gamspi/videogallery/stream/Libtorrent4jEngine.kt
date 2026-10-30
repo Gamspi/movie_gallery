@@ -26,7 +26,7 @@ import org.libtorrent4j.alerts.TorrentAlert
 import org.libtorrent4j.alerts.TorrentDeleteFailedAlert
 import org.libtorrent4j.alerts.TorrentDeletedAlert
 import org.libtorrent4j.alerts.TorrentRemovedAlert
-import org.libtorrent4j.swig.alert_category_t
+import org.libtorrent4j.swig.alert as swigAlert
 import org.libtorrent4j.swig.settings_pack
 import org.libtorrent4j.swig.torrent_flags_t
 
@@ -96,7 +96,15 @@ class Libtorrent4jEngine : TorrentEngine {
             settings.setEnableDht(true)
             settings.setEnableLsd(true)
             // Without an explicit mask piece_finished / metadata_received alerts may never be posted.
-            settings.setInteger(settings_pack.int_types.alert_mask.swigValue(), alert_category_t.all().to_int())
+            val mask = swigAlert.status_notification
+                .or_(swigAlert.storage_notification)
+                .or_(swigAlert.piece_progress_notification)
+                .or_(swigAlert.error_notification)
+            settings.setInteger(settings_pack.int_types.alert_mask.swigValue(), mask.to_int())
+            settings.setString(
+                settings_pack.string_types.dht_bootstrap_nodes.swigValue(),
+                "dht.libtorrent.org:25401,router.bittorrent.com:6881,router.utorrent.com:6881,dht.transmissionbt.com:6881",
+            )
             sm.addListener(listener)
             sm.start(SessionParams(settings))
         }

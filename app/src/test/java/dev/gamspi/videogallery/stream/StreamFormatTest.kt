@@ -10,6 +10,7 @@ class StreamFormatTest {
     @Test fun peers_plural() {
         val expected = mapOf(
             1 to "1 пир", 2 to "2 пира", 5 to "5 пиров", 11 to "11 пиров",
+            0 to "0 пиров", 12 to "12 пиров", 101 to "101 пир", 111 to "111 пиров",
             21 to "21 пир", 22 to "22 пира", 25 to "25 пиров",
         )
         expected.forEach { (n, text) -> assertEquals(text, peersText(n)) }

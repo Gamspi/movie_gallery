@@ -12,6 +12,31 @@ class PieceMathTest {
         assertEquals(3..4, span.piecesFor(0, 255))
     }
 
+    @Test fun piecesFor_zeroLength_empty() {
+        val span = FileSpan(offset = 1000, length = 0, pieceLength = 256)
+        assertTrue(span.readinessPieces().isEmpty())
+    }
+
+    @Test fun piecesFor_oneByteFile() {
+        val span = FileSpan(offset = 1000, length = 1, pieceLength = 256)
+        assertEquals(3..3, span.piecesFor(0, 0))
+        assertEquals(setOf(3), span.readinessPieces())
+    }
+
+    @Test fun piecesFor_oddOffset_crossesBoundary() {
+        val pl = 256
+        val offset = 1000L
+        val span = FileSpan(offset = offset, length = 10_000, pieceLength = pl)
+        val start = pl - (offset % pl) - 1
+        assertEquals(2, span.piecesFor(start, start + 1).count())
+    }
+
+    @Test fun piecesFor_inclusiveEnd() {
+        val span = FileSpan(offset = 1000, length = 10_000, pieceLength = 256)
+        assertEquals(3..4, span.piecesFor(0, 279)) // last byte 1279 is still piece 4
+        assertEquals(3..5, span.piecesFor(0, 280)) // last byte 1280 starts piece 5
+    }
+
     @Test fun readiness_headAndTail() {
         val span = FileSpan(0, 100 * mib, pieceLength = mib.toInt())
         val expected = (0..4).toSet() + (95..99).toSet()

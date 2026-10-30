@@ -9,6 +9,7 @@ import java.net.ServerSocket
 import java.net.Socket
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -38,7 +39,8 @@ class StreamServer(private val scope: CoroutineScope) {
                     break
                 }
                 live.add(socket)
-                sc.launch { serve(socket, source) }
+                // ATOMIC: body starts even if stop() cancelled sc, so serve's finally always closes the socket
+                sc.launch(start = CoroutineStart.ATOMIC) { serve(socket, source) }
             }
         }
         return "http://127.0.0.1:${ss.localPort}/stream"
