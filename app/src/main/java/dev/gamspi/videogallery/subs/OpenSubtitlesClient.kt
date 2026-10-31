@@ -89,7 +89,14 @@ class OpenSubtitlesClient(
 
     suspend fun download(fileId: Long): SubsResult<ByteArray> = guarded {
         val auth = loginToken()?.let { "Bearer $it" }
-        val response = api.download(DownloadRequestDto(fileId), auth)
+        val response = try {
+            api.download(DownloadRequestDto(fileId), auth)
+        } catch (e: HttpException) {
+            if (e.code() != 401 || auth == null) throw e
+            // token expired: drop it, log in once more, retry once
+            invalidateToken()
+            api.download(DownloadRequestDto(fileId), loginToken()?.let { "Bearer $it" })
+        }
         val link = response.link
         // remaining counts downloads left after this one, so a link in hand is still usable
         if (link.isNullOrBlank()) {
@@ -115,12 +122,19 @@ class OpenSubtitlesClient(
         return tokenLock.withLock {
             val owner = user to password
             if (token == null || tokenOwner != owner) {
-                token = api.login(LoginRequestDto(user, password)).token
+                token = try {
+                    api.login(LoginRequestDto(user, password)).token
+                } catch (e: HttpException) {
+                    if (e.code() == 401 || e.code() == 403) throw LoginRejectedException()
+                    throw e
+                }
                 tokenOwner = owner
             }
             token
         }
     }
+
+    private suspend fun invalidateToken() = tokenLock.withLock { token = null }
 
     private suspend fun <T> guarded(block: suspend () -> SubsResult<T>): SubsResult<T> {
         val key = settings.openSubtitlesKey
@@ -130,6 +144,8 @@ class OpenSubtitlesClient(
             block()
         } catch (e: CancellationException) {
             throw e
+        } catch (e: LoginRejectedException) {
+            SubsResult.Failed("неверный логин или пароль OpenSubtitles")
         } catch (e: HttpException) {
             when (e.code()) {
                 401, 403 -> SubsResult.BadKey
@@ -145,3 +161,5 @@ class OpenSubtitlesClient(
         }
     }
 }
+
+private class LoginRejectedException : Exception("OpenSubtitles login rejected")

@@ -87,7 +87,33 @@ class OpenSubtitlesClientTest {
     }
 
     @Test
-    fun download_uses_login_token_when_credentials_set() = runBlocking {
+    fun download_relogins_once_on_expired_token() = runBlocking {
+        server.enqueue(MockResponse.Builder().body("""{"token":"OLD"}""").build())
+        server.enqueue(MockResponse.Builder().code(401).build())
+        server.enqueue(MockResponse.Builder().body("""{"token":"NEW"}""").build())
+        server.enqueue(MockResponse.Builder().body(downloadJson()).build())
+        server.enqueue(MockResponse.Builder().body("data").build())
+        val c = client(FakeSettings(openSubtitlesUser = "u", openSubtitlesPassword = "p"))
+        assertArrayEquals("data".toByteArray(), (c.download(1) as SubsResult.Ok).value)
+        val reqs = (1..5).map { server.takeRequest() }
+        assertEquals(
+            listOf("/api/v1/login", "/api/v1/download", "/api/v1/login", "/api/v1/download", "/file.srt"),
+            reqs.map { it.url.encodedPath },
+        )
+        assertEquals("Bearer OLD", reqs[1].headers["Authorization"])
+        assertEquals("Bearer NEW", reqs[3].headers["Authorization"])
+    }
+
+    @Test
+    fun login_401_is_Failed_not_BadKey() = runBlocking {
+        server.enqueue(MockResponse.Builder().code(401).build())
+        val result = client(FakeSettings(openSubtitlesUser = "u", openSubtitlesPassword = "bad")).download(1)
+        assertTrue(result is SubsResult.Failed)
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test
+    fun download_uses_login_token_when_credentials_set()= runBlocking {
         server.enqueue(MockResponse.Builder().body("""{"token":"TOK","status":200}""").build())
         repeat(2) {
             server.enqueue(MockResponse.Builder().body(downloadJson()).build())
