@@ -40,6 +40,24 @@ class PlayerViewModelTest {
     private fun track(lang: String?, label: String? = null) =
         AudioTrack(0, 0, lang, label, "aac", true)
 
+    private fun vmImdb(imdb: String?) = PlayerViewModel(
+        SavedStateHandle(mapOf("url" to "http://x/a.mp4", "title" to "T", "key" to "", "imdb" to imdb)),
+        store,
+        StreamManager(
+            FakeTorrentEngine(),
+            StreamServer(CoroutineScope(Dispatchers.Unconfined)),
+            File("unused"),
+            CoroutineScope(Dispatchers.Unconfined),
+        ),
+    ) { now }
+
+    @Test
+    fun imdbId_readAndBlankIsNull() {
+        assertEquals("tt0133093", vmImdb("tt0133093").imdbId)
+        assertNull(vmImdb("").imdbId)
+        assertNull(vmImdb(null).imdbId)
+    }
+
     @Test
     fun resumeOffer_fromStore() {
         store.positions["k"] = 120_000

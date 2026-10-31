@@ -14,6 +14,9 @@ class StreamViewModel @Inject constructor(
     val state: StateFlow<StreamState> = manager.state
     private val sessionId: Long
 
+    /** Movie imdb id (blank when unknown), forwarded to the player route. */
+    val imdb: String = savedState.get<String>("imdb").orEmpty()
+
     init {
         manager.start(
             savedState.get<String>("magnet").orEmpty(),

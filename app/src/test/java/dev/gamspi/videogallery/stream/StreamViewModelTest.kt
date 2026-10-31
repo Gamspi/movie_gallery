@@ -49,6 +49,18 @@ class StreamViewModelTest {
     }
 
     @Test
+    fun imdb_readFromSavedState() = runTest {
+        val sm = manager()
+        val withImdb = StreamViewModel(
+            SavedStateHandle(mapOf("magnet" to "magnet:abc", "title" to "Film", "imdb" to "tt1")),
+            sm,
+        )
+        assertEquals("tt1", withImdb.imdb)
+        assertEquals("", vm(sm).imdb)
+        sm.stop()
+    }
+
+    @Test
     fun cancel_stops() = runTest {
         val sm = manager()
         val vm = vm(sm)

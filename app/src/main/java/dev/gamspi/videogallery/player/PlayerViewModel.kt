@@ -31,6 +31,7 @@ class PlayerViewModel internal constructor(
 
     private val url: String = savedState.get<String>("url").orEmpty()
     private val key: String = savedState.get<String>("key").orEmpty().ifEmpty { "url:$url" }
+    internal val imdbId: String? = savedState.get<String>("imdb")?.ifBlank { null }
     private val _state = MutableStateFlow(
         PlayerUiState(title = savedState.get<String>("title").orEmpty(), url = url),
     )

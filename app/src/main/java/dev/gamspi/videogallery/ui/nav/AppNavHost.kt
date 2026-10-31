@@ -47,8 +47,8 @@ fun AppNavHost() {
             )
         }
         composable(
-            "player?url={url}&title={title}&key={key}",
-            arguments = listOf("url", "title", "key").map {
+            "player?url={url}&title={title}&key={key}&imdb={imdb}",
+            arguments = listOf("url", "title", "key", "imdb").map {
                 navArgument(it) { type = NavType.StringType; defaultValue = "" }
             },
         ) { PlayerScreen(onBack = { nav.popBackStack() }) }
@@ -67,22 +67,27 @@ fun AppNavHost() {
         composable("releases/{id}", arguments = listOf(navArgument("id") { type = NavType.IntType })) { entry ->
             ReleasesScreen(
                 onOpenSettings = { nav.navigateOnce(entry, "settings") },
-                onPlay = { r ->
-                    nav.navigateOnce(entry, "stream?magnet=${Uri.encode(r.magnet)}&title=${Uri.encode(r.title)}")
+                onPlay = { r, imdb ->
+                    nav.navigateOnce(
+                        entry,
+                        "stream?magnet=${Uri.encode(r.magnet)}&title=${Uri.encode(r.title)}" +
+                            "&imdb=${Uri.encode(imdb.orEmpty())}",
+                    )
                 },
             )
         }
         composable(
             STREAM_ROUTE,
-            arguments = listOf("magnet", "title").map {
+            arguments = listOf("magnet", "title", "imdb").map {
                 navArgument(it) { type = NavType.StringType; defaultValue = "" }
             },
         ) { entry ->
             StreamScreen(
-                onReady = { url, key, title ->
+                onReady = { url, key, title, imdb ->
                     nav.navigateOnce(
                         entry,
-                        "player?url=${Uri.encode(url)}&title=${Uri.encode(title)}&key=${Uri.encode(key)}",
+                        "player?url=${Uri.encode(url)}&title=${Uri.encode(title)}&key=${Uri.encode(key)}" +
+                            "&imdb=${Uri.encode(imdb)}",
                     ) { popUpTo(STREAM_ROUTE) { inclusive = true } }
                 },
                 onBack = { nav.popBackStack() },
@@ -101,4 +106,4 @@ private fun NavController.navigateOnce(
     if (from.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) navigate(route, builder)
 }
 
-private const val STREAM_ROUTE = "stream?magnet={magnet}&title={title}"
+private const val STREAM_ROUTE = "stream?magnet={magnet}&title={title}&imdb={imdb}"

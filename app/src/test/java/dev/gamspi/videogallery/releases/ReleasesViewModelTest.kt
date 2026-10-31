@@ -80,6 +80,16 @@ class ReleasesViewModelTest {
     }
 
     @Test
+    fun content_carriesImdbId() = runTest {
+        repo.detailsResult = { details.copy(imdbId = "tt0133093") }
+        val vm = vm(settings(), Fake(ProviderId.Apibay) { emptyList() })
+        vm.state.test {
+            assertEquals(ReleasesUiState.Loading, awaitItem())
+            assertEquals("tt0133093", (awaitItem() as ReleasesUiState.Content).imdbId)
+        }
+    }
+
+    @Test
     fun filter_showsOnlyQuality() = runTest {
         val p = Fake(ProviderId.Apibay) {
             listOf(r("a", 5, Quality.FullHd), r("b", 9, Quality.Hd), r("c", 1, null))

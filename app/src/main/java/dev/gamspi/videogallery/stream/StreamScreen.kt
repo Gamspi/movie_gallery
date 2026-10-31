@@ -33,7 +33,7 @@ import kotlinx.coroutines.flow.first
 
 @Composable
 fun StreamScreen(
-    onReady: (url: String, key: String, title: String) -> Unit,
+    onReady: (url: String, key: String, title: String, imdb: String) -> Unit,
     onBack: () -> Unit,
     viewModel: StreamViewModel = hiltViewModel(),
 ) {
@@ -53,7 +53,7 @@ fun StreamScreen(
         // Waits for RESUMED: navigateOnce drops the call otherwise (enter transition, back from Home).
         LaunchedEffect(ready) {
             lifecycleOwner.lifecycle.currentStateFlow.first { it.isAtLeast(Lifecycle.State.RESUMED) }
-            onReady(ready.url, ready.key, ready.title)
+            onReady(ready.url, ready.key, ready.title, viewModel.imdb)
         }
     }
 

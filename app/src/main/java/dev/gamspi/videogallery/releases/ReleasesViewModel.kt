@@ -28,7 +28,8 @@ sealed interface ReleasesUiState {
         val filter: Quality?,
         val unavailable: List<ProviderId>,
         val noProviders: Boolean = false,
-    ) : ReleasesUiState {
+        val imdbId: String? = null,
+    ) :ReleasesUiState {
         val visible: List<TorrentResult>
             get() = if (filter == null) all else all.filter { it.quality == filter }
     }
@@ -73,6 +74,7 @@ class ReleasesViewModel @Inject constructor(
                     filter = null,
                     unavailable = outcome.unavailable,
                     noProviders = noProviders,
+                    imdbId = details.imdbId,
                 )
             } catch (e: CancellationException) {
                 throw e
