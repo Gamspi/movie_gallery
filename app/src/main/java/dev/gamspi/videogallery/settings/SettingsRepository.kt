@@ -1,5 +1,6 @@
 package dev.gamspi.videogallery.settings
 
+import dev.gamspi.videogallery.subs.SubtitleSettingsSource
 import dev.gamspi.videogallery.torrents.ProviderId
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -7,7 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 @Singleton
-class SettingsRepository @Inject constructor(private val store: SecretStore) {
+class SettingsRepository @Inject constructor(private val store: SecretStore) : SubtitleSettingsSource {
     private val _tmdbApiKey = MutableStateFlow(store.get(KEY_TMDB))
     val tmdbApiKey: StateFlow<String?> = _tmdbApiKey
 
@@ -85,7 +86,55 @@ class SettingsRepository @Inject constructor(private val store: SecretStore) {
     private fun enabledKey(id: ProviderId) = "tracker_${id.name}_enabled"
     private fun urlKey(id: ProviderId) = "tracker_${id.name}_url"
 
-    private val _activeCatalog = MutableStateFlow(computeActive())
+    private val _subtitlePrefs = MutableStateFlow(loadSubtitlePrefs())
+    val subtitlePrefs: StateFlow<SubtitlePrefs> = _subtitlePrefs
+
+    private fun loadSubtitlePrefs(): SubtitlePrefs {
+        val def = SubtitlePrefs()
+        fun style(layer: String, d: LayerStyle) = LayerStyle(
+            size = SubSize.entries.firstOrNull { it.name == store.get("sub_size_$layer") } ?: d.size,
+            color = SubColor.entries.firstOrNull { it.name == store.get("sub_color_$layer") } ?: d.color,
+            offsetMs = store.get("sub_offset_$layer")?.toLongOrNull() ?: d.offsetMs,
+        )
+        return SubtitlePrefs(
+            languageA = store.get("sub_lang_a")?.takeIf { it.isNotBlank() } ?: def.languageA,
+            languageB = store.get("sub_lang_b")?.takeIf { it.isNotBlank() } ?: def.languageB,
+            styleA = style("a", def.styleA),
+            styleB = style("b", def.styleB),
+        )
+    }
+
+    fun setSubtitlePrefs(p: SubtitlePrefs) {
+        store.put("sub_lang_a", p.languageA)
+        store.put("sub_lang_b", p.languageB)
+        for ((layer, s) in listOf("a" to p.styleA, "b" to p.styleB)) {
+            store.put("sub_size_$layer", s.size.name)
+            store.put("sub_color_$layer", s.color.name)
+            store.put("sub_offset_$layer", s.offsetMs.toString())
+        }
+        _subtitlePrefs.value = p
+    }
+
+    private val _osKey = MutableStateFlow(store.get(KEY_OS_KEY))
+    private val _osUser = MutableStateFlow(store.get(KEY_OS_USER))
+    private val _osPassword = MutableStateFlow(store.get(KEY_OS_PASSWORD))
+    override val openSubtitlesKey: String? get() = _osKey.value
+    override val openSubtitlesUser: String? get() = _osUser.value
+    override val openSubtitlesPassword: String? get() = _osPassword.value
+
+    fun setOpenSubtitles(key: String, user: String, password: String) {
+        val k = key.trim().ifEmpty { null }
+        val u = user.trim().ifEmpty { null }
+        val p = password.ifEmpty { null }
+        store.put(KEY_OS_KEY, k)
+        store.put(KEY_OS_USER, u)
+        store.put(KEY_OS_PASSWORD, p)
+        _osKey.value = k
+        _osUser.value = u
+        _osPassword.value = p
+    }
+
+    private val _activeCatalog =MutableStateFlow(computeActive())
     val activeCatalog: StateFlow<ActiveCatalog> = _activeCatalog
 
     private fun computeActive(): ActiveCatalog {
@@ -103,5 +152,8 @@ class SettingsRepository @Inject constructor(private val store: SecretStore) {
         const val KEY_KINOPOISK = "kinopoisk_api_key"
         const val KEY_SOURCE = "catalog_source"
         const val KEY_TEST_URL = "test_url"
+        const val KEY_OS_KEY = "opensubtitles_key"
+        const val KEY_OS_USER = "opensubtitles_user"
+        const val KEY_OS_PASSWORD = "opensubtitles_password"
     }
 }

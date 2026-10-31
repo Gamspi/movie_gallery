@@ -13,7 +13,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.mutableStateOf
@@ -48,6 +52,9 @@ fun SettingsScreen(
     var sourceName by rememberSaveable { mutableStateOf(viewModel.catalogSource.value.name) }
     var kinopoiskKey by rememberSaveable { mutableStateOf(viewModel.kinopoiskApiKey.value.orEmpty()) }
     var tmdbKey by rememberSaveable { mutableStateOf(viewModel.tmdbApiKey.value.orEmpty()) }
+    var osKey by rememberSaveable { mutableStateOf(viewModel.openSubtitlesKey.orEmpty()) }
+    var osUser by rememberSaveable { mutableStateOf(viewModel.openSubtitlesUser.orEmpty()) }
+    var osPassword by rememberSaveable { mutableStateOf(viewModel.openSubtitlesPassword.orEmpty()) }
     val source = CatalogSource.valueOf(sourceName)
     val trackerEnabled = ProviderId.entries.associateWith { id ->
         rememberSaveable(id.name) { mutableStateOf(viewModel.tracker(id).value.enabled) }
@@ -104,7 +111,46 @@ fun SettingsScreen(
                 label = "Адрес ${id.label}",
             )
         }
+        Text("Субтитры", style = MaterialTheme.typography.titleLarge)
+        val prefs by viewModel.subtitlePrefs.collectAsState()
+        SubLayer.entries.forEach { layer ->
+            val name = layer.name
+            val isA = layer == SubLayer.A
+            val lang = if (isA) prefs.languageA else prefs.languageB
+            val style = if (isA) prefs.styleA else prefs.styleB
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Button(onClick = { viewModel.cycleLanguage(layer) }) { Text("Язык $name: $lang") }
+                Button(onClick = { viewModel.cycleSize(layer) }) { Text("Размер $name: ${style.size.label}") }
+                Button(onClick = { viewModel.cycleColor(layer) }) { Text("Цвет $name: ${style.color.label}") }
+            }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Сдвиг $name")
+                Button(onClick = { viewModel.changeOffset(layer, -SUB_OFFSET_STEP_MS) }) { Text("−0,5 с") }
+                Text(formatOffset(style.offsetMs))
+                Button(onClick = { viewModel.changeOffset(layer, SUB_OFFSET_STEP_MS) }) { Text("+0,5 с") }
+            }
+        }
+        TvTextField(
+            value = osKey,
+            onValueChange = { osKey = it },
+            label = "OpenSubtitles ключ",
+        )
+        TvTextField(
+            value = osUser,
+            onValueChange = { osUser = it },
+            label = "OpenSubtitles логин",
+        )
+        TvTextField(
+            value = osPassword,
+            onValueChange = { osPassword = it },
+            label = "OpenSubtitles пароль",
+            visualTransformation = PasswordVisualTransformation(),
+        )
         Button(onClick = {
+            viewModel.setOpenSubtitles(osKey, osUser, osPassword)
             val trackers = ProviderId.entries.associateWith {
                 TrackerConfig(trackerEnabled.getValue(it).value, trackerUrls.getValue(it).value)
             }
@@ -128,12 +174,19 @@ fun SettingsScreen(
     }
 }
 
+private fun formatOffset(ms: Long): String {
+    val sign = if (ms > 0) "+" else if (ms < 0) "−" else ""
+    val abs = kotlin.math.abs(ms)
+    return "$sign${abs / 1000},${(abs % 1000) / 100} с"
+}
+
 /** Text field safe for D-pad: read-only until OK is pressed, so Up/Down never get trapped. */
 @Composable
 private fun TvTextField(
     value: String,
     onValueChange: (String) -> Unit,
     label: String,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
 ) {
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
@@ -143,6 +196,7 @@ private fun TvTextField(
         onValueChange = onValueChange,
         label = { Text(label) },
         singleLine = true,
+        visualTransformation = visualTransformation,
         readOnly = !editing,
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
         keyboardActions = KeyboardActions(onDone = {

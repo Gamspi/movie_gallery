@@ -18,6 +18,42 @@ class SettingsRepositoryTest {
     }
 
     @Test
+    fun subtitlePrefs_defaults() {
+        val p = SettingsRepository(FakeSecretStore()).subtitlePrefs.value
+        assertEquals("en", p.languageA)
+        assertEquals("ru", p.languageB)
+        assertEquals(SubColor.White, p.styleA.color)
+        assertEquals(SubColor.Yellow, p.styleB.color)
+    }
+
+    @Test
+    fun subtitlePrefs_persist_roundtrip() {
+        val store = FakeSecretStore()
+        val prefs = SubtitlePrefs(
+            languageA = "de",
+            languageB = "ja",
+            styleA = LayerStyle(SubSize.Large, SubColor.Cyan, -1500),
+            styleB = LayerStyle(SubSize.Small, SubColor.White, 2000),
+        )
+        SettingsRepository(store).setSubtitlePrefs(prefs)
+        assertEquals(prefs, SettingsRepository(store).subtitlePrefs.value)
+    }
+
+    @Test
+    fun openSubtitles_blank_is_null() {
+        val store = FakeSecretStore()
+        val repo = SettingsRepository(store)
+        repo.setOpenSubtitles("key", "user", "pw")
+        assertEquals("key", repo.openSubtitlesKey)
+        assertEquals("pw", SettingsRepository(store).openSubtitlesPassword)
+        repo.setOpenSubtitles("", "", "")
+        assertNull(repo.openSubtitlesKey)
+        assertNull(repo.openSubtitlesUser)
+        assertNull(repo.openSubtitlesPassword)
+        assertNull(store.get("opensubtitles_key"))
+    }
+
+    @Test
     fun setKey_blankClears() {
         val store = FakeSecretStore()
         val repo = SettingsRepository(store)

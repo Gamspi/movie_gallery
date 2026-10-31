@@ -26,4 +26,33 @@ class SettingsViewModelTest {
         assertEquals(TrackerConfig(true, "https://yts.example/"), vm.tracker(ProviderId.Yts).value)
         assertEquals("https://yts.example/", store.get("tracker_Yts_url"))
     }
+
+    @Test
+    fun cycleLanguage_advancesAndWraps() {
+        val vm = SettingsViewModel(SettingsRepository(FakeSecretStore()))
+        vm.cycleLanguage(SubLayer.A)
+        assertEquals("ru", vm.subtitlePrefs.value.languageA)
+        repeat(6) { vm.cycleLanguage(SubLayer.A) }
+        assertEquals("en", vm.subtitlePrefs.value.languageA)
+        assertEquals("ru", vm.subtitlePrefs.value.languageB)
+    }
+
+    @Test
+    fun changeOffset_stepsLayerB() {
+        val vm = SettingsViewModel(SettingsRepository(FakeSecretStore()))
+        vm.changeOffset(SubLayer.B, 500)
+        vm.changeOffset(SubLayer.B, 500)
+        vm.changeOffset(SubLayer.B, -500)
+        assertEquals(500L, vm.subtitlePrefs.value.styleB.offsetMs)
+        assertEquals(0L, vm.subtitlePrefs.value.styleA.offsetMs)
+    }
+
+    @Test
+    fun changeOffset_clampsToTenSeconds() {
+        val vm = SettingsViewModel(SettingsRepository(FakeSecretStore()))
+        repeat(30) { vm.changeOffset(SubLayer.A, 500) }
+        assertEquals(10_000L, vm.subtitlePrefs.value.styleA.offsetMs)
+        repeat(50) { vm.changeOffset(SubLayer.A, -500) }
+        assertEquals(-10_000L, vm.subtitlePrefs.value.styleA.offsetMs)
+    }
 }
