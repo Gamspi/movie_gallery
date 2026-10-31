@@ -1,6 +1,12 @@
 # Выбор источника каталога (Кинопоиск / TMDB) — план реализации
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> Актуальные правила работы: [AGENTS.md](../../../AGENTS.md). План сохраняет историю этапа; обязательной зависимости от внешних skills нет.
+
+## Статус на 2026-10-31
+
+Задачи 1–4 реализованы: настройки, клиент Кинопоиска, переключение источников и экран настроек. Подтверждение: коммиты `2f5ce77`, `96f89f9`, `145b1a6`, `d734cb9`; общий прогон базы `d1ea23e` проходит. Read timeout сейчас 15 секунд; увеличение до 45 секунд относится к ещё не выполненному плану PoiskKino (G-04).
+
+Исторические чекбоксы не подтверждают последовательность TDD или проверку на устройстве. Фактический статус — [STATUS](../../STATUS.md); свежая приёмка на ТВ не выполнялась.
 
 **Goal:** Источник каталога выбирается в настройках: Кинопоиск (Kinopoisk API Unofficial, по умолчанию) или TMDB; у каждого свой ключ.
 
@@ -17,7 +23,7 @@
 - Кинопоиск: base `https://kinopoiskapiunofficial.tech/`, ключ в заголовке `X-API-KEY`, OkHttp-таймауты 15 с.
 - Только фильмы: элементы с `type` ≠ `"FILM"` отбрасываются (если `type` есть).
 - Весь текст UI — на русском. Источник по умолчанию — Кинопоиск.
-- Файлы писать только через Edit/Write (UTF-8); перед коммитом `git ls-files '*.kt' '*.xml' '*.kts' | py -I "$TEMP/u8.py"` → только `done`.
+- Файлы — UTF-8 без BOM; проверка документации и кодировки описана в [TESTING](../../TESTING.md), временный внешний `u8.py` не требуется.
 - Сборка: `scripts/gradle-docker.sh ./gradlew testDebugUnitTest assembleDebug`.
 
 ## Review Focus

@@ -1,6 +1,23 @@
 # Stage 3 — Dual Subtitles Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> Working rules: [AGENTS.md](../../../AGENTS.md). No external skill or delegation is required. Track verified implementation separately from historical TDD steps and device acceptance.
+
+## Status — 2026-10-31
+
+Audited application revision: `d1ea23e`. Full Docker unit rerun: 242 tests, no failures/errors/skips; debug assembly succeeded. No fresh TV/emulator acceptance was performed in this audit.
+
+| Task | Status | Evidence / remaining work |
+|---|---|---|
+| 1. Parsers / track | Implemented, unit tests pass | `d03a1f4` |
+| 2. OpenSubtitles | Implemented, unit tests pass; follow-ups open | `4d6cc0f`, token fix `415a1c6`; G-02 cancellation and G-03 fallback |
+| 3. Settings | Implemented, unit tests pass | `825edd1`; UI settings do not yet affect playback |
+| 4. IMDb navigation | Implemented, unit tests pass | `d1ea23e` |
+| 5. Embedded renderers | Not started | Device experiment is the next step |
+| 6. Layer state / sourcing | Not started | Depends on task 5 outcome; include G-02/G-03 |
+| 7. Overlay / menu | Not started | TEXT is still disabled; `AudioMenu` is still used |
+| 8. Device acceptance | Not completed | Use [TESTING](../../TESTING.md) and save the actual results |
+
+Implementation/test/commit checkboxes for tasks 1–4 below are updated from code, commits and the current verification. Historical steps explicitly requiring a failing test run stay unchecked: that sequence was not established by the audit. See [STATUS](../../STATUS.md) and [BACKLOG](../../BACKLOG.md) for the cross-stage view.
 
 **Goal:** Show two subtitle languages at once, A above B, at the bottom of the video. Each layer takes subtitles from the file itself or from OpenSubtitles.
 
@@ -21,7 +38,7 @@
 - Order of sources for each language: tracks inside the file → OpenSubtitles (by file hash, then by imdb id). Translation is stage 4 and is not part of this stage.
 
 ## Calls I made (the user can correct them)
-- The time offset applies only to external (OpenSubtitles) subtitles. Media3 drives the timing of embedded subtitles, and they are already in sync with the video.
+- Stage 3 currently limits time offsets to external (OpenSubtitles) subtitles. Media3 drives embedded cue timing; embedded tracks are not guaranteed to be correctly synchronized. The narrower scope versus the original spec is tracked as G-07; the UI must make the limitation explicit.
 - Offsets live in two places:
   - **Settings:** the starting offset for each layer.
   - **Player menu «Сдвиг»:** ±0,5 s for this viewing only. It is not saved.
@@ -38,12 +55,12 @@
 
 ## Global Constraints
 - Builds and tests run only through Docker: `scripts/gradle-docker.sh ./gradlew testDebugUnitTest assembleDebug`.
-- Files are UTF-8 without BOM and are written only with Edit/Write. Before every commit, `git ls-files '*.kt' '*.xml' '*.kts' '*.json' '*.toml' '*.md' | py -I "$TEMP/u8.py"` must print only `done`.
-- Commits go straight to `master`. Each commit message ends with an empty line and then `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
+- Files are UTF-8 without BOM. See [TESTING](../../TESTING.md) for checks; an untracked temporary `u8.py` is not required.
+- Follow the current user instructions and repository workflow for branches and commits. Do not add attribution for an agent that did not contribute.
 - Keys and passwords are stored only through `SecretStore` (EncryptedSharedPreferences).
 - Parsers keep only text and timings; styles are ignored (spec).
 - Code comments are in English and short. UI strings are in Russian.
-- Every new network/IO function rethrows `CancellationException` (rule R3 from stage 2a).
+- Every new network/IO function rethrows `CancellationException` (rule R3 from stage 2a). Cancelling the coroutine must also cancel the underlying HTTP call, including body reads; see G-02.
 - If no subtitles are found for a layer, the layer stays empty and the track menu marks it «нет субтитров» (spec, errors table).
 - OpenSubtitles API: base `https://api.opensubtitles.com/api/v1/`, header `Api-Key: <key>`, header `User-Agent: VideoGallery v1.0`. Before writing the client, check the endpoint fields against the official docs (opensubtitles.stoplight.io, via context7 or the web). The fields named in the plan are the expected ones.
 
@@ -86,9 +103,9 @@
   - `textAt_end_exclusive`: cue (1000..2000 "A"); `textAt(2000) == null` and `textAt(1999) == "A"`.
 
 - [ ] **Step 2: Run them and confirm they fail.** Run `scripts/gradle-docker.sh ./gradlew testDebugUnitTest --tests 'dev.gamspi.videogallery.subs.*'`. Expected: FAIL (unresolved references).
-- [ ] **Step 3: Implement** `SubtitleTrack`, `SubtitleParser`, `decodeSubtitleText` with the signatures above. In `textAt`, use binary search over `startMs`, then look back over cues that can still be active (overlap). Keep a precomputed max duration so the look-back is bounded.
-- [ ] **Step 4: Run the tests.** Expected: PASS.
-- [ ] **Step 5: Commit** `feat(subs): SRT/VTT/ASS parsers and cue lookup`.
+- [x] **Step 3: Implement** `SubtitleTrack`, `SubtitleParser`, `decodeSubtitleText` with the signatures above. In `textAt`, use binary search over `startMs`, then look back over cues that can still be active (overlap). Keep a precomputed max duration so the look-back is bounded.
+- [x] **Step 4: Run the tests.** PASS in the full rerun on 2026-10-31.
+- [x] **Step 5: Commit** `feat(subs): SRT/VTT/ASS parsers and cue lookup` (`d03a1f4`).
 
 ---
 
@@ -149,9 +166,11 @@
   - `download_fetches_link_bytes`: `link` points to the same MockWebServer, and the bytes come back.
   - `download_uses_login_token_when_credentials_set`: `POST login` happens once for two downloads.
 - [ ] **Step 2: Run them and confirm they fail.**
-- [ ] **Step 3: Implement** the files above. Build Retrofit the same way as `KinopoiskCatalogRepository.create`. Run network and IO on `Dispatchers.IO`.
-- [ ] **Step 4: Run the tests.** Expected: PASS.
-- [ ] **Step 5: Commit** `feat(subs): OpenSubtitles hash and API client`.
+- [x] **Step 3: Implement** the files above. Build Retrofit the same way as `KinopoiskCatalogRepository.create`. Run network and IO on `Dispatchers.IO`.
+- [x] **Step 4: Run the tests.** PASS in the full rerun on 2026-10-31. Additional cancellation/fallback coverage is still required by G-02/G-03.
+- [x] **Step 5: Commit** `feat(subs): OpenSubtitles hash and API client` (`4d6cc0f`; token fix `415a1c6`).
+
+**Integration follow-ups:** current search sends hash and IMDb in one request; this does not establish the spec's per-language fallback contract. Resolve G-03 before task 6. Current file/hash body reads use blocking calls; resolve G-02 and add delayed-body cancellation tests. Keep these follow-ups open despite the original task's implementation being present.
 
 ---
 
@@ -190,9 +209,9 @@
   - `openSubtitles_blank_is_null`.
   - Add one test to `SettingsViewModelTest` for each new VM method (cycle language, change offset, clamp to ±10 s).
 - [ ] **Step 2: Run them and confirm they fail.**
-- [ ] **Step 3: Implement.** Store the prefs as separate keys in `SecretStore`, in the same style as the trackers.
-- [ ] **Step 4: Run the tests and `assembleDebug`.** Expected: PASS.
-- [ ] **Step 5: Commit** `feat(settings): subtitle languages, styles, OpenSubtitles credentials`.
+- [x] **Step 3: Implement.** Store the prefs as separate keys in `SecretStore`, in the same style as the trackers.
+- [x] **Step 4: Run the tests and `assembleDebug`.** Verified on 2026-10-31; unit tests rerun, assembly up-to-date and successful.
+- [x] **Step 5: Commit** `feat(settings): subtitle languages, styles, OpenSubtitles credentials` (`825edd1`).
 
 ---
 
@@ -211,9 +230,9 @@
 
 - [ ] **Step 1:** Write the failing tests named above.
 - [ ] **Step 2:** Run them; expected FAIL.
-- [ ] **Step 3:** Implement. Encode every argument with `Uri.encode`, as is done now.
-- [ ] **Step 4:** Run the tests and `assembleDebug`. Expected: PASS.
-- [ ] **Step 5:** Commit `feat(nav): carry imdb id to the player`.
+- [x] **Step 3:** Implement. Encode every argument with `Uri.encode`, as is done now.
+- [x] **Step 4:** Run the tests and `assembleDebug`. Verified on 2026-10-31; unit tests rerun, assembly up-to-date and successful.
+- [x] **Step 5:** Commit `feat(nav): carry imdb id to the player` (`d1ea23e`).
 
 ---
 
@@ -233,7 +252,7 @@ The highest-risk task. Start it with a short experiment.
   - `class DualTextTrackSelector(context: Context) : DefaultTrackSelector`, with `fun setTextSlots(a: Pair<Int, Int>?, b: Pair<Int, Int>?)`. Each pair is (track group index in `Tracks`, index within the group), or `null` for none. Each text renderer gets its own track. Possible way: override `selectAllTracks`; after `super`, put the definitions into the text-renderer slots, found through `MappedTrackInfo.getRendererType == C.TRACK_TYPE_TEXT`. Then call `invalidate()`.
   - The screen must not draw Media3 subtitles: `playerView.subtitleView?.visibility = View.GONE`. `setTrackTypeDisabled(TEXT, true)` must be removed, or the renderers get nothing.
 - **Experiment gate:**
-  - make the test file `subs2.mkv` (see Task 8) and check on the TV, or on the emulator if there is no TV, that two tracks render at the same time;
+  - make the test file `subs2.mkv` (see Task 8) and check on a compatible TV that two tracks render at the same time. The current APK contains only `armeabi-v7a`; an emulator is an alternative only after its ABI/native-library compatibility is established;
   - if Media3 does not allow it within a reasonable effort (about 2 hours), stop and report **BLOCKED** with your findings;
   - fallback (the controller decides): one embedded track through the standard renderer for layer A only, with B from OpenSubtitles.
 
@@ -277,12 +296,12 @@ The highest-risk task. Start it with a short experiment.
   - Additions to `PlayerViewModel`:
     - `val layers: StateFlow<Map<Layer, LayerState>>`;
     - `val remoteOptions: StateFlow<List<RemoteSubtitle>>`;
-    - `fun onTextTracks(tracks: List<TextTrack>)`: the first call starts auto-selection. In parallel it computes the hash with `fetchHashOverHttp(url)` and calls `search(hash, imdb, [langA, langB])`. Then it runs `chooseSource` for A, and for B with `taken` = A's embedded track. For a `Remote` source it calls `download` and `parse`.
+    - `fun onTextTracks(tracks: List<TextTrack>)`: the first call starts auto-selection. Without blocking playback, compute the hash with `fetchHashOverHttp(url)`, then search using that hash and apply the per-language IMDb fallback contract from G-03. Run `chooseSource` for A, then for B with `taken` = A's embedded track. For a `Remote` source call `download` and `parse`.
     - `fun select(layer: Layer, source: LayerSource)`, called from the menu;
     - `fun shiftOffset(layer: Layer, deltaMs: Long)`, clamped to ±10 s;
     - `fun textAt(layer: Layer, positionMs: Long): String?`: for `Remote` it uses `track.textAt(positionMs - offsetMs)`; for `Embedded` it returns `null`, because those cues come from the renderer.
     - `val embeddedSlots: StateFlow<Pair<Pair<Int, Int>?, Pair<Int, Int>?>>`, which the screen passes to `DualTextTrackSelector.setTextSlots`.
-  - Network work runs in `viewModelScope`, so it is cancelled automatically in `onCleared`.
+  - Network work runs in `viewModelScope`; G-02 must also connect cancellation to each underlying call/body read. Cancel obsolete layer requests when selection changes and prevent late results from overwriting the current selection.
   - Constructor: add `client: OpenSubtitlesClient`, `prefs: StateFlow<SubtitlePrefs>` (or `SettingsRepository`) and `http: OkHttpClient` to the internal constructor. Tests use fakes or MockWebServer.
 
 - [ ] **Step 1: Write the failing tests**
@@ -325,6 +344,7 @@ The highest-risk task. Start it with a short experiment.
   - for `Remote` layers, a `LaunchedEffect` loop every 100 ms reads `player.currentPosition` and calls `vm.textAt(layer, pos)`;
   - `onTracksChanged` also calls `vm.onTextTracks(tracks.textTracks())`;
   - `embeddedSlots` is collected and passed to `setTextSlots`.
+  - The ↓ key opens the tracks menu even if there are no audio tracks; subtitle controls must remain accessible.
 - `TracksMenu`:
   - a right-hand panel 420dp wide;
   - sections in this order, each starting with a heading:
@@ -347,7 +367,9 @@ The highest-risk task. Start it with a short experiment.
 
 ---
 
-### Task 8: Check on the TV (the controller does this, not a subagent)
+### Task 8: Check on the TV and record acceptance
+
+Use [TESTING](../../TESTING.md) to record the application revision, device ABI/API and scenario results. LAN addresses and scratch files below are historical examples; establish the actual test setup before using them. G-09 stays open until device results exist.
 
 - [ ] **Step 1: Test file.**
   - Write `eng.srt` and `rus.srt` (UTF-8, about 20 cues, 3 min) into the scratchpad `video/` folder. Mux them into `test3a.mkv` with ffmpeg in Docker:
@@ -366,4 +388,4 @@ The highest-risk task. Start it with a short experiment.
     - B (ru) comes from OpenSubtitles, by hash or by imdb;
     - «Сдвиг» moves B.
 - [ ] **Step 5: Errors.** With a wrong key, the menu shows «ключ OpenSubtitles неверный» and the player keeps playing.
-- [ ] **Step 6:** Fix what turns up (through a subagent), commit, and run the final whole-branch review.
+- [ ] **Step 6:** Fix findings, rerun affected checks and perform the final whole-change review. Update the device report, STATUS and open backlog items; commit only as directed by the current workflow.

@@ -1,6 +1,12 @@
 # Этап 1: Каталог — план реализации
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> Актуальные правила работы: [AGENTS.md](../../../AGENTS.md). План сохраняет историю этапа; обязательной зависимости от внешних skills нет.
+
+## Статус на 2026-10-31
+
+Задачи 1–6 реализованы; общий прогон базы `d1ea23e` — 242 успешных unit-теста, сборка успешна. Задача 0 в части локальной установки JDK/SDK заменена [Docker-сборкой](../../../docker/README.md). Текущий каталог поддерживает Кинопоиск и TMDB; Кинопоиск выбран по умолчанию.
+
+Исторические шаги TDD и ручные проверки ниже не отмечаются задним числом без протокола. Приёмка на ТВ/эмуляторе в аудите не выполнялась; текущий APK только `armeabi-v7a`. Актуальная сводка: [STATUS](../../STATUS.md), проверки: [TESTING](../../TESTING.md).
 
 **Goal:** Android TV приложение, которое показывает каталог фильмов TMDB (популярное, жанры, поиск) и карточку фильма; ключ TMDB вводится в настройках.
 

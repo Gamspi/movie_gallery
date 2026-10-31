@@ -1,6 +1,12 @@
 # PoiskKino как третий источник + кэш — план реализации
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> Актуальные правила работы: [AGENTS.md](../../../AGENTS.md). Обязательной зависимости от внешних skills нет.
+
+## Статус на 2026-10-31
+
+Не начато: задач 1–3 в коде нет. `CatalogSource` содержит только `Kinopoisk`/`Tmdb`; отсутствуют пакет PoiskKino и HTTP-кэш; read timeout Кинопоиска равен 15 секундам. Этот документ описывает будущую реализацию, а не текущую конфигурацию. Отслеживание: G-04 в [BACKLOG](../../BACKLOG.md).
+
+Перед реализацией проверить действующий контракт API по официальной документации. Дополнительно проверить смену ключа/источника при включённом кэше; критерии приёмки из этого плана остаются открытыми.
 
 **Goal:** Третий источник каталога PoiskKino (api.poiskkino.dev), он же по умолчанию; HTTP-кэш ответов для всех источников; таймаут чтения Kinopoisk Unofficial 45 с.
 
@@ -17,7 +23,7 @@
 - Kinopoisk Unofficial: read timeout 45 с (connect/write 15 с). TMDB без изменений.
 - Источник по умолчанию — PoiskKino. Только фильмы (`type == "movie"`, если поле есть).
 - Кэш: каталог `cacheDir/http`, 20 МБ; `max-age` 3600 для списков/поиска/жанров, 86400 для карточки фильма; кэшируются только ответы 200.
-- Весь текст UI — на русском. Файлы — только Edit/Write (UTF-8); перед коммитом `git ls-files '*.kt' '*.xml' '*.kts' '*.json' | py -I "$TEMP/u8.py"` → только `done`.
+- Весь текст UI — на русском. Файлы — UTF-8 без BOM; проверки описаны в [TESTING](../../TESTING.md), временный внешний `u8.py` не требуется.
 - Сборка: `scripts/gradle-docker.sh ./gradlew testDebugUnitTest assembleDebug`.
 
 ## Review Focus

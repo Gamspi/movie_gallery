@@ -5,5 +5,18 @@
 - Сборка и тесты: `scripts/gradle-docker.sh ./gradlew testDebugUnitTest assembleDebug` (PowerShell: `scripts/gradle-docker.ps1 ./gradlew ...`).
 - Любая команда в контейнере: `scripts/gradle-docker.sh gradle wrapper`, `scripts/gradle-docker.sh sdkmanager --list_installed`.
 - Кэш Gradle лежит в томе `videogallery-gradle-cache`.
+- Debug keystore сохраняется в томе `videogallery-android-home`, чтобы APK можно было обновлять поверх установленного. Не удаляйте том для обычной пересборки.
 - APK: `app/build/outputs/apk/debug/app-debug.apk`.
 - Установка с хоста: `adb install -r app/build/outputs/apk/debug/app-debug.apk`.
+
+Требуется запущенный Docker с Linux-контейнерами. SDK/JDK на хосте для сборки не нужны; ADB для установки вызывается отдельно с хоста. Ошибка доступа к Docker pipe означает, что сначала нужно восстановить доступ к Docker, а не переключаться на случайный локальный SDK.
+
+Образ автоматически создаётся только при отсутствии тега. После изменения `Dockerfile` пересоберите его явно:
+
+```text
+docker build -t videogallery-build docker
+```
+
+Текущая конфигурация: JDK 17, Gradle 9.8.2, Android SDK 37, build-tools 37.0.0. Источники значений — `Dockerfile`, `gradle/wrapper/gradle-wrapper.properties` и `app/build.gradle.kts`; обновляйте их согласованно.
+
+Текущий APK содержит JNI только для `armeabi-v7a`. Результаты тестов: `app/build/test-results/testDebugUnitTest/`; подробные команды, ограничения и приёмка — в [TESTING](../docs/TESTING.md).
