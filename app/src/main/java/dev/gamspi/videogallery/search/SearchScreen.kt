@@ -20,6 +20,11 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -53,6 +58,12 @@ fun SearchScreen(
     // Per composition: was the card focus restore already issued.
     var restoreHandled by remember { mutableStateOf(false) }
     val gridState = rememberLazyGridState()
+    val firstCardFocus = remember { FocusRequester() }
+    // First card if composed, else the nearest focusable below.
+    fun focusFirstCard() {
+        runCatching { firstCardFocus.requestFocus() }
+            .onFailure { focusManager.moveFocus(FocusDirection.Down) }
+    }
     LaunchedEffect(Unit) {
         viewModel.onQueryChange(text) // restore the query after process/back-stack restore
         // No card to restore (first entry, or return from Settings/Error): focus the field.
@@ -71,8 +82,16 @@ fun SearchScreen(
             label = { Text("Поиск фильмов") },
             singleLine = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { focusManager.moveFocus(FocusDirection.Down) }),
-            modifier = Modifier.fillMaxWidth().focusRequester(fieldFocus),
+            keyboardActions = KeyboardActions(onSearch = { focusFirstCard() }),
+            modifier = Modifier.fillMaxWidth().focusRequester(fieldFocus).onPreviewKeyEvent {
+                // The field swallows DPAD_DOWN; send it to the first result instead.
+                if (it.key == Key.DirectionDown && state is SearchUiState.Results) {
+                    if (it.type == KeyEventType.KeyDown) focusFirstCard()
+                    true
+                } else {
+                    false
+                }
+            },
         )
         Box(Modifier.fillMaxSize(), Alignment.Center) {
             when (val s = state) {
@@ -94,7 +113,8 @@ fun SearchScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     items(s.movies, key = { it.id }) { movie ->
-                        val requester = remember { FocusRequester() }
+                        val ownRequester = remember { FocusRequester() }
+                        val requester = if (movie.id == s.movies.first().id) firstCardFocus else ownRequester
                         if (movie.id == focusedMovieId && !restoreHandled) {
                             // The card is composed and attached by the time this runs (after first frame).
                             LaunchedEffect(Unit) {

@@ -9,15 +9,20 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -61,12 +66,17 @@ private fun ReleasesContent(
     onPlay: (TorrentResult) -> Unit,
 ) {
     val allFocus = remember { FocusRequester() }
-    val firstRowFocus = remember { FocusRequester() }
+    val restoreFocus = remember { FocusRequester() }
+    val listState = rememberLazyListState()
     val visible = content.visible
-    // Initial focus only: first row if any, otherwise the «Все» filter.
+    // Survive navigation: the last focused release.
+    var focusedHash by rememberSaveable { mutableStateOf("") }
+    val restoreIndex = visible.indexOfFirst { it.infoHash == focusedHash }.coerceAtLeast(0)
+    // Initial focus only: last focused row, else first row, otherwise the «Все» filter.
     LaunchedEffect(Unit) {
+        if (visible.isNotEmpty()) listState.scrollToItem(restoreIndex)
         withFrameNanos { }
-        runCatching { if (visible.isNotEmpty()) firstRowFocus.requestFocus() else allFocus.requestFocus() }
+        runCatching { if (visible.isNotEmpty()) restoreFocus.requestFocus() else allFocus.requestFocus() }
     }
     Column(
         modifier = Modifier.fillMaxSize().padding(48.dp),
@@ -94,6 +104,7 @@ private fun ReleasesContent(
             }
         } else {
             LazyColumn(
+                state = listState,
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -104,7 +115,8 @@ private fun ReleasesContent(
                         headlineContent = { Text(r.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
                         supportingContent = { Text(releaseInfoLine(r)) },
                         modifier = Modifier.fillMaxWidth()
-                            .then(if (index == 0) Modifier.focusRequester(firstRowFocus) else Modifier),
+                            .then(if (index == restoreIndex) Modifier.focusRequester(restoreFocus) else Modifier)
+                            .onFocusChanged { if (it.hasFocus) focusedHash = r.infoHash },
                     )
                 }
             }
