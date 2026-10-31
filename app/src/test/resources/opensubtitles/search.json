@@ -1,0 +1,56 @@
+{
+  "total_pages": 1,
+  "total_count": 4,
+  "per_page": 50,
+  "page": 1,
+  "data": [
+    {
+      "id": "1",
+      "type": "subtitle",
+      "attributes": {
+        "subtitle_id": "1",
+        "language": "en",
+        "download_count": 900,
+        "moviehash_match": false,
+        "release": "Popular.Release",
+        "files": [{"file_id": 101, "cd_number": 1, "file_name": "a.srt"}]
+      }
+    },
+    {
+      "id": "2",
+      "type": "subtitle",
+      "attributes": {
+        "subtitle_id": "2",
+        "language": "ru",
+        "download_count": 10,
+        "moviehash_match": true,
+        "release": "Hash.Match.Release",
+        "files": [{"file_id": 102, "cd_number": 1, "file_name": "b.srt"}]
+      }
+    },
+    {
+      "id": "3",
+      "type": "subtitle",
+      "attributes": {
+        "subtitle_id": "3",
+        "language": "en",
+        "download_count": 50,
+        "moviehash_match": false,
+        "release": "Less.Popular",
+        "files": [{"file_id": 103, "cd_number": 1, "file_name": "c.srt"}]
+      }
+    },
+    {
+      "id": "4",
+      "type": "subtitle",
+      "attributes": {
+        "subtitle_id": "4",
+        "language": "en",
+        "download_count": 5,
+        "moviehash_match": false,
+        "release": "No.Files",
+        "files": []
+      }
+    }
+  ]
+}
