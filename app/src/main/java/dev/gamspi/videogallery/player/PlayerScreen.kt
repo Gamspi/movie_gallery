@@ -11,6 +11,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -48,6 +51,7 @@ import dev.gamspi.videogallery.stream.StreamStallNotice
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.ExoPlaybackException
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
 import androidx.media3.ui.PlayerView
@@ -121,12 +125,21 @@ fun PlayerScreen(onBack: () -> Unit) {
     var durationMs by remember { mutableLongStateOf(0L) }
     var audio by remember { mutableStateOf(emptyList<AudioTrack>()) }
     var selected by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+    // The screen owns one MediaItem; renderer errors may temporarily clear currentTracks.
+    var lastAudioGroups by remember(player) { mutableStateOf(emptyList<Tracks.Group>()) }
+    var lastAudio by remember(player) { mutableStateOf(emptyList<AudioTrack>()) }
+    var lastSelectedAudio by remember(player) { mutableStateOf<Pair<Int, Int>?>(null) }
+    var failedAudioSelection by remember(player) { mutableStateOf<Pair<Int, Int>?>(null) }
     var menuOpen by remember { mutableStateOf(false) }
+    var recoveryAudioOpen by remember { mutableStateOf(false) }
     var overlayVisible by remember { mutableStateOf(true) }
     var overlayTick by remember { mutableLongStateOf(0L) }
     var exited by remember { mutableStateOf(false) }
     val rootFocus = remember { FocusRequester() }
     val errorFocus = remember { FocusRequester() }
+    val recoveryOptions = if (state.failure?.canChooseAudio == true) {
+        failedAudioSelection?.let { audioRecoveryOptions(audio, it) }.orEmpty()
+    } else audioRecoveryOptions(audio, selected)
     val showStallNotice = stallWarning != null && !stallDismissed && !menuOpen &&
         state.resumeOffer == null && playbackError == null
 
@@ -138,7 +151,13 @@ fun PlayerScreen(onBack: () -> Unit) {
             player.pause()
             player.stop()
             menuOpen = false
+            recoveryAudioOpen = false
         }
+    }
+
+    LaunchedEffect(playbackError) {
+        if (playbackError != null) player.pause()
+        recoveryAudioOpen = false
     }
 
     fun exit() {
@@ -153,12 +172,16 @@ fun PlayerScreen(onBack: () -> Unit) {
         player.seekTo(position)
     }
 
-    fun selectAudio(t: AudioTrack) {
+    fun selectAudio(t: AudioTrack, allowCached: Boolean = false): Boolean {
         val groups = player.currentTracks.groups
-        val group = groups.getOrNull(t.group) ?: return
+        val group = if (allowCached) lastAudioGroups.getOrNull(t.group) ?: groups.getOrNull(t.group)
+            else groups.getOrNull(t.group)
+        if (group == null || t.index !in 0 until group.length) return false
         player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
             .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, t.index))
             .build()
+        lastSelectedAudio = t.group to t.index
+        return true
     }
 
     DisposableEffect(player) {
@@ -173,8 +196,16 @@ fun PlayerScreen(onBack: () -> Unit) {
                 embedded = tracks.textTracks()
                 vm.onTextTracks(embedded)
                 val list = tracks.audioTracks()
-                audio = list
-                selected = tracks.selectedAudio()
+                val currentSelection = tracks.selectedAudio()
+                if (list.isNotEmpty()) {
+                    lastAudioGroups = tracks.groups.toList()
+                    lastAudio = list
+                    currentSelection?.let { lastSelectedAudio = it }
+                }
+                if (list.isNotEmpty() || vm.state.value.failure?.canChooseAudio != true) {
+                    audio = list
+                    selected = currentSelection
+                }
                 if (!initialAudioDone && list.isNotEmpty()) {
                     initialAudioDone = true
                     vm.chooseInitialAudio(list)?.let { selectAudio(it) }
@@ -210,7 +241,30 @@ fun PlayerScreen(onBack: () -> Unit) {
             override fun onPlayerError(error: PlaybackException) {
                 vm.onPlaybackWaiting(false)
                 lastPositionMs = player.currentPosition
-                vm.onError(error.errorCodeName)
+                val failure = error.toPlayerFailure()
+                failedAudioSelection = null
+                if (failure.canChooseAudio) {
+                    val current = player.currentTracks
+                    val currentAudio = current.audioTracks()
+                    if (currentAudio.isNotEmpty()) {
+                        lastAudioGroups = current.groups.toList()
+                        lastAudio = currentAudio
+                        current.selectedAudio()?.let { lastSelectedAudio = it }
+                    }
+                    val failedFormat = (error as? ExoPlaybackException)?.rendererFormat
+                    val failedSelection = lastSelectedAudio?.takeIf { (groupIndex, trackIndex) ->
+                        failedFormat == null || lastAudioGroups.getOrNull(groupIndex)
+                            ?.takeIf { trackIndex in 0 until it.length }?.getTrackFormat(trackIndex) == failedFormat
+                    } ?: if (failedFormat == null) null else lastAudioGroups.withIndex()
+                        .firstNotNullOfOrNull { (groupIndex, group) ->
+                            (0 until group.length).firstOrNull { group.getTrackFormat(it) == failedFormat }
+                                ?.let { groupIndex to it }
+                        }
+                    audio = lastAudio
+                    failedAudioSelection = failedSelection ?: lastSelectedAudio
+                    selected = failedAudioSelection
+                }
+                vm.onError(failure)
             }
         }
         player.addListener(listener)
@@ -223,7 +277,7 @@ fun PlayerScreen(onBack: () -> Unit) {
             player.setMediaSource(factory.createMediaSource(MediaItem.fromUri(state.url)))
             player.prepare()
         } else {
-            vm.onError("EMPTY_URL")
+            vm.onError(PlayerFailure("Не указан адрес видео. Выберите другой источник."))
         }
         onDispose {
             vm.onPlaybackWaiting(false)
@@ -311,6 +365,7 @@ fun PlayerScreen(onBack: () -> Unit) {
 
     fun onBackKey() {
         when {
+            recoveryAudioOpen -> recoveryAudioOpen = false
             playbackError != null || state.resumeOffer != null -> exit()
             showStallNotice -> stallDismissed = true
             else -> execute(handleKey(RemoteKey.Back, player.currentPosition, durationOrZero(), menuOpen))
@@ -381,14 +436,39 @@ fun PlayerScreen(onBack: () -> Unit) {
         val offer = state.resumeOffer
         val error = playbackError
         when {
+            error != null && recoveryAudioOpen && terminalStreamError == null -> AudioRecoveryContent(
+                tracks = recoveryOptions,
+                onSelect = { track ->
+                    if (terminalStreamError == null && (track.group to track.index) != failedAudioSelection &&
+                        selectAudio(track, allowCached = true)
+                    ) {
+                        vm.onAudioSelected(track)
+                        vm.clearError()
+                        failedAudioSelection = null
+                        recoveryAudioOpen = false
+                        player.prepare()
+                        seekTo(lastPositionMs)
+                        if (vm.state.value.resumeOffer == null &&
+                            lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+                        ) player.play()
+                    }
+                },
+                onBack = { recoveryAudioOpen = false },
+            )
             error != null -> ErrorContent(
                 error = error,
                 focus = errorFocus,
-                onRetry = if (terminalStreamError != null) null else ({
+                onRetry = if (terminalStreamError != null || state.failure?.retryable != true) null else ({
                     vm.clearError()
                     player.prepare()
                     seekTo(lastPositionMs)
+                    if (vm.state.value.resumeOffer == null &&
+                        lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+                    ) player.play()
                 }),
+                onChooseAudio = if (terminalStreamError == null && state.failure?.canChooseAudio == true && recoveryOptions.isNotEmpty())
+                    ({ recoveryAudioOpen = true }) else null,
+                backLabel = if (terminalStreamError != null) "Выбрать другую раздачу" else "Назад",
                 onBack = ::exit,
             )
             offer != null -> ResumeContent(
@@ -486,21 +566,52 @@ private fun ErrorContent(
     error: String,
     focus: FocusRequester,
     onRetry: (() -> Unit)?,
+    onChooseAudio: (() -> Unit)?,
+    backLabel: String,
     onBack: () -> Unit,
 ) {
-    LaunchedEffect(onRetry == null) { focus.requestFocus() }
+    LaunchedEffect(onRetry == null, onChooseAudio == null) { focus.requestFocus() }
     Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text("Не удалось воспроизвести", color = Color.White)
             Text(error, color = Color(0xFFBBBBBB))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (onRetry != null) {
-                    Button(onClick = onRetry, modifier = Modifier.focusRequester(focus)) { Text("Повторить") }
+                if (onChooseAudio != null) {
+                    Button(onClick = onChooseAudio, modifier = Modifier.focusRequester(focus)) { Text("Другая аудиодорожка") }
                 }
-                Button(onClick = onBack, modifier = if (onRetry == null) Modifier.focusRequester(focus) else Modifier) {
-                    Text(if (onRetry == null) "Выбрать другую раздачу" else "Назад")
+                if (onRetry != null) {
+                    Button(onClick = onRetry, modifier = if (onChooseAudio == null) Modifier.focusRequester(focus) else Modifier) { Text("Повторить") }
+                }
+                Button(onClick = onBack, modifier = if (onRetry == null && onChooseAudio == null) Modifier.focusRequester(focus) else Modifier) {
+                    Text(backLabel)
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun AudioRecoveryContent(
+    tracks: List<AudioTrack>,
+    onSelect: (AudioTrack) -> Unit,
+    onBack: () -> Unit,
+) {
+    val focus = remember { FocusRequester() }
+    val scroll = rememberScrollState()
+    LaunchedEffect(Unit) { focus.requestFocus() }
+    Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
+        Column(
+            modifier = Modifier.padding(24.dp).verticalScroll(scroll),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text("Выберите другую аудиодорожку", color = Color.White)
+            tracks.forEachIndexed { index, track ->
+                Button(onClick = { onSelect(track) }, modifier = if (index == 0) Modifier.focusRequester(focus) else Modifier) {
+                    Text(track.displayName(index + 1))
+                }
+            }
+            Button(onClick = onBack, modifier = if (tracks.isEmpty()) Modifier.focusRequester(focus) else Modifier) { Text("Назад") }
         }
     }
 }

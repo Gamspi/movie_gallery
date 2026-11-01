@@ -23,6 +23,30 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], manifest = Config.NONE, application = android.app.Application::class)
 class DualTextTrackSelectorTest {
+    @Test fun extra_audio_renderer_does_not_shift_the_two_selected_text_groups() = withSelector { selector ->
+        fun format(mime: String, lang: String? = null) = Format.Builder().setSampleMimeType(mime).setLanguage(lang).build()
+        val groups = TrackGroupArray(
+            TrackGroup("v", format(MimeTypes.VIDEO_H264)),
+            TrackGroup("a", format(MimeTypes.AUDIO_AAC, "en")),
+            TrackGroup("en", format(MimeTypes.APPLICATION_MEDIA3_CUES, "en")),
+            TrackGroup("ru", format(MimeTypes.APPLICATION_MEDIA3_CUES, "ru")),
+        )
+        fun selectWithAudio() = selector.selectTracks(arrayOf(
+            FakeCapabilities(C.TRACK_TYPE_VIDEO, true),
+            FakeCapabilities(C.TRACK_TYPE_AUDIO, true),
+            FakeCapabilities(C.TRACK_TYPE_AUDIO, true),
+            FakeCapabilities(C.TRACK_TYPE_TEXT, true),
+            FakeCapabilities(C.TRACK_TYPE_TEXT, true),
+        ), groups, MediaPeriodId("audio-extensions"), Timeline.EMPTY)
+        val text = selectWithAudio().tracks.textTracks()
+        selector.setTextSlots(text[0].group to text[0].index, text[1].group to text[1].index)
+        val result = selectWithAudio()
+        assertNotNull(result.rendererConfigurations[1])
+        assertNull(result.rendererConfigurations[2])
+        assertEquals("en", result.selections[3]!!.selectedFormat.language)
+        assertEquals("ru", result.selections[4]!!.selectedFormat.language)
+    }
+
     @Test fun second_renderer_selects_russian_group_mapped_to_first_renderer() = withSelector { selector ->
         val baseline = select(selector)
         val mapped = baseline.info as MappedTrackInfo

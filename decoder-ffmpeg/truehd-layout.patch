@@ -1,0 +1,36 @@
+--- a/ffmpeg_jni.cc
++++ b/ffmpeg_jni.cc
+@@ -196,6 +196,8 @@
+   if (codecId == AV_CODEC_ID_TRUEHD) {
+     jboolean outputFloat =
+         (jboolean)(context->request_sample_fmt == OUTPUT_FORMAT_PCM_FLOAT);
++    const int sampleRate = context->sample_rate;
++    const int channelCount = context->ch_layout.nb_channels;
+     // Release and recreate the context if the codec is TrueHD.
+     // TODO: Figure out why flushing doesn't work for this codec.
+     releaseContext(context);
+@@ -206,8 +208,7 @@
+       return 0L;
+     }
+     return (jlong)createContext(env, codec, extraData, outputFloat,
+-                                /* rawSampleRate= */ -1,
+-                                /* rawChannelCount= */ -1);
++                                sampleRate, channelCount);
+   }
+ 
+   avcodec_flush_buffers(context);
+@@ -255,6 +256,14 @@
+     context->sample_rate = rawSampleRate;
+     av_channel_layout_default(&context->ch_layout, rawChannelCount);
+   }
++  // FFmpeg 6 requires a valid initial layout for stereo TrueHD.
++  // Preserve these known values when recreating the context after a seek.
++  if (context->codec_id == AV_CODEC_ID_TRUEHD) {
++    if (rawSampleRate > 0) context->sample_rate = rawSampleRate;
++    if (rawChannelCount > 0) {
++      av_channel_layout_default(&context->ch_layout, rawChannelCount);
++    }
++  }
+   context->err_recognition = AV_EF_IGNORE_ERR;
+   int result = avcodec_open2(context, codec, NULL);
+   if (result < 0) {

@@ -2,6 +2,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application>
         <activity
+            android:name=".player.CodecProbeActivity"
+            android:exported="true"
+            android:turnScreenOn="true"
+            android:showWhenLocked="true"
+            android:launchMode="singleTop" />
+        <activity
             android:name=".player.DualTextProbeActivity"
             android:exported="true"
             android:launchMode="singleTop" />

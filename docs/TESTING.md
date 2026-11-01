@@ -55,6 +55,7 @@
 
 ## Приёмка хранения торрентов (G-05)
 
+
 Контракт: [план G-05](superpowers/plans/2026-11-01-torrent-storage.md). Используйте небольшую тестовую раздачу; настройки хранения сохраняются сразу.
 
 - [ ] Исходный режим — «удалять»; после выхода нативная сессия остановлена, каталог удалён.
@@ -65,6 +66,41 @@
 - [ ] Нехватка места до старта и во время просмотра: понятная ошибка и выход к раздачам. Не заполнять пользовательское хранилище ради проверки; управляемый тестовый источник места в unit-тестах проверяет логику, а не JNI.
 - [ ] Быстро выйти и снова открыть тот же hash; старая очистка не удаляет новый просмотр. Повторить со сменой hash.
 - [ ] Пультом проверить режим, обе кнопки лимита, очистку, фокус и Назад. Телефонный smoke учитывать отдельно от ТВ.
+
+## Приёмка аудиокодеков (G-06)
+
+Контракт и ограничения: [план](superpowers/plans/2026-11-01-audio-codecs.md). FFmpeg расширяет аудиодекодирование; неподдерживаемое видео требует другого источника.
+
+Синтетические файлы создаёт `scripts/make-codec-fixtures.ps1 -Image <immutable-sha256-image-id>`. Нужен локальный образ с ffmpeg и энкодерами AAC/AC3/DCA/TrueHD, libx264; скрипт записывает его ID, версию и SHA256 файлов в `build/codec-probe/manifest.json`. Файлы не включаются в APK. Скопируйте шесть MKV в `/sdcard/Android/data/dev.gamspi.videogallery/files/codec-probe/`.
+
+Debug-only `CodecProbeActivity` принимает только имена `aac`, `ac3`, `dts`, `truehd`, `truehd-surround`, `all-codecs`; произвольные пути/URL не принимаются:
+
+```text
+adb -s <device> shell am start -n dev.gamspi.videogallery/.player.CodecProbeActivity --es sample dts --es mode prefer
+adb -s <device> shell am start -n dev.gamspi.videogallery/.player.CodecProbeActivity --el seekMs 10000
+adb -s <device> shell am start -n dev.gamspi.videogallery/.player.CodecProbeActivity --es command pause
+adb -s <device> shell am start -n dev.gamspi.videogallery/.player.CodecProbeActivity --es command play
+adb -s <device> shell am start -n dev.gamspi.videogallery/.player.CodecProbeActivity --ei audioIndex 1
+```
+
+Режим `prefer` задаётся только при создании Activity; для смены режима завершите/пересоздайте её. Основной режим `on` выбирает системный декодер первым, `prefer` позволяет проверить FFmpeg даже для поддерживаемого платформой AAC. В журнале `CodecProbe` нужны имя декодера, `audioPositionAdvancing`, рост позиции и rendered buffers. Эти сигналы не доказывают слышимость/синхронизацию на ТВ.
+
+Для повторения проверки с локальным ADB:
+
+```powershell
+./scripts/check-codecs-device.ps1 -Device <device> -Mode prefer
+./scripts/check-codecs-device.ps1 -Device <device> -Mode on
+./scripts/check-codec-controls.ps1 -Device <device>
+```
+
+Скрипты перезапускают только VideoGallery, проверяют продвижение аудиовыхода/нативные ошибки и сохраняют журналы в `build/codec-probe`. Драйвер управления ждёт фактического аудиовыхода, проверяет позиции 10 с/3 с и неподвижность таймера на паузе. Фактические результаты и найденное исправление stereo TrueHD — в [протоколе G-06](verification/2026-11-01-audio-codecs.md).
+
+- [ ] Для AAC/AC3/DTS/TrueHD записать фактический декодер, продвижение AudioSink, отсутствие ошибок и ABI устройства.
+- [ ] Проверить основной ON и debug PREFER отдельно; имя расширения само по себе не доказывает его выбор.
+- [ ] Пауза, продолжение, seek в обе стороны; смешанный MKV — ручная смена всех четырёх озвучек.
+- [ ] В основном PlayerScreen: ошибка аудиокодека, другая поддерживаемая дорожка, возврат из меню ошибки, сетевая ошибка и ручной повтор. Неподдерживаемые дорожки выбирать нельзя.
+- [ ] Ошибка хранения стримера во время меню ошибки аудио имеет приоритет; повтор остановленной сессии недоступен.
+- [ ] На целевом ТВ проверить слышимость, синхронизацию, отсутствие заикания, нагрузку и D-pad. Телефон не закрывает этот пункт.
 
 ## Приёмка двойных субтитров
 

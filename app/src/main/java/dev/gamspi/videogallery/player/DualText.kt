@@ -31,6 +31,11 @@ class DualTextRenderersFactory(
     private val outA: (List<Cue>) -> Unit,
     private val outB: (List<Cue>) -> Unit,
 ) : DefaultRenderersFactory(context) {
+    init {
+        setExtensionRendererMode(EXTENSION_RENDERER_MODE_ON)
+        setEnableDecoderFallback(true)
+    }
+
     override fun buildTextRenderers(
         context: Context,
         output: TextOutput,

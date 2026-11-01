@@ -27,6 +27,7 @@ data class PlayerUiState(
     val url: String,
     val resumeOffer: Long? = null,
     val error: String? = null,
+    val failure: PlayerFailure? = null,
 )
 
 private const val SAVE_INTERVAL_MS = 10_000L
@@ -218,7 +219,7 @@ class PlayerViewModel internal constructor(
     val statusLine: StateFlow<String?> = if (isTorrent) manager.statusLine else MutableStateFlow(null)
 
     fun clearError() {
-        _state.value = _state.value.copy(error = null)
+        _state.value = _state.value.copy(error = null, failure = null)
     }
 
     override fun onCleared() {
@@ -267,6 +268,10 @@ class PlayerViewModel internal constructor(
     }
 
     fun onError(message: String) {
-        _state.value = _state.value.copy(error = message)
+        _state.value = _state.value.copy(error = message, failure = null)
+    }
+
+    fun onError(failure: PlayerFailure) {
+        _state.value = _state.value.copy(error = failure.message, failure = failure)
     }
 }

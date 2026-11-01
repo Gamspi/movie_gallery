@@ -24,6 +24,17 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class PlayerViewModelTest {
+    @Test fun structured_playback_failure_and_actions_are_cleared_together() {
+        val vm = vm()
+        val failure = PlayerFailure("Не удалось декодировать звук", canChooseAudio = true)
+        vm.onError(failure)
+        assertEquals(failure.message, vm.state.value.error)
+        assertEquals(failure, vm.state.value.failure)
+        vm.clearError()
+        assertNull(vm.state.value.error)
+        assertNull(vm.state.value.failure)
+    }
+
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun terminalStreamFailure_afterReady_exposesStorageReasonOnlyToOwnedTorrent() = runTest {

@@ -15,3 +15,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "VideoGallery"
 include(":app")
+include(":decoder-ffmpeg")

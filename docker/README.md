@@ -19,4 +19,8 @@ docker build -t videogallery-build docker
 
 Текущая конфигурация: JDK 17, Gradle 9.8.2, Android SDK 37, build-tools 37.0.0. Источники значений — `Dockerfile`, `gradle/wrapper/gradle-wrapper.properties` и `app/build.gradle.kts`; обновляйте их согласованно.
 
+Для локального модуля `decoder-ffmpeg` образ также устанавливает NDK `26.1.10909125` (r26b), CMake `3.22.1` и C/C++ build tools. После обновления Dockerfile требуется явная пересборка образа командой выше. Первый `preBuild` проверяет SHA256 исходников, собирает FFmpeg и JNI; последующие запуски используют результаты Gradle. Очистка `decoder-ffmpeg/build` потребует повторной нативной сборки, скачанные исходники сохраняются в корневом `build/ffmpeg-downloads`.
+
+Нативные выходы и лицензии: `decoder-ffmpeg/build/generated/ffmpeg`. Состав, ссылки на исходники и порядок замены shared-библиотек — [NOTICE](../decoder-ffmpeg/NOTICE.md). При изменении версии Media3 также нужно обновить закреплённые исходники расширения.
+
 Текущий APK содержит JNI только для `armeabi-v7a`. Результаты тестов: `app/build/test-results/testDebugUnitTest/`; подробные команды, ограничения и приёмка — в [TESTING](../docs/TESTING.md).

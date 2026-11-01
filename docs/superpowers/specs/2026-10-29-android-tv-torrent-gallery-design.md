@@ -26,7 +26,7 @@
 - Kotlin, Gradle (Kotlin DSL), minSdk 26; текущие compileSdk/targetSdk — 37, версии закреплены в проекте
 - Каталог: PoiskKino (по умолчанию для нового выбора), Kinopoisk API Unofficial и TMDB — опционально (заблокирован в РФ geo-DNS)
 - Jetpack Compose for TV (`androidx.tv:tv-material`)
-- Media3 / ExoPlayer; ffmpeg-расширение (аудио DTS/TrueHD/AC3) — целевое требование, отложено, см. G-06
+- Media3 / ExoPlayer; ffmpeg-расширение аудио добавлено в G-06 (проверка AAC/AC3/DTS/TrueHD на телефоне, приёмка ТВ открыта)
 - libtorrent4j — торрент-движок
 - ML Kit Translate (on-device) — этап 4, не реализован
 - Целевой стек хранения: Room — кэш, история, настройки дорожек; DataStore — настройки. Сейчас настройки хранятся через `SecretStore`, позиции и озвучка — через SharedPreferences; решение о миграции входит в G-08

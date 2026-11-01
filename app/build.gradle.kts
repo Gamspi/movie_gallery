@@ -8,6 +8,7 @@ plugins {
 
 android {
     namespace = "dev.gamspi.videogallery"
+    ndkVersion = "26.1.10909125"
     compileSdk = 37
     // pinned to the build-tools installed in the Docker image; AGP default (36.0.0) would be downloaded
     buildToolsVersion = "37.0.0"
@@ -38,6 +39,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":decoder-ffmpeg"))
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

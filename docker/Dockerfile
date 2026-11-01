@@ -27,4 +27,11 @@ RUN curl -fsSL --retry 5 --retry-all-errors --connect-timeout 20 --speed-limit 5
  && mv /opt/gradle-${GRADLE_VERSION} ${GRADLE_HOME} \
  && rm /tmp/gradle.zip
 
+ARG NDK_VERSION=26.1.10909125
+ARG CMAKE_VERSION=3.22.1
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends build-essential pkg-config xz-utils \
+ && rm -rf /var/lib/apt/lists/* \
+ && sdkmanager "ndk;${NDK_VERSION}" "cmake;${CMAKE_VERSION}"
+
 WORKDIR /work
