@@ -3,8 +3,6 @@ package dev.gamspi.videogallery.subs
 import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 
@@ -26,30 +24,29 @@ private fun sumWords(bytes: ByteArray): Long {
 }
 
 /** Hash of a remote file via two Range requests; null if Range is unsupported or the request fails. */
-suspend fun fetchHashOverHttp(client: OkHttpClient, url: String): String? =
-    withContext(Dispatchers.IO) {
-        try {
-            val (size, head) = rangeGet(client, url, "bytes=0-${CHUNK - 1}") ?: return@withContext null
-            if (size == null) return@withContext null
-            val tail = if (size <= CHUNK) {
-                head
-            } else {
-                rangeGet(client, url, "bytes=${size - CHUNK}-${size - 1}")?.second
-                    ?: return@withContext null
-            }
-            openSubtitlesHash(size, head, tail)
-        } catch (e: IOException) {
-            null
+suspend fun fetchHashOverHttp(client: OkHttpClient, url: String): String? {
+    try {
+        val (size, head) = rangeGet(client, url, "bytes=0-${CHUNK - 1}") ?: return null
+        if (size == null) return null
+        val tail = if (size <= CHUNK) {
+            head
+        } else {
+            rangeGet(client, url, "bytes=${size - CHUNK}-${size - 1}")?.second
+                ?: return null
         }
+        return openSubtitlesHash(size, head, tail)
+    } catch (e: IOException) {
+        return null
     }
+}
 
 /** Returns total size (from Content-Range) and body for a 206 answer, else null. */
-private fun rangeGet(client: OkHttpClient, url: String, range: String): Pair<Long?, ByteArray>? {
+private suspend fun rangeGet(client: OkHttpClient, url: String, range: String): Pair<Long?, ByteArray>? {
     val request = Request.Builder().url(url).header("Range", range).build()
-    client.newCall(request).execute().use { response ->
-        if (response.code != 206) return null
+    return client.newCall(request).awaitBody { response ->
+        if (response.code != 206) return@awaitBody null
         val total = response.header("Content-Range")?.substringAfterLast('/')?.toLongOrNull()
         val body = response.body.bytes()
-        return total to body
+        total to body
     }
 }

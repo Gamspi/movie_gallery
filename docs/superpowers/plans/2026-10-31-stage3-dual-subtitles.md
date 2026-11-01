@@ -2,20 +2,20 @@
 
 > Working rules: [AGENTS.md](../../../AGENTS.md). No external skill or delegation is required. Track verified implementation separately from historical TDD steps and device acceptance.
 
-## Status — 2026-10-31
+## Status — 2026-11-01
 
 Audited application revision: `d1ea23e`. Full Docker unit rerun: 242 tests, no failures/errors/skips; debug assembly succeeded. No fresh TV/emulator acceptance was performed in this audit.
 
 | Task | Status | Evidence / remaining work |
 |---|---|---|
 | 1. Parsers / track | Implemented, unit tests pass | `d03a1f4` |
-| 2. OpenSubtitles | Implemented, unit tests pass; follow-ups open | `4d6cc0f`, token fix `415a1c6`; G-02 cancellation and G-03 fallback |
-| 3. Settings | Implemented, unit tests pass | `825edd1`; UI settings do not yet affect playback |
+| 2. OpenSubtitles | Implemented, unit tests pass | `4d6cc0f`, token fix `415a1c6`; G-02 cancellation and G-03 fallback implemented in working tree |
+| 3. Settings | Implemented, unit tests pass | `825edd1`; settings are now connected to playback |
 | 4. IMDb navigation | Implemented, unit tests pass | `d1ea23e` |
-| 5. Embedded renderers | Not started | Device experiment is the next step |
-| 6. Layer state / sourcing | Not started | Depends on task 5 outcome; include G-02/G-03 |
-| 7. Overlay / menu | Not started | TEXT is still disabled; `AudioMenu` is still used |
-| 8. Device acceptance | Not completed | Use [TESTING](../../TESTING.md) and save the actual results |
+| 5. Embedded renderers | Implemented, phone gate PASS | Redmi Note 8 Pro API30; simultaneous cue, pause, seek and clearing confirmed |
+| 6. Layer state / sourcing | Implemented, unit tests pass | G-02/G-03 included; manual choices and stale/cancelled responses tested |
+| 7. Overlay / menu | Implemented, unit tests and assembly pass; phone smoke PASS | USB phone run: independent off/on A/B while paused, focus/scroll/Back, no-audio/no-key and focused-button contrast |
+| 8. Device acceptance | Partial: phone smoke PASS | USB phone menu/off-on A/B/Back/no-key/contrast passed; target TV, physical remote and live OpenSubtitles pending; see probe report |
 
 Implementation/test/commit checkboxes for tasks 1–4 below are updated from code, commits and the current verification. Historical steps explicitly requiring a failing test run stay unchecked: that sequence was not established by the audit. See [STATUS](../../STATUS.md) and [BACKLOG](../../BACKLOG.md) for the cross-stage view.
 
@@ -170,7 +170,7 @@ Implementation/test/commit checkboxes for tasks 1–4 below are updated from cod
 - [x] **Step 4: Run the tests.** PASS in the full rerun on 2026-10-31. Additional cancellation/fallback coverage is still required by G-02/G-03.
 - [x] **Step 5: Commit** `feat(subs): OpenSubtitles hash and API client` (`4d6cc0f`; token fix `415a1c6`).
 
-**Integration follow-ups:** current search sends hash and IMDb in one request; this does not establish the spec's per-language fallback contract. Resolve G-03 before task 6. Current file/hash body reads use blocking calls; resolve G-02 and add delayed-body cancellation tests. Keep these follow-ups open despite the original task's implementation being present.
+**Integration follow-ups — resolved in working tree:** G-03 is owned by client.search: hash-only exact matches, then IMDb-only for missing languages; partial errors preserved as per-language notes. G-02 now cancels and closes HTTP including body reads; delayed headers/body and VM cancellation tests pass. Live API/device acceptance remains task 8.
 
 ---
 
@@ -240,6 +240,10 @@ Implementation/test/commit checkboxes for tasks 1–4 below are updated from cod
 
 The highest-risk task. Start it with a short experiment.
 
+**Current experiment:** implementation and debug-only `DualTextProbeActivity` are in the working tree. The user chose Redmi Note 8 Pro API30 (`armeabi-v7a` supported) instead of MiTV. Both embedded tracks played together, paused seek into cue/gap and resume passed. This unlocks tasks 6–7; phone results do not replace TV/D-pad acceptance. Commands, fixture and actual results: [probe report](../../verification/2026-10-31-dual-text-probe.md).
+
+Docker unit/assembly verification after integration passed: 291 tests, no failures/errors/skips (includes G-02/G-03). Device gate PASS on phone; no commit was created.
+
 **Files:**
 - Create: `app/src/main/java/dev/gamspi/videogallery/player/DualText.kt`
 - Modify: `app/src/main/java/dev/gamspi/videogallery/player/Media3Tracks.kt` (add `Tracks.textTracks()`)
@@ -260,8 +264,8 @@ The highest-risk task. Start it with a short experiment.
   - `textTracks_lists_text_groups_only`: a `Tracks` built from `Tracks.Group` objects with `MimeTypes.TEXT_VTT` and audio; only the text entries are returned, with language and label.
   - Pure function `fun textSlotDefinitions(textRenderers: List<Int>, a: Pair<Int, Int>?, b: Pair<Int, Int>?): Map<Int, Pair<Int, Int>>`. Test `slots_map_to_first_and_second_text_renderer` and `null_slot_leaves_renderer_empty`.
 - [ ] **Step 2:** Run them; expected FAIL.
-- [ ] **Step 3:** Implement the factory, the selector and `textTracks()`.
-- [ ] **Step 4:** Run the tests and `assembleDebug`, then try it on the device (gate).
+- [x] **Step 3:** Implement the factory, the selector and `textTracks()`. Also added an isolated debug probe; production screen integration remains task 7.
+- [x] **Step 4:** Run the tests and `assembleDebug`, then try it on the device (gate). PASS on the user-selected phone; see report for limits.
 - [ ] **Step 5:** Commit `feat(player): two simultaneous embedded text tracks`.
 
 ---
@@ -288,7 +292,7 @@ The highest-risk task. Start it with a short experiment.
     - `data class Remote(val sub: RemoteSubtitle)`;
     - `data object None` (nothing found).
   - `fun chooseSource(language: String, embedded: List<TextTrack>, remote: List<RemoteSubtitle>, taken: TextTrack?): LayerSource`. The order is:
-    1. an embedded track in this language that is not `taken`;
+    1. a supported embedded track in this language whose group differs from `taken.group` (ProgressiveMediaPeriod permits only one stream per group, even for different indices);
     2. the first remote result in this language (the list is already sorted);
     3. `None`.
     - Languages are compared through ISO3 (`Locale.forLanguageTag(x).isO3Language`), so `en`, `eng` and `en-US` are all the same language.
@@ -318,8 +322,8 @@ The highest-risk task. Start it with a short experiment.
     - `offset_applies_to_remote_and_clamps`: `shiftOffset(B, +500)` moves `textAt`; ten thousand calls stop at 10 000.
     - `cancel_on_clear`: download hangs; `onCleared` (through `ClearViewModel.kt`) causes no exception and no write into `layers`.
 - [ ] **Step 2:** Run them; expected FAIL.
-- [ ] **Step 3:** Implement.
-- [ ] **Step 4:** Run the tests; expected PASS.
+- [x] **Step 3:** Implement. Includes G-02 VM cancellation and G-03 client integration.
+- [x] **Step 4:** Run the tests; PASS in the 291-test full run.
 - [ ] **Step 5:** Commit `feat(subs): layer sourcing and state in player`.
 
 ---
@@ -361,8 +365,8 @@ The highest-risk task. Start it with a short experiment.
 
 - [ ] **Step 1:** Write failing tests for `layerOptions` (order: Выкл → embedded → remote, at most 5 remote, «нет субтитров» when the list is empty) and for `formatOffset(ms)`, where `1500 → "+1,5 с"`, `-500 → "−0,5 с"` and `0 → "0 с"`.
 - [ ] **Step 2:** Run them; expected FAIL.
-- [ ] **Step 3:** Implement the UI and the wiring.
-- [ ] **Step 4:** Run the tests and `assembleDebug`; expected PASS.
+- [x] **Step 3:** Implement the UI and the wiring.
+- [x] **Step 4:** Run the tests and `assembleDebug`; PASS in the 291-test full run.
 - [ ] **Step 5:** Commit `feat(player): dual subtitle overlay and tracks menu`.
 
 ---

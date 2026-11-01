@@ -30,6 +30,11 @@ android {
         compose = true
         buildConfig = true
     }
+
+    testOptions.unitTests.all {
+        // The Docker Gradle home is persistent; the container's ~/.m2 is not.
+        it.systemProperty("maven.repo.local", "${gradle.gradleUserHomeDir}/caches/robolectric")
+    }
 }
 
 dependencies {
@@ -60,6 +65,7 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
     testImplementation(libs.okhttp.mockwebserver3)
     testImplementation(libs.turbine)
     testImplementation(libs.kotlinx.coroutines.test)

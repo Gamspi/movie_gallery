@@ -14,6 +14,7 @@ interface OpenSubtitlesApi {
         @Query("moviehash") hash: String?,
         @Query("imdb_id") imdbId: String?,
         @Query("languages") languages: String,
+        @Query("moviehash_match") hashMatch: String? = null,
     ): SearchResponseDto
 
     @POST("download")

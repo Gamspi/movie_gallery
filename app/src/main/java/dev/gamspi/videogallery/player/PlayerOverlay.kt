@@ -45,7 +45,7 @@ fun PlayerOverlay(
                 else -> time
             }
             Text(shown, color = Color.White)
-            Text("↓ Аудио", color = Color(0xFFBBBBBB))
+            Text("↓ Дорожки", color = Color(0xFFBBBBBB))
         }
         statusLine?.let { Text(it, color = Color(0xFFBBBBBB)) }
     }

@@ -2,10 +2,10 @@ package dev.gamspi.videogallery.subs
 
 import java.io.IOException
 import kotlin.coroutines.cancellation.CancellationException
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
@@ -16,7 +16,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 
 sealed interface SubsResult<out T> {
-    data class Ok<T>(val value: T) : SubsResult<T>
+    data class Ok<T>(val value: T, val languageNotes: Map<String, String> = emptyMap()) : SubsResult<T>
     data object NoKey : SubsResult<Nothing>
     data object BadKey : SubsResult<Nothing>
     data object LimitReached : SubsResult<Nothing>
@@ -45,7 +45,7 @@ class OpenSubtitlesClient(
     baseUrl: String,
     private val settings: SubtitleSettingsSource,
     private val http: OkHttpClient,
-) {
+) : SubtitleClient {
     private val api: OpenSubtitlesApi = Retrofit.Builder()
         .baseUrl(baseUrl)
         .client(
@@ -69,25 +69,61 @@ class OpenSubtitlesClient(
     private var token: String? = null
     private var tokenOwner: Pair<String, String>? = null
 
-    suspend fun search(
+    override suspend fun search(
         hash: String?,
         imdbId: String?,
         languages: List<String>,
     ): SubsResult<List<RemoteSubtitle>> {
         val imdb = imdbId?.removePrefix("tt")?.trimStart('0')?.takeIf { it.isNotEmpty() && it.all(Char::isDigit) }
-        if (hash == null && imdb == null) return SubsResult.Ok(emptyList())
-        return guarded {
-            val response = api.search(hash, imdb, languages.joinToString(","))
-            val list = response.data.mapNotNull { item ->
-                val a = item.attributes
-                val file = a.files.firstOrNull() ?: return@mapNotNull null
-                RemoteSubtitle(file.fileId, a.language.orEmpty(), a.release.orEmpty(), a.moviehashMatch, a.downloadCount)
-            }.sortedWith(compareByDescending<RemoteSubtitle> { it.hashMatch }.thenByDescending { it.downloads })
-            SubsResult.Ok(list)
+        val fileHash = hash?.takeIf { it.isNotBlank() }
+        val requested = languages.map { it.trim().lowercase(java.util.Locale.ROOT) }
+            .filter { subtitleLanguage(it) != null }.distinct().sorted()
+        if ((fileHash == null && imdb == null) || requested.isEmpty()) return SubsResult.Ok(emptyList())
+        if (fileHash == null) return searchRequest(null, imdb, requested)
+
+        val exactResult = searchRequest(fileHash, null, requested)
+        if (exactResult !is SubsResult.Ok) return exactResult
+        val exact = exactResult.value.filter { it.hashMatch }
+        val missing = requested.filter { language -> exact.none { sameLanguage(language, it.language) } }
+        if (missing.isEmpty() || imdb == null) return SubsResult.Ok(exact)
+
+        currentCoroutineContext().ensureActive()
+        return when (val fallback = searchRequest(null, imdb, missing)) {
+            is SubsResult.Ok -> SubsResult.Ok(sortSubtitles(exact + fallback.value))
+            // Keep the usable language and report why the other language could not be fetched.
+            else -> if (exact.isNotEmpty()) {
+                SubsResult.Ok(exact, missing.associateWith { searchFailureNote(fallback) })
+            } else fallback
         }
     }
 
-    suspend fun download(fileId: Long): SubsResult<ByteArray> = guarded {
+    private fun searchFailureNote(result: SubsResult<*>): String = when (result) {
+        SubsResult.NoKey -> "нужен ключ OpenSubtitles"
+        SubsResult.BadKey -> "ключ OpenSubtitles неверный"
+        SubsResult.LimitReached -> "лимит OpenSubtitles на сегодня"
+        else -> "ошибка загрузки"
+    }
+
+    private suspend fun searchRequest(
+        hash: String?,
+        imdb: String?,
+        languages: List<String>,
+    ): SubsResult<List<RemoteSubtitle>> = guarded {
+        val response = api.search(hash, imdb, languages.joinToString(","), if (hash != null) "only" else null)
+        val list = response.data.mapNotNull { item ->
+            val a = item.attributes
+            if (languages.none { sameLanguage(it, a.language) }) return@mapNotNull null
+            val file = a.files.firstOrNull() ?: return@mapNotNull null
+            RemoteSubtitle(file.fileId, a.language.orEmpty(), a.release.orEmpty(), a.moviehashMatch, a.downloadCount)
+        }
+        SubsResult.Ok(sortSubtitles(list))
+    }
+
+    private fun sortSubtitles(list: List<RemoteSubtitle>): List<RemoteSubtitle> = list
+        .sortedWith(compareByDescending<RemoteSubtitle> { it.hashMatch }.thenByDescending { it.downloads })
+        .distinctBy { it.fileId }
+
+    override suspend fun download(fileId: Long): SubsResult<ByteArray> = guarded {
         val auth = loginToken()?.let { "Bearer $it" }
         val response = try {
             api.download(DownloadRequestDto(fileId), auth)
@@ -106,9 +142,9 @@ class OpenSubtitlesClient(
         SubsResult.Ok(fetchBytes(link))
     }
 
-    private suspend fun fetchBytes(link: String): ByteArray = withContext(Dispatchers.IO) {
+    private suspend fun fetchBytes(link: String): ByteArray {
         val request = Request.Builder().url(link).header("User-Agent", USER_AGENT).build()
-        http.newCall(request).execute().use { response ->
+        return http.newCall(request).awaitBody { response ->
             if (!response.isSuccessful) throw IOException("subtitle file HTTP ${response.code}")
             response.body.bytes()
         }

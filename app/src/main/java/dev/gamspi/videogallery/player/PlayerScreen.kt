@@ -1,6 +1,8 @@
 package dev.gamspi.videogallery.player
 
 import android.view.KeyEvent
+import android.view.View
+import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
@@ -34,12 +36,14 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.Tracks
 import androidx.media3.common.TrackSelectionOverride
+import dev.gamspi.videogallery.subs.Layer
+import dev.gamspi.videogallery.subs.LayerSource
+import dev.gamspi.videogallery.BuildConfig
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
@@ -68,22 +72,39 @@ fun PlayerScreen(onBack: () -> Unit) {
     val vm = hiltViewModel<PlayerViewModel>()
     val state by vm.state.collectAsState()
     val statusLine by vm.statusLine.collectAsState()
+    val layers by vm.layers.collectAsState()
+    val remoteOptions by vm.remoteOptions.collectAsState()
+    val subtitlePrefs by vm.subtitlePrefs.collectAsState()
+    val embeddedSlots by vm.embeddedSlots.collectAsState()
+    var embedded by remember { mutableStateOf(emptyList<TextTrack>()) }
+    var embeddedTextA by remember { mutableStateOf<String?>(null) }
+    var embeddedTextB by remember { mutableStateOf<String?>(null) }
+    var subtitlePositionMs by remember { mutableLongStateOf(0L) }
     var lastPositionMs by remember { mutableLongStateOf(0L) }
     val context = LocalContext.current
     val view = LocalView.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
+    val textSelector = remember { DualTextTrackSelector(context) }
     val player = remember {
-        ExoPlayer.Builder(context)
+        ExoPlayer.Builder(context, DualTextRenderersFactory(
+            context,
+            { cues ->
+                if (BuildConfig.DEBUG) Log.d("DualTextState", "A cues=${cues.size} position=$subtitlePositionMs")
+                embeddedTextA = cues.mapNotNull { it.text }.joinToString("\n").ifBlank { null }
+            },
+            { cues ->
+                if (BuildConfig.DEBUG) Log.d("DualTextState", "B cues=${cues.size} position=$subtitlePositionMs")
+                embeddedTextB = cues.mapNotNull { it.text }.joinToString("\n").ifBlank { null }
+            },
+        ))
+            .setTrackSelector(textSelector)
             .setLoadControl(
                 DefaultLoadControl.Builder()
                     .setBufferDurationsMs(15_000, 60_000, 2_500, 5_000)
                     .build(),
             )
             .build().apply {
-                trackSelectionParameters = trackSelectionParameters.buildUpon()
-                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
-                    .build()
                 playWhenReady = false
             }
     }
@@ -123,6 +144,8 @@ fun PlayerScreen(onBack: () -> Unit) {
         var started = false
         val listener = object : Player.Listener {
             override fun onTracksChanged(tracks: Tracks) {
+                embedded = tracks.textTracks()
+                vm.onTextTracks(embedded)
                 val list = tracks.audioTracks()
                 audio = list
                 selected = tracks.selectedAudio()
@@ -201,6 +224,21 @@ fun PlayerScreen(onBack: () -> Unit) {
         }
     }
 
+    LaunchedEffect(embeddedSlots) {
+        if (BuildConfig.DEBUG) Log.d("DualTextState", "slots=$embeddedSlots position=$subtitlePositionMs")
+        textSelector.setTextSlots(embeddedSlots.first, embeddedSlots.second)
+    }
+
+    LaunchedEffect(embeddedSlots.first) { embeddedTextA = null }
+    LaunchedEffect(embeddedSlots.second) { embeddedTextB = null }
+
+    LaunchedEffect(player) {
+        while (true) {
+            subtitlePositionMs = player.currentPosition
+            delay(100)
+        }
+    }
+
     LaunchedEffect(overlayTick, playWhenReady) {
         if (playWhenReady) {
             delay(OVERLAY_HIDE_MS)
@@ -229,7 +267,7 @@ fun PlayerScreen(onBack: () -> Unit) {
                 player.play()
             }
             is PlayerCommand.SeekTo -> player.seekTo(cmd.ms)
-            PlayerCommand.OpenAudioMenu -> if (audio.isNotEmpty()) menuOpen = true
+            PlayerCommand.OpenAudioMenu -> menuOpen = true
             PlayerCommand.CloseMenu -> menuOpen = false
             PlayerCommand.Exit -> exit()
         }
@@ -296,6 +334,7 @@ fun PlayerScreen(onBack: () -> Unit) {
                     useController = false
                     isFocusable = false
                     this.player = player
+                    subtitleView?.visibility = View.GONE
                 }
             },
             modifier = Modifier.fillMaxSize(),
@@ -330,6 +369,16 @@ fun PlayerScreen(onBack: () -> Unit) {
                 },
             )
             else -> {
+                SubtitleOverlay(
+                    textA = if (layers[Layer.A]?.source is LayerSource.Embedded) embeddedTextA
+                        else vm.textAt(Layer.A, subtitlePositionMs),
+                    textB = if (layers[Layer.B]?.source is LayerSource.Embedded) embeddedTextB
+                        else vm.textAt(Layer.B, subtitlePositionMs),
+                    styleA = subtitlePrefs.styleA,
+                    styleB = subtitlePrefs.styleB,
+                    liftDp = if (overlayVisible || menuOpen) 170.dp else 0.dp,
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                )
                 if (overlayVisible || menuOpen) {
                     PlayerOverlay(
                         title = state.title,
@@ -342,14 +391,21 @@ fun PlayerScreen(onBack: () -> Unit) {
                     )
                 }
                 if (menuOpen) {
-                    AudioMenu(
-                        tracks = audio,
-                        selected = selected,
-                        onSelect = {
+                    TracksMenu(
+                        audioTracks = audio,
+                        selectedAudio = selected,
+                        onAudioSelect = {
                             selectAudio(it)
                             vm.onAudioSelected(it)
                             menuOpen = false
                         },
+                        embedded = embedded,
+                        remoteOptions = remoteOptions,
+                        layers = layers,
+                        languageA = subtitlePrefs.languageA,
+                        languageB = subtitlePrefs.languageB,
+                        onSelect = vm::select,
+                        onShift = vm::shiftOffset,
                         modifier = Modifier.align(Alignment.CenterEnd),
                     )
                 }

@@ -3,6 +3,25 @@ package dev.gamspi.videogallery.player
 import androidx.media3.common.C
 import androidx.media3.common.Tracks
 
+data class TextTrack(
+    val group: Int,
+    val index: Int,
+    val language: String?,
+    val label: String?,
+    val supported: Boolean,
+)
+
+/** Group indices refer to the complete Tracks list, including audio and video. */
+fun Tracks.textTracks(): List<TextTrack> = buildList {
+    groups.forEachIndexed { gi, group ->
+        if (group.type != C.TRACK_TYPE_TEXT) return@forEachIndexed
+        for (i in 0 until group.length) {
+            val format = group.getTrackFormat(i)
+            add(TextTrack(gi, i, format.language, format.label, group.isTrackSupported(i)))
+        }
+    }
+}
+
 /** Short human-readable codec name from an audio MIME type. */
 fun codecName(mime: String?): String? = when {
     mime == null -> null
