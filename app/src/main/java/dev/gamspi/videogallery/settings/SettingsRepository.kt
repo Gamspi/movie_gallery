@@ -9,6 +9,16 @@ import kotlinx.coroutines.flow.StateFlow
 
 @Singleton
 class SettingsRepository @Inject constructor(private val store: SecretStore) : SubtitleSettingsSource {
+    private val _poiskkinoApiKey = MutableStateFlow(store.get(KEY_POISKKINO))
+    val poiskkinoApiKey: StateFlow<String?> = _poiskkinoApiKey
+
+    fun setPoiskkinoApiKey(key: String) {
+        val value = key.trim().ifEmpty { null }
+        store.put(KEY_POISKKINO, value)
+        _poiskkinoApiKey.value = value
+        refreshActive()
+    }
+
     private val _tmdbApiKey = MutableStateFlow(store.get(KEY_TMDB))
     val tmdbApiKey: StateFlow<String?> = _tmdbApiKey
 
@@ -39,7 +49,7 @@ class SettingsRepository @Inject constructor(private val store: SecretStore) : S
     }
 
     private val _catalogSource = MutableStateFlow(
-        CatalogSource.entries.firstOrNull { it.name == store.get(KEY_SOURCE) } ?: CatalogSource.Kinopoisk,
+        CatalogSource.entries.firstOrNull { it.name == store.get(KEY_SOURCE) } ?: CatalogSource.PoiskKino,
     )
     val catalogSource: StateFlow<CatalogSource> = _catalogSource
 
@@ -49,12 +59,15 @@ class SettingsRepository @Inject constructor(private val store: SecretStore) : S
         refreshActive()
     }
 
-    fun update(source: CatalogSource, kinopoiskKey: String, tmdbKey: String) {
+    fun update(source: CatalogSource, poiskkinoKey: String, kinopoiskKey: String, tmdbKey: String) {
+        val pk = poiskkinoKey.trim().ifEmpty { null }
         val kp = kinopoiskKey.trim().ifEmpty { null }
         val tm = tmdbKey.trim().ifEmpty { null }
+        store.put(KEY_POISKKINO, pk)
         store.put(KEY_KINOPOISK, kp)
         store.put(KEY_TMDB, tm)
         store.put(KEY_SOURCE, source.name)
+        _poiskkinoApiKey.value = pk
         _kinopoiskApiKey.value = kp
         _tmdbApiKey.value = tm
         _catalogSource.value = source
@@ -139,7 +152,11 @@ class SettingsRepository @Inject constructor(private val store: SecretStore) : S
 
     private fun computeActive(): ActiveCatalog {
         val source = _catalogSource.value
-        val key = if (source == CatalogSource.Kinopoisk) _kinopoiskApiKey.value else _tmdbApiKey.value
+        val key = when (source) {
+            CatalogSource.PoiskKino -> _poiskkinoApiKey.value
+            CatalogSource.Kinopoisk -> _kinopoiskApiKey.value
+            CatalogSource.Tmdb -> _tmdbApiKey.value
+        }
         return ActiveCatalog(source, key)
     }
 
@@ -148,6 +165,7 @@ class SettingsRepository @Inject constructor(private val store: SecretStore) : S
     }
 
     private companion object {
+        const val KEY_POISKKINO = "poiskkino_api_key"
         const val KEY_TMDB = "tmdb_api_key"
         const val KEY_KINOPOISK = "kinopoisk_api_key"
         const val KEY_SOURCE = "catalog_source"

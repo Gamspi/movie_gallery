@@ -13,8 +13,10 @@ class SwitchingCatalogRepositoryTest {
         val settings = SettingsRepository(FakeSecretStore())
         val tmdb = FakeCatalogRepository()
         val kp = FakeCatalogRepository()
-        val repo = SwitchingCatalogRepository(settings, tmdb, kp)
+        val poiskkino = FakeCatalogRepository()
+        val repo = SwitchingCatalogRepository(settings, tmdb, kp, poiskkino)
 
+        settings.setCatalogSource(CatalogSource.Kinopoisk)
         repo.popular()
         assertEquals(1, kp.popularCalls)
         assertEquals(0, tmdb.popularCalls)
@@ -23,5 +25,9 @@ class SwitchingCatalogRepositoryTest {
         repo.search("q")
         assertEquals(listOf("q"), tmdb.searchCalls)
         assertEquals(emptyList<String>(), kp.searchCalls)
+
+        settings.setCatalogSource(CatalogSource.PoiskKino)
+        repo.genres()
+        assertEquals(1, poiskkino.genresCalls)
     }
 }

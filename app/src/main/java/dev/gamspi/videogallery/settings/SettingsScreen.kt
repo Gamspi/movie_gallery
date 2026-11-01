@@ -27,6 +27,7 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
@@ -50,18 +51,21 @@ fun SettingsScreen(
 ) {
     var testUrl by rememberSaveable { mutableStateOf(viewModel.testUrl.value.orEmpty()) }
     var sourceName by rememberSaveable { mutableStateOf(viewModel.catalogSource.value.name) }
-    var kinopoiskKey by rememberSaveable { mutableStateOf(viewModel.kinopoiskApiKey.value.orEmpty()) }
-    var tmdbKey by rememberSaveable { mutableStateOf(viewModel.tmdbApiKey.value.orEmpty()) }
-    var osKey by rememberSaveable { mutableStateOf(viewModel.openSubtitlesKey.orEmpty()) }
-    var osUser by rememberSaveable { mutableStateOf(viewModel.openSubtitlesUser.orEmpty()) }
-    var osPassword by rememberSaveable { mutableStateOf(viewModel.openSubtitlesPassword.orEmpty()) }
-    val source = CatalogSource.valueOf(sourceName)
+    // Credentials persist only through SecretStore, never Activity saved state.
+    var poiskkinoKey by remember { mutableStateOf(viewModel.poiskkinoApiKey.value.orEmpty()) }
+    var kinopoiskKey by remember { mutableStateOf(viewModel.kinopoiskApiKey.value.orEmpty()) }
+    var tmdbKey by remember { mutableStateOf(viewModel.tmdbApiKey.value.orEmpty()) }
+    var osKey by remember { mutableStateOf(viewModel.openSubtitlesKey.orEmpty()) }
+    var osUser by remember { mutableStateOf(viewModel.openSubtitlesUser.orEmpty()) }
+    var osPassword by remember { mutableStateOf(viewModel.openSubtitlesPassword.orEmpty()) }
+    val source = CatalogSource.entries.firstOrNull { it.name == sourceName } ?: CatalogSource.PoiskKino
     val trackerEnabled = ProviderId.entries.associateWith { id ->
         rememberSaveable(id.name) { mutableStateOf(viewModel.tracker(id).value.enabled) }
     }
     val trackerUrls = ProviderId.entries.associateWith { id ->
         rememberSaveable(id.name + "_url") { mutableStateOf(viewModel.tracker(id).value.baseUrl) }
     }
+    val poiskkinoFocus = remember { FocusRequester() }
     val kinopoiskFocus = remember { FocusRequester() }
     val tmdbFocus = remember { FocusRequester() }
     val playFocus = remember { FocusRequester() }
@@ -71,6 +75,7 @@ fun SettingsScreen(
     LaunchedEffect(Unit) {
         when {
             returnToPlay -> playFocus.requestFocus()
+            initialSource == CatalogSource.PoiskKino -> poiskkinoFocus.requestFocus()
             initialSource == CatalogSource.Kinopoisk -> kinopoiskFocus.requestFocus()
             else -> tmdbFocus.requestFocus()
         }
@@ -82,6 +87,9 @@ fun SettingsScreen(
         Text("Настройки", style = MaterialTheme.typography.headlineMedium)
         Text("Источник каталога")
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            SourceButton("PoiskKino", source == CatalogSource.PoiskKino, poiskkinoFocus) {
+                sourceName = CatalogSource.PoiskKino.name
+            }
             SourceButton("Кинопоиск", source == CatalogSource.Kinopoisk, kinopoiskFocus) {
                 sourceName = CatalogSource.Kinopoisk.name
             }
@@ -89,6 +97,12 @@ fun SettingsScreen(
                 sourceName = CatalogSource.Tmdb.name
             }
         }
+        TvTextField(
+            value = poiskkinoKey,
+            onValueChange = { poiskkinoKey = it },
+            label = "Ключ PoiskKino",
+        )
+        Text("Получить: poiskkino.dev → Telegram-бот")
         TvTextField(
             value = kinopoiskKey,
             onValueChange = { kinopoiskKey = it },
@@ -154,7 +168,7 @@ fun SettingsScreen(
             val trackers = ProviderId.entries.associateWith {
                 TrackerConfig(trackerEnabled.getValue(it).value, trackerUrls.getValue(it).value)
             }
-            viewModel.save(source, kinopoiskKey, tmdbKey, trackers)
+            viewModel.save(source, poiskkinoKey, kinopoiskKey, tmdbKey, trackers)
             onBack()
         }) { Text("Сохранить") }
         TvTextField(
@@ -241,14 +255,12 @@ private fun SourceButton(
 ) {
     Button(
         onClick = onClick,
-        colors = if (selected) {
-            ButtonDefaults.colors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-            )
-        } else {
-            ButtonDefaults.colors()
-        },
+        colors = ButtonDefaults.colors(
+            containerColor = if (selected) Color(0xFF23598A) else Color(0xFF34343C),
+            contentColor = Color.White,
+            focusedContainerColor = Color(0xFF386DA0),
+            focusedContentColor = Color.White,
+        ),
         modifier = if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier,
-    ) { Text(if (selected) "✓ $label" else label) }
+    ) { Text(if (selected) "✓ $label" else label, color = Color.White) }
 }

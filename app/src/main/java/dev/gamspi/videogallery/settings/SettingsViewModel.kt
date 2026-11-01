@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 class SettingsViewModel @Inject constructor(
     private val repository: SettingsRepository,
 ) : ViewModel() {
+    val poiskkinoApiKey: StateFlow<String?> = repository.poiskkinoApiKey
     val tmdbApiKey: StateFlow<String?> = repository.tmdbApiKey
     val kinopoiskApiKey: StateFlow<String?> = repository.kinopoiskApiKey
     val catalogSource: StateFlow<CatalogSource> = repository.catalogSource
@@ -58,11 +59,12 @@ class SettingsViewModel @Inject constructor(
 
     fun save(
         source: CatalogSource,
+        poiskkinoKey: String,
         kinopoiskKey: String,
         tmdbKey: String,
-        trackers: Map<ProviderId, TrackerConfig>,
+        trackers: Map<ProviderId, TrackerConfig> = emptyMap(),
     ) {
-        repository.update(source, kinopoiskKey, tmdbKey)
+        repository.update(source, poiskkinoKey, kinopoiskKey, tmdbKey)
         repository.setTrackers(trackers)
     }
 }

@@ -9,5 +9,9 @@
             android:name=".player.PlayerProbeActivity"
             android:exported="true"
             android:launchMode="standard" />
+        <activity
+            android:name=".settings.SettingsProbeActivity"
+            android:exported="true"
+            android:launchMode="singleTop" />
     </application>
 </manifest>

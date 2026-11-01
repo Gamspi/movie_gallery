@@ -64,9 +64,36 @@ class SettingsRepositoryTest {
     }
 
     @Test
-    fun source_defaultsToKinopoisk() {
+    fun source_defaultsToPoiskKino() {
         val repo = SettingsRepository(FakeSecretStore())
-        assertEquals(CatalogSource.Kinopoisk, repo.catalogSource.value)
+        assertEquals(CatalogSource.PoiskKino, repo.catalogSource.value)
+    }
+
+    @Test
+    fun storedLegacySources_arePreservedWithoutInventingMigration() {
+        for (source in listOf(CatalogSource.Kinopoisk, CatalogSource.Tmdb)) {
+            val store = FakeSecretStore(mapOf("catalog_source" to source.name,
+                "kinopoisk_api_key" to "kp", "tmdb_api_key" to "tm"))
+            val repo = SettingsRepository(store)
+            assertEquals(source, repo.catalogSource.value)
+            assertEquals(if (source == CatalogSource.Kinopoisk) "kp" else "tm", repo.activeCatalog.value.apiKey)
+            assertEquals(source.name, store.get("catalog_source"))
+        }
+    }
+
+    @Test
+    fun poiskkinoKey_trimsAndBlankClears_persistsRoundtrip() {
+        val store = FakeSecretStore()
+        val repo = SettingsRepository(store)
+        repo.setPoiskkinoApiKey("  pk ")
+        assertEquals("pk", repo.poiskkinoApiKey.value)
+        assertEquals("pk", store.get("poiskkino_api_key"))
+        assertEquals("pk", SettingsRepository(store).poiskkinoApiKey.value)
+        assertEquals(ActiveCatalog(CatalogSource.PoiskKino, "pk"), repo.activeCatalog.value)
+        repo.setPoiskkinoApiKey("  ")
+        assertNull(repo.poiskkinoApiKey.value)
+        assertNull(store.get("poiskkino_api_key"))
+        assertNull(repo.activeCatalog.value.apiKey)
     }
 
     @Test
@@ -91,6 +118,8 @@ class SettingsRepositoryTest {
     @Test
     fun activeCatalog_followsSourceAndKey() {
         val repo = SettingsRepository(FakeSecretStore(mapOf("tmdb_api_key" to "A", "kinopoisk_api_key" to "B")))
+        assertEquals(ActiveCatalog(CatalogSource.PoiskKino, null), repo.activeCatalog.value)
+        repo.setCatalogSource(CatalogSource.Kinopoisk)
         assertEquals(ActiveCatalog(CatalogSource.Kinopoisk, "B"), repo.activeCatalog.value)
         repo.setCatalogSource(CatalogSource.Tmdb)
         assertEquals(ActiveCatalog(CatalogSource.Tmdb, "A"), repo.activeCatalog.value)
@@ -99,9 +128,20 @@ class SettingsRepositoryTest {
     }
 
     @Test
-    fun unknownStoredSource_fallsBackToKinopoisk() {
-        val repo = SettingsRepository(FakeSecretStore(mapOf("catalog_source" to "Bogus")))
-        assertEquals(CatalogSource.Kinopoisk, repo.catalogSource.value)
+    fun unknownOrBlankStoredSource_fallsBackToPoiskKino() {
+        for (stored in listOf("Bogus", "", "   ")) {
+            val repo = SettingsRepository(FakeSecretStore(mapOf("catalog_source" to stored)))
+            assertEquals(CatalogSource.PoiskKino, repo.catalogSource.value)
+        }
+    }
+
+    @Test
+    fun inactivePoiskkinoKey_doesNotChangeActiveCatalog() {
+        val repo = SettingsRepository(FakeSecretStore(mapOf("catalog_source" to "Tmdb", "tmdb_api_key" to "tm")))
+        repo.setPoiskkinoApiKey("pk")
+        assertEquals(ActiveCatalog(CatalogSource.Tmdb, "tm"), repo.activeCatalog.value)
+        repo.setCatalogSource(CatalogSource.PoiskKino)
+        assertEquals(ActiveCatalog(CatalogSource.PoiskKino, "pk"), repo.activeCatalog.value)
     }
 
     @Test
@@ -114,12 +154,29 @@ class SettingsRepositoryTest {
     fun update_emitsActiveCatalogOnce() = runBlocking {
         val repo = SettingsRepository(FakeSecretStore())
         repo.activeCatalog.test {
-            assertEquals(ActiveCatalog(CatalogSource.Kinopoisk, null), awaitItem())
-            repo.update(CatalogSource.Tmdb, "kp", "tm")
+            assertEquals(ActiveCatalog(CatalogSource.PoiskKino, null), awaitItem())
+            repo.update(CatalogSource.Tmdb, "pk", "kp", "tm")
             assertEquals(ActiveCatalog(CatalogSource.Tmdb, "tm"), awaitItem())
             expectNoEvents()
         }
         assertEquals("kp", repo.kinopoiskApiKey.value)
+        assertEquals("pk", repo.poiskkinoApiKey.value)
+    }
+
+    @Test
+    fun updatePoiskkino_persistsThreeKeys_andEmitsOnlyFinalActiveCatalog() = runBlocking {
+        val store = FakeSecretStore(mapOf("catalog_source" to "Kinopoisk", "kinopoisk_api_key" to "old"))
+        val repo = SettingsRepository(store)
+        repo.activeCatalog.test {
+            assertEquals(ActiveCatalog(CatalogSource.Kinopoisk, "old"), awaitItem())
+            repo.update(CatalogSource.PoiskKino, " pk ", " kp ", " tm ")
+            assertEquals(ActiveCatalog(CatalogSource.PoiskKino, "pk"), awaitItem())
+            expectNoEvents()
+        }
+        val reopened = SettingsRepository(store)
+        assertEquals(ActiveCatalog(CatalogSource.PoiskKino, "pk"), reopened.activeCatalog.value)
+        assertEquals("kp", reopened.kinopoiskApiKey.value)
+        assertEquals("tm", reopened.tmdbApiKey.value)
     }
 
     @Test

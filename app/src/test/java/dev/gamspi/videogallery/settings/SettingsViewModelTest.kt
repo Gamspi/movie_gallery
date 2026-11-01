@@ -6,13 +6,19 @@ import org.junit.Test
 
 class SettingsViewModelTest {
     @Test
-    fun save_persistsSourceAndBothKeys() {
-        val repo = SettingsRepository(FakeSecretStore())
+    fun save_persistsSourceAndThreeKeys() {
+        val store = FakeSecretStore()
+        val repo = SettingsRepository(store)
         val vm = SettingsViewModel(repo)
-        vm.save(CatalogSource.Tmdb, "kp-key", "tm-key", emptyMap())
-        assertEquals(CatalogSource.Tmdb, vm.catalogSource.value)
+        vm.save(CatalogSource.PoiskKino, " pk-key ", "kp-key", "tm-key")
+        assertEquals(CatalogSource.PoiskKino, vm.catalogSource.value)
+        assertEquals("pk-key", vm.poiskkinoApiKey.value)
         assertEquals("kp-key", vm.kinopoiskApiKey.value)
         assertEquals("tm-key", vm.tmdbApiKey.value)
+        val reopened = SettingsRepository(store)
+        assertEquals(ActiveCatalog(CatalogSource.PoiskKino, "pk-key"), reopened.activeCatalog.value)
+        assertEquals("kp-key", reopened.kinopoiskApiKey.value)
+        assertEquals("tm-key", reopened.tmdbApiKey.value)
     }
 
     @Test
@@ -20,7 +26,7 @@ class SettingsViewModelTest {
         val store = FakeSecretStore()
         val vm = SettingsViewModel(SettingsRepository(store))
         vm.save(
-            CatalogSource.Kinopoisk, "", "",
+            CatalogSource.Kinopoisk, "", "", "",
             mapOf(ProviderId.Yts to TrackerConfig(true, "yts.example")),
         )
         assertEquals(TrackerConfig(true, "https://yts.example/"), vm.tracker(ProviderId.Yts).value)

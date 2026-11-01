@@ -2,6 +2,7 @@ package dev.gamspi.videogallery.catalog.kinopoisk
 
 import dev.gamspi.videogallery.catalog.CatalogException
 import dev.gamspi.videogallery.catalog.CatalogRepository
+import dev.gamspi.videogallery.catalog.withCatalogCredentials
 import dev.gamspi.videogallery.catalog.model.Genre
 import dev.gamspi.videogallery.catalog.model.Movie
 import dev.gamspi.videogallery.catalog.model.MovieDetails
@@ -67,10 +68,10 @@ class KinopoiskCatalogRepository(
     companion object {
         const val BASE_URL = "https://kinopoiskapiunofficial.tech/"
 
-        fun create(baseUrl: String, settings: SettingsRepository): KinopoiskCatalogRepository {
-            val client = OkHttpClient.Builder()
+        fun create(baseUrl: String, settings: SettingsRepository, client: OkHttpClient = OkHttpClient()): KinopoiskCatalogRepository {
+            val configured = client.newBuilder()
                 .connectTimeout(15, TimeUnit.SECONDS)
-                .readTimeout(15, TimeUnit.SECONDS)
+                .readTimeout(45, TimeUnit.SECONDS)
                 .writeTimeout(15, TimeUnit.SECONDS)
                 .addInterceptor { chain ->
                     // key is read per request so a changed key applies without restart
@@ -78,11 +79,11 @@ class KinopoiskCatalogRepository(
                     if (!key.isHeaderSafe()) throw BadKeyException()
                     chain.proceed(chain.request().newBuilder().header("X-API-KEY", key).build())
                 }
-                .build()
+                .build().withCatalogCredentials("kinopoisk")
             val json = Json { ignoreUnknownKeys = true }
             val api = Retrofit.Builder()
                 .baseUrl(baseUrl)
-                .client(client)
+                .client(configured)
                 .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
                 .build()
                 .create(KinopoiskApi::class.java)

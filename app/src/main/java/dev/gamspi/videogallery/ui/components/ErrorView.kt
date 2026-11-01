@@ -28,6 +28,21 @@ fun CatalogException.toErrorKind(): ErrorKind = when (this) {
     CatalogException.Parse, is CatalogException.Http -> ErrorKind.Other
 }
 
+fun catalogErrorMessage(kind: ErrorKind, source: CatalogSource): String {
+    val provider = when (source) {
+        CatalogSource.PoiskKino -> "PoiskKino"
+        CatalogSource.Kinopoisk -> "Кинопоиска"
+        CatalogSource.Tmdb -> "TMDB"
+    }
+    return when (kind) {
+        ErrorKind.MissingKey -> "Нужен ключ $provider"
+        ErrorKind.BadKey -> "Ключ $provider неверный"
+        ErrorKind.QuotaExceeded -> "Лимит запросов на сегодня исчерпан"
+        ErrorKind.Network -> "Нет сети"
+        ErrorKind.Other -> "Ошибка загрузки"
+    }
+}
+
 @Composable
 fun ErrorView(
     kind: ErrorKind,
@@ -35,14 +50,7 @@ fun ErrorView(
     onOpenSettings: () -> Unit,
     autoFocus: Boolean = true,
 ) {
-    val tmdb = LocalCatalogSource.current == CatalogSource.Tmdb
-    val message = when (kind) {
-        ErrorKind.MissingKey -> if (tmdb) "Нужен ключ TMDB" else "Нужен ключ Кинопоиска"
-        ErrorKind.BadKey -> if (tmdb) "Ключ TMDB неверный" else "Ключ Кинопоиска неверный"
-        ErrorKind.QuotaExceeded -> "Лимит запросов на сегодня исчерпан"
-        ErrorKind.Network -> "Нет сети"
-        ErrorKind.Other -> "Ошибка загрузки"
-    }
+    val message = catalogErrorMessage(kind, LocalCatalogSource.current)
     val needsSettings = kind == ErrorKind.MissingKey || kind == ErrorKind.BadKey
     val focus = remember { FocusRequester() }
     if (autoFocus) LaunchedEffect(kind) { runCatching { focus.requestFocus() } }

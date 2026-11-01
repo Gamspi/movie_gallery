@@ -2,6 +2,7 @@ package dev.gamspi.videogallery.catalog.tmdb
 
 import dev.gamspi.videogallery.catalog.CatalogException
 import dev.gamspi.videogallery.catalog.CatalogRepository
+import dev.gamspi.videogallery.catalog.withCatalogCredentials
 import dev.gamspi.videogallery.catalog.model.Genre
 import dev.gamspi.videogallery.catalog.model.Movie
 import dev.gamspi.videogallery.catalog.model.MovieDetails
@@ -56,8 +57,8 @@ class TmdbCatalogRepository(
     companion object {
         const val BASE_URL = "https://api.themoviedb.org/3/"
 
-        fun create(baseUrl: String, settings: SettingsRepository): TmdbCatalogRepository {
-            val client = OkHttpClient.Builder()
+        fun create(baseUrl: String, settings: SettingsRepository, client: OkHttpClient = OkHttpClient()): TmdbCatalogRepository {
+            val configured = client.newBuilder()
                 .connectTimeout(15, TimeUnit.SECONDS)
                 .readTimeout(15, TimeUnit.SECONDS)
                 .writeTimeout(15, TimeUnit.SECONDS)
@@ -70,11 +71,11 @@ class TmdbCatalogRepository(
                         .build()
                     chain.proceed(chain.request().newBuilder().url(url).build())
                 }
-                .build()
+                .build().withCatalogCredentials("tmdb")
             val json = Json { ignoreUnknownKeys = true }
             val api = Retrofit.Builder()
                 .baseUrl(baseUrl)
-                .client(client)
+                .client(configured)
                 .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
                 .build()
                 .create(TmdbApi::class.java)
