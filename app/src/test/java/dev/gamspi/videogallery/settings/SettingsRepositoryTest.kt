@@ -9,6 +9,35 @@ import org.junit.Test
 
 class SettingsRepositoryTest {
     @Test
+    fun torrentStorage_defaultsDeleteAndTenGiB() {
+        val prefs = SettingsRepository(FakeSecretStore()).torrentStoragePrefs.value
+        assertEquals(TorrentStoragePrefs(false, 10), prefs)
+        assertEquals(10L * 1024 * 1024 * 1024, prefs.limitBytes)
+    }
+
+    @Test
+    fun torrentStorage_persistsAndNormalizesLimit() {
+        val store = FakeSecretStore()
+        val repo = SettingsRepository(store)
+        repo.setTorrentStoragePrefs(TorrentStoragePrefs(true, 150))
+        assertEquals(TorrentStoragePrefs(true, 100), repo.torrentStoragePrefs.value)
+        assertEquals(repo.torrentStoragePrefs.value, SettingsRepository(store).torrentStoragePrefs.value)
+        repo.setTorrentStoragePrefs(TorrentStoragePrefs(false, -4))
+        assertEquals(TorrentStoragePrefs(false, 1), SettingsRepository(store).torrentStoragePrefs.value)
+    }
+
+    @Test
+    fun torrentStorage_corruptValuesFallBackWithoutEnablingRetention() {
+        val repo = SettingsRepository(FakeSecretStore(mapOf(
+            "torrent_keep_after_playback" to "unexpected",
+            "torrent_limit_gib" to "not-a-number",
+        )))
+        assertEquals(TorrentStoragePrefs(), repo.torrentStoragePrefs.value)
+        assertEquals(1, SettingsRepository(FakeSecretStore(mapOf("torrent_limit_gib" to "-3"))).torrentStoragePrefs.value.limitGiB)
+        assertEquals(100, SettingsRepository(FakeSecretStore(mapOf("torrent_limit_gib" to "1000"))).torrentStoragePrefs.value.limitGiB)
+    }
+
+    @Test
     fun setKey_trimsAndStores() {
         val store = FakeSecretStore()
         val repo = SettingsRepository(store)

@@ -7,7 +7,10 @@ import dev.gamspi.videogallery.stream.clearViaStore
 import dev.gamspi.videogallery.stream.StreamServer
 import dev.gamspi.videogallery.stream.StreamState
 import dev.gamspi.videogallery.stream.TorrentFile
+import dev.gamspi.videogallery.stream.TorrentCacheStore
 import java.io.File
+import java.nio.file.Files
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -21,6 +24,39 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class PlayerViewModelTest {
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun terminalStreamFailure_afterReady_exposesStorageReasonOnlyToOwnedTorrent() = runTest {
+        val directory = Files.createTempDirectory("player-storage-failure").toFile()
+        val free = AtomicLong(Long.MAX_VALUE)
+        val hash = "a".repeat(40)
+        val engine = FakeTorrentEngine().apply {
+            files = listOf(TorrentFile(0, "a.mkv", 1024L))
+            have += 0
+        }
+        val manager = StreamManager(engine, StreamServer(backgroundScope), directory, backgroundScope,
+            cache = TorrentCacheStore(File(directory, "torrents"), freeBytes = free::get))
+        try {
+            manager.start("magnet:$hash", "Film")
+            manager.state.first { it is StreamState.Ready }
+            val owner = vm(key = "bt:$hash:0", manager = manager)
+            val urlPlayer = vm(manager = manager)
+            free.set(0)
+            val failure = manager.state.first { it is StreamState.Failed } as StreamState.Failed
+            assertTrue(failure.message.contains("Недостаточно свободного места"))
+            owner.onError("ERROR_CODE_IO_NETWORK_CONNECTION_FAILED")
+            assertEquals(failure.message, owner.terminalStreamError.first())
+            assertNull(urlPlayer.terminalStreamError.first())
+            manager.start("magnet:${"b".repeat(40)}", "Other")
+            manager.state.first { it is StreamState.Failed }
+            assertNull(owner.terminalStreamError.first())
+        } finally {
+            manager.stop()
+            runCurrent()
+            directory.deleteRecursively()
+        }
+    }
+
     private val store = FakePlaybackStore()
     private var now = 0L
 

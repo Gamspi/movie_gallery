@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import dev.gamspi.videogallery.stream.StreamManager
+import dev.gamspi.videogallery.stream.StreamState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
@@ -193,6 +194,12 @@ class PlayerViewModel internal constructor(
 
     val stallWarning = manager.stallWarning.map { warning ->
         warning?.takeIf { isTorrent && it.sessionId == sessionId }
+    }
+
+    val terminalStreamError = manager.state.map { stream ->
+        (stream as? StreamState.Failed)?.message?.takeIf {
+            isTorrent && !cleared && manager.currentSessionId() == sessionId
+        }
     }
 
     fun onPlaybackWaiting(waiting: Boolean) {

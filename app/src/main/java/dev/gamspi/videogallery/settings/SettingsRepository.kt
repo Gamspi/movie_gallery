@@ -9,6 +9,21 @@ import kotlinx.coroutines.flow.StateFlow
 
 @Singleton
 class SettingsRepository @Inject constructor(private val store: SecretStore) : SubtitleSettingsSource {
+    private val _torrentStoragePrefs = MutableStateFlow(
+        TorrentStoragePrefs(
+            keepAfterPlayback = store.get(KEY_TORRENT_KEEP)?.toBooleanStrictOrNull() ?: false,
+            limitGiB = store.get(KEY_TORRENT_LIMIT)?.toIntOrNull() ?: 10,
+        ).normalized(),
+    )
+    val torrentStoragePrefs: StateFlow<TorrentStoragePrefs> = _torrentStoragePrefs
+
+    fun setTorrentStoragePrefs(prefs: TorrentStoragePrefs) {
+        val normalized = prefs.normalized()
+        store.put(KEY_TORRENT_KEEP, normalized.keepAfterPlayback.toString())
+        store.put(KEY_TORRENT_LIMIT, normalized.limitGiB.toString())
+        _torrentStoragePrefs.value = normalized
+    }
+
     private val _poiskkinoApiKey = MutableStateFlow(store.get(KEY_POISKKINO))
     val poiskkinoApiKey: StateFlow<String?> = _poiskkinoApiKey
 
@@ -165,6 +180,8 @@ class SettingsRepository @Inject constructor(private val store: SecretStore) : S
     }
 
     private companion object {
+        const val KEY_TORRENT_KEEP = "torrent_keep_after_playback"
+        const val KEY_TORRENT_LIMIT = "torrent_limit_gib"
         const val KEY_POISKKINO = "poiskkino_api_key"
         const val KEY_TMDB = "tmdb_api_key"
         const val KEY_KINOPOISK = "kinopoisk_api_key"

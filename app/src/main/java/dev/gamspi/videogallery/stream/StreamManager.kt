@@ -1,10 +1,12 @@
 package dev.gamspi.videogallery.stream
 
+import dev.gamspi.videogallery.settings.TorrentStoragePrefs
 import java.io.Closeable
 import java.io.File
 import java.io.RandomAccessFile
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.Job
@@ -18,6 +20,8 @@ import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 private const val READINESS_DEADLINE_STEP_MS = 100
 private const val RANGE_DEADLINE_MS = 500
@@ -33,12 +37,17 @@ class StreamManager(
     private val metadataTimeoutMs: Long = 60_000,
     private val tickMs: Long = 1_000,
     private val clock: () -> Long = { System.nanoTime() / 1_000_000L },
+    private val cache: TorrentCacheStore? = null,
+    private val storagePrefs: () -> TorrentStoragePrefs = { TorrentStoragePrefs() },
 ) {
-    private class Session(val id: Long, val title: String) {
+    private class Session(val id: Long, val title: String, val predecessor: Job?) {
         private var hashValue: String? = null
         @Volatile var job: Job? = null
         @Volatile var files: List<TorrentFile> = emptyList()
         @Volatile var source: EnginePieceSource? = null
+        var cleanupJob: Job? = null
+        var acquired = false
+        var selected = false
         var playbackWaiting = false
         var playbackWaitingSince = 0L
         var demandResetAt = 0L
@@ -65,6 +74,9 @@ class StreamManager(
     val stallWarning: StateFlow<StreamStallWarning?> = _stallWarning.asStateFlow()
 
     private val lock = Any()
+    private val operations = Mutex()
+    private var cleanupFailure: Exception? = null
+    private var cleanupTail: Job? = null
     private var session: Session? = null
     private var counter = 0L
 
@@ -96,15 +108,44 @@ class StreamManager(
     fun start(magnet: String, title: String) {
         val s = synchronized(lock) {
             stopLocked()
-            Session(++counter, title).also { session = it; _state.value = StreamState.FetchingMetadata }
+            Session(++counter, title, cleanupTail).also { session = it; _state.value = StreamState.FetchingMetadata }
         }
-        s.job = scope.launch {
-            try {
+        val worker = scope.launch(start = CoroutineStart.LAZY) {
                 guarded(s) {
+                    s.predecessor?.join()
                     // add() must not be cancelled half-way, or the torrent would be lost.
                     val hash = withContext(NonCancellable) {
-                        engine.add(magnet, File(filesDir, "torrents")).also { s.setHash(it) }
+                        operations.withLock {
+                            cleanupFailure?.let { throw it }
+                            if (!isCurrent(s)) throw CancellationException("Session replaced")
+                            cache?.initialize()
+                            val expectedHash = engine.hashOf(magnet)
+                            if (expectedHash != null) {
+                                cache?.acquire(expectedHash)
+                                s.acquired = cache != null
+                                s.setHash(expectedHash)
+                            }
+                            val addedHash = try {
+                                engine.add(magnet, File(filesDir, "torrents"))
+                            } catch (e: Exception) {
+                                if (expectedHash != null) {
+                                    // An asynchronous native add may still finish after its timeout.
+                                    cleanupFailure = TorrentStorageException("Запуск раздачи не завершён. Перезапустите приложение", e)
+                                }
+                                throw e
+                            }
+                            addedHash.also {
+                                check(expectedHash == null || expectedHash == it) { "Torrent hash changed" }
+                                s.setHash(it)
+                                if (!s.acquired) {
+                                    cache?.acquire(it)
+                                    s.acquired = cache != null
+                                }
+                            }
+                        }
                     }
+                    currentCoroutineContext().ensureActive()
+                    if (!isCurrent(s)) return@guarded
                     val all = withTimeoutOrNull(metadataTimeoutMs) { engine.awaitMetadata(hash) }
                     if (all == null) {
                         fail(s, "Нет пиров — выберите другую раздачу")
@@ -120,10 +161,12 @@ class StreamManager(
                         }
                     }
                 }
-            } finally {
-                if (!isCurrent(s)) withContext(NonCancellable) { cleanup(s) }
-            }
         }
+        synchronized(lock) {
+            s.job = worker
+            if (session !== s) worker.cancel()
+        }
+        worker.start()
     }
 
     fun chooseFile(index: Int) {
@@ -133,7 +176,8 @@ class StreamManager(
             if (_state.value !is StreamState.ChooseFile || s.files.none { it.index == index }) return
             // Claim this session's choice before a new start can replace it.
             _state.value = StreamState.Buffering(0, "")
-            s.job = scope.launch { guarded(s) { buffer(s, hash, index) } }
+            s.job = scope.launch(start = CoroutineStart.LAZY) { guarded(s) { buffer(s, hash, index) } }
+            s.job?.start()
         }
     }
 
@@ -145,7 +189,7 @@ class StreamManager(
         val s = session.also { session = null }
         s?.job?.cancel()
         server.stop()
-        if (s != null) cleanup(s)
+        if (s != null) scheduleCleanup(s)
         _statusLine.value = null
         _stallWarning.value = null
         _state.value = StreamState.Idle
@@ -156,6 +200,8 @@ class StreamManager(
             block()
         } catch (e: CancellationException) {
             throw e
+        } catch (e: TorrentStorageException) {
+            fail(s, e.message ?: "Не удалось записать файлы раздачи")
         } catch (_: Exception) {
             fail(s, "Не удалось запустить раздачу")
         }
@@ -166,24 +212,55 @@ class StreamManager(
     private fun fail(s: Session, message: String) {
         synchronized(lock) {
             if (session !== s) return
-            cleanup(s)
+            server.stop()
+            scheduleCleanup(s)
             _statusLine.value = null
             _stallWarning.value = null
             _state.value = StreamState.Failed(message)
         }
     }
 
-    private fun cleanup(s: Session) {
-        runCatching { s.source?.close() }
-        s.source = null
-        val hash = s.takeHash() ?: return
-        runCatching { engine.remove(hash, true) }
-        runCatching { File(filesDir, "torrents/$hash").deleteRecursively() }
+    private fun scheduleCleanup(s: Session) = synchronized(lock) {
+        if (s.cleanupJob != null) return@synchronized
+        val predecessor = cleanupTail
+        val worker = s.job
+        val cleanup = scope.launch(start = CoroutineStart.LAZY) {
+            withContext(NonCancellable) {
+                predecessor?.join()
+                worker?.join()
+                operations.withLock {
+                    runCatching { s.source?.close() }
+                    s.source = null
+                    val hash = s.takeHash() ?: return@withLock
+                    try {
+                        engine.removeAndAwait(hash, deleteFiles = cache == null)
+                        if (s.acquired) {
+                            val prefs = storagePrefs()
+                            cache?.release(hash, prefs.keepAfterPlayback, prefs.limitBytes)
+                        }
+                    } catch (e: CancellationException) {
+                        cleanupFailure = TorrentStorageException("Не удалось остановить раздачу. Перезапустите приложение", e)
+                        throw e
+                    } catch (e: Exception) {
+                        // Never reuse files until native removal has been acknowledged.
+                        cleanupFailure = TorrentStorageException("Не удалось освободить файлы раздачи. Перезапустите приложение", e)
+                    }
+                }
+            }
+        }
+        s.cleanupJob = cleanup
+        cleanupTail = cleanup
+        cleanup.start()
     }
 
     private suspend fun buffer(s: Session, hash: String, index: Int) {
         currentCoroutineContext().ensureActive()
         if (!isCurrent(s)) return
+        val selectedFile = s.files.first { it.index == index }
+        cache?.select(hash, index, selectedFile.path, selectedFile.size, storagePrefs().limitBytes)
+        currentCoroutineContext().ensureActive()
+        if (!isCurrent(s)) return
+        s.selected = true
         engine.selectFile(hash, index)
         val span = engine.fileSpan(hash, index)
         val needed = span.readinessPieces()
@@ -193,6 +270,8 @@ class StreamManager(
         var ready = false
         while (true) {
             if (!isCurrent(s)) return
+            engine.checkStorageError(hash)
+            cache?.checkSpace(hash, storagePrefs().limitBytes)
             if (!ready) {
                 val completed = needed.count { engine.havePiece(hash, it) }
                 val percent = if (needed.isEmpty()) 100 else completed * 100 / needed.size

@@ -68,6 +68,7 @@ class StreamViewModelTest {
         val vm = vm(sm)
         runCurrent()
         vm.cancel()
+        runCurrent()
         assertEquals(StreamState.Idle, sm.state.value)
         assertTrue(engine.removed.contains("abc" to true))
     }

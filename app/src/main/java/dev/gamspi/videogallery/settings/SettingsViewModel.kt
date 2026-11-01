@@ -1,15 +1,55 @@
 package dev.gamspi.videogallery.settings
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.gamspi.videogallery.stream.TorrentCacheStore
 import dev.gamspi.videogallery.torrents.ProviderId
 import javax.inject.Inject
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
+
+data class TorrentCacheClearState(val busy: Boolean = false, val message: String? = null)
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val repository: SettingsRepository,
+    private val torrentCache: TorrentCacheStore? = null,
 ) : ViewModel() {
+    val torrentStoragePrefs: StateFlow<TorrentStoragePrefs> = repository.torrentStoragePrefs
+    private val _torrentCacheClear = MutableStateFlow(TorrentCacheClearState())
+    val torrentCacheClear: StateFlow<TorrentCacheClearState> = _torrentCacheClear
+
+    fun toggleTorrentRetention() {
+        val prefs = torrentStoragePrefs.value
+        repository.setTorrentStoragePrefs(prefs.copy(keepAfterPlayback = !prefs.keepAfterPlayback))
+    }
+
+    fun changeTorrentLimit(deltaGiB: Int) {
+        val prefs = torrentStoragePrefs.value
+        val limit = (prefs.limitGiB.toLong() + deltaGiB).coerceIn(1, 100).toInt()
+        repository.setTorrentStoragePrefs(prefs.copy(limitGiB = limit))
+    }
+
+    fun clearTorrentCache() {
+        if (_torrentCacheClear.value.busy) return
+        _torrentCacheClear.value = TorrentCacheClearState(busy = true)
+        viewModelScope.launch {
+            try {
+                val cache = torrentCache ?: error("Torrent cache unavailable")
+                cache.clearInactive()
+                _torrentCacheClear.value = TorrentCacheClearState(message = "Сохранённые торренты очищены. Активная раздача сохранена.")
+            } catch (cancelled: CancellationException) {
+                _torrentCacheClear.value = TorrentCacheClearState()
+                throw cancelled
+            } catch (_: Exception) {
+                _torrentCacheClear.value = TorrentCacheClearState(message = "Не удалось очистить сохранённые торренты. Попробуйте ещё раз.")
+            }
+        }
+    }
+
     val poiskkinoApiKey: StateFlow<String?> = repository.poiskkinoApiKey
     val tmdbApiKey: StateFlow<String?> = repository.tmdbApiKey
     val kinopoiskApiKey: StateFlow<String?> = repository.kinopoiskApiKey

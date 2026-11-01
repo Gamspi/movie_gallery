@@ -1,6 +1,8 @@
 package dev.gamspi.videogallery.stream
 
 import android.content.Context
+import java.io.File
+import dev.gamspi.videogallery.settings.SettingsRepository
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -16,6 +18,11 @@ import kotlinx.coroutines.SupervisorJob
 object StreamModule {
     @Provides
     @Singleton
+    fun provideTorrentCacheStore(@ApplicationContext context: Context): TorrentCacheStore =
+        TorrentCacheStore(File(context.filesDir, "torrents"))
+
+    @Provides
+    @Singleton
     fun provideTorrentEngine(): TorrentEngine = Libtorrent4jEngine()
 
     @Provides
@@ -29,10 +36,14 @@ object StreamModule {
         engine: TorrentEngine,
         server: StreamServer,
         @ApplicationContext context: Context,
+        cache: TorrentCacheStore,
+        settings: SettingsRepository,
     ): StreamManager = StreamManager(
         engine,
         server,
         context.filesDir,
-        CoroutineScope(SupervisorJob() + Dispatchers.Default),
+        CoroutineScope(SupervisorJob() + Dispatchers.IO),
+        cache = cache,
+        storagePrefs = { settings.torrentStoragePrefs.value },
     )
 }

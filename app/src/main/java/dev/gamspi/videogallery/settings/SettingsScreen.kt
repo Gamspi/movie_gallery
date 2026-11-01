@@ -125,6 +125,23 @@ fun SettingsScreen(
                 label = "Адрес ${id.label}",
             )
         }
+        Text("Хранение торрентов", style = MaterialTheme.typography.titleLarge)
+        val storage by viewModel.torrentStoragePrefs.collectAsState()
+        val clearState by viewModel.torrentCacheClear.collectAsState()
+        Button(onClick = viewModel::toggleTorrentRetention) {
+            Text("После просмотра: ${if (storage.keepAfterPlayback) "хранить" else "удалять"}")
+        }
+        Text("Режим применяется при выходе из просмотра. Хранение не продолжает раздачу.")
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Button(onClick = { viewModel.changeTorrentLimit(-1) }, enabled = storage.limitGiB > 1) { Text("−1 ГиБ") }
+            Text("Лимит: ${storage.limitGiB} ГиБ")
+            Button(onClick = { viewModel.changeTorrentLimit(1) }, enabled = storage.limitGiB < 100) { Text("+1 ГиБ") }
+        }
+        Text("При нехватке места удаляются самые старые сохранённые раздачи. Активная раздача не удаляется.")
+        Button(onClick = viewModel::clearTorrentCache, enabled = !clearState.busy) {
+            Text(if (clearState.busy) "Очищаем…" else "Очистить сохранённые торренты")
+        }
+        clearState.message?.let { Text(it) }
         Text("Субтитры", style = MaterialTheme.typography.titleLarge)
         val prefs by viewModel.subtitlePrefs.collectAsState()
         SubLayer.entries.forEach { layer ->

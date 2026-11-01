@@ -6,6 +6,11 @@ import kotlinx.coroutines.flow.SharedFlow
 data class EngineStatus(val downloadRate: Long, val peers: Int, val progress: Float)
 
 interface TorrentEngine {
+    /** Resolves the directory key before the native engine can touch retained files. */
+    fun hashOf(magnet: String): String? = null
+
+    fun checkStorageError(hash: String) {}
+
     /** Добавляет раздачу; файлы кладёт в `saveDir/<infoHash>/`. Возвращает infoHash в нижнем регистре. */
     suspend fun add(magnet: String, saveDir: File): String
 
@@ -28,6 +33,9 @@ interface TorrentEngine {
     fun filePath(hash: String, fileIndex: Int): File
 
     fun remove(hash: String, deleteFiles: Boolean)
+
+    /** Returns only after the native torrent has stopped using its files. */
+    suspend fun removeAndAwait(hash: String, deleteFiles: Boolean) { remove(hash, deleteFiles) }
 
     /** Сбрасывает все дедлайны кусков (перемотка). */
     fun clearDeadlines(hash: String) {}

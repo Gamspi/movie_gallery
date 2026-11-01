@@ -1,10 +1,64 @@
 package dev.gamspi.videogallery.settings
 
 import dev.gamspi.videogallery.torrents.ProviderId
+import dev.gamspi.videogallery.stream.TorrentCacheStore
+import java.nio.file.Files
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class SettingsViewModelTest {
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun clearTorrentCache_reportsBusyThenSuccess() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val directory = Files.createTempDirectory("settings-torrent-cache").toFile()
+        try {
+            val cache = TorrentCacheStore(directory)
+            val vm = SettingsViewModel(SettingsRepository(FakeSecretStore()), cache)
+            vm.clearTorrentCache()
+            assertEquals(true, vm.torrentCacheClear.value.busy)
+            val result = vm.torrentCacheClear.first { !it.busy }
+            assertEquals("Сохранённые торренты очищены. Активная раздача сохранена.", result.message)
+        } finally {
+            directory.deleteRecursively()
+            Dispatchers.resetMain()
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun clearTorrentCache_reportsFailureWithoutTechnicalDetails() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val vm = SettingsViewModel(SettingsRepository(FakeSecretStore()))
+            vm.clearTorrentCache()
+            val result = vm.torrentCacheClear.first { !it.busy }
+            assertEquals("Не удалось очистить сохранённые торренты. Попробуйте ещё раз.", result.message)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun torrentStorage_controlsPersistImmediatelyAndClamp() {
+        val store = FakeSecretStore()
+        val vm = SettingsViewModel(SettingsRepository(store))
+        vm.toggleTorrentRetention()
+        vm.changeTorrentLimit(-20)
+        assertEquals(TorrentStoragePrefs(true, 1), SettingsRepository(store).torrentStoragePrefs.value)
+        vm.changeTorrentLimit(Int.MAX_VALUE)
+        assertEquals(100, vm.torrentStoragePrefs.value.limitGiB)
+        vm.toggleTorrentRetention()
+        assertEquals(false, SettingsRepository(store).torrentStoragePrefs.value.keepAfterPlayback)
+    }
+
     @Test
     fun save_persistsSourceAndThreeKeys() {
         val store = FakeSecretStore()

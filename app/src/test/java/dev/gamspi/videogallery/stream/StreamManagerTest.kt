@@ -174,6 +174,7 @@ class StreamManagerTest {
         sm.start("magnet:eee", "Film")
         runCurrent()
         sm.stop()
+        runCurrent()
         assertEquals(StreamState.Idle, sm.state.value)
         assertNull(sm.statusLine.value)
         assertEquals(listOf("eee" to true), engine.removed)

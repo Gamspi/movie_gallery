@@ -72,6 +72,8 @@ private fun remoteKeyOf(keyCode: Int): RemoteKey? = when (keyCode) {
 fun PlayerScreen(onBack: () -> Unit) {
     val vm = hiltViewModel<PlayerViewModel>()
     val state by vm.state.collectAsState()
+    val terminalStreamError by vm.terminalStreamError.collectAsState(initial = null)
+    val playbackError = terminalStreamError ?: state.error
     val statusLine by vm.statusLine.collectAsState()
     val stallWarning by vm.stallWarning.collectAsState(initial = null)
     var stallDismissed by remember { mutableStateOf(false) }
@@ -126,9 +128,18 @@ fun PlayerScreen(onBack: () -> Unit) {
     val rootFocus = remember { FocusRequester() }
     val errorFocus = remember { FocusRequester() }
     val showStallNotice = stallWarning != null && !stallDismissed && !menuOpen &&
-        state.resumeOffer == null && state.error == null
+        state.resumeOffer == null && playbackError == null
 
     fun durationOrZero(): Long = player.duration.takeIf { it > 0 } ?: 0L
+
+    LaunchedEffect(terminalStreamError) {
+        if (terminalStreamError != null) {
+            vm.onPauseOrExit(player.currentPosition, durationOrZero())
+            player.pause()
+            player.stop()
+            menuOpen = false
+        }
+    }
 
     fun exit() {
         if (exited) return
@@ -277,8 +288,8 @@ fun PlayerScreen(onBack: () -> Unit) {
     }
 
     // Return focus to the root when no dialog/menu owns it.
-    LaunchedEffect(menuOpen, showStallNotice, state.resumeOffer, state.error) {
-        if (!menuOpen && !showStallNotice && state.resumeOffer == null && state.error == null) {
+    LaunchedEffect(menuOpen, showStallNotice, state.resumeOffer, playbackError) {
+        if (!menuOpen && !showStallNotice && state.resumeOffer == null && playbackError == null) {
             rootFocus.requestFocus()
         }
     }
@@ -300,7 +311,7 @@ fun PlayerScreen(onBack: () -> Unit) {
 
     fun onBackKey() {
         when {
-            state.error != null || state.resumeOffer != null -> exit()
+            playbackError != null || state.resumeOffer != null -> exit()
             showStallNotice -> stallDismissed = true
             else -> execute(handleKey(RemoteKey.Back, player.currentPosition, durationOrZero(), menuOpen))
         }
@@ -319,7 +330,7 @@ fun PlayerScreen(onBack: () -> Unit) {
                 val keyCode = ev.nativeKeyEvent.keyCode
                 val isDown = ev.type == KeyEventType.KeyDown
                 if ((keyCode == KeyEvent.KEYCODE_MEDIA_PLAY || keyCode == KeyEvent.KEYCODE_MEDIA_PAUSE) &&
-                    !menuOpen && state.resumeOffer == null && state.error == null
+                    !menuOpen && state.resumeOffer == null && playbackError == null
                 ) {
                     overlayVisible = true
                     overlayTick++
@@ -340,7 +351,7 @@ fun PlayerScreen(onBack: () -> Unit) {
                     return@onPreviewKeyEvent true
                 }
                 // Focused panels and dialogs own every key except Back.
-                if (menuOpen || showStallNotice || state.resumeOffer != null || state.error != null) {
+                if (menuOpen || showStallNotice || state.resumeOffer != null || playbackError != null) {
                     return@onPreviewKeyEvent false
                 }
                 if (key == null) return@onPreviewKeyEvent false
@@ -368,16 +379,16 @@ fun PlayerScreen(onBack: () -> Unit) {
         )
 
         val offer = state.resumeOffer
-        val error = state.error
+        val error = playbackError
         when {
             error != null -> ErrorContent(
                 error = error,
                 focus = errorFocus,
-                onRetry = {
+                onRetry = if (terminalStreamError != null) null else ({
                     vm.clearError()
                     player.prepare()
                     seekTo(lastPositionMs)
-                },
+                }),
                 onBack = ::exit,
             )
             offer != null -> ResumeContent(
@@ -474,17 +485,21 @@ private fun ResumeContent(
 private fun ErrorContent(
     error: String,
     focus: FocusRequester,
-    onRetry: () -> Unit,
+    onRetry: (() -> Unit)?,
     onBack: () -> Unit,
 ) {
-    LaunchedEffect(Unit) { focus.requestFocus() }
+    LaunchedEffect(onRetry == null) { focus.requestFocus() }
     Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text("Не удалось воспроизвести", color = Color.White)
             Text(error, color = Color(0xFFBBBBBB))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Button(onClick = onRetry, modifier = Modifier.focusRequester(focus)) { Text("Повторить") }
-                Button(onClick = onBack) { Text("Назад") }
+                if (onRetry != null) {
+                    Button(onClick = onRetry, modifier = Modifier.focusRequester(focus)) { Text("Повторить") }
+                }
+                Button(onClick = onBack, modifier = if (onRetry == null) Modifier.focusRequester(focus) else Modifier) {
+                    Text(if (onRetry == null) "Выбрать другую раздачу" else "Назад")
+                }
             }
         }
     }
