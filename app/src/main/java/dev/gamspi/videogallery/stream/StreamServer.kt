@@ -77,13 +77,14 @@ class StreamServer(private val scope: CoroutineScope) {
         }
     }
 
-    private class Request(val method: String, val path: String, val range: String?)
+    private class Request(val method: String, val path: String, val range: String?, val trackStall: Boolean)
 
     private fun readRequest(input: InputStream): Request? {
         val first = readLine(input) ?: return null
         val parts = first.split(' ')
         if (parts.size < 2) return null
         var range: String? = null
+        var trackStall = true
         while (true) {
             val line = readLine(input) ?: return null
             if (line.isEmpty()) break
@@ -91,8 +92,11 @@ class StreamServer(private val scope: CoroutineScope) {
             if (idx > 0 && line.substring(0, idx).trim().equals("Range", ignoreCase = true)) {
                 range = line.substring(idx + 1).trim()
             }
+            if (idx > 0 && line.substring(0, idx).trim().equals("X-VideoGallery-Request", ignoreCase = true)) {
+                trackStall = line.substring(idx + 1).trim() != "subtitle-hash"
+            }
         }
-        return Request(parts[0].uppercase(), parts[1], range)
+        return Request(parts[0].uppercase(), parts[1], range, trackStall)
     }
 
     private fun readLine(input: InputStream): String? {
@@ -174,7 +178,7 @@ class StreamServer(private val scope: CoroutineScope) {
                 while (pos <= span.last) {
                     ensureActive()
                     val end = minOf(pos + BLOCK - 1, span.last)
-                    source.awaitRange(pos, end)
+                    source.awaitRange(pos, end, req.trackStall)
                     val want = (end - pos + 1).toInt()
                     val n = source.read(pos, buf, 0, want)
                     if (n <= 0) break

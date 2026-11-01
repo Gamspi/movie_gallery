@@ -7,9 +7,11 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.flow.first
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 
@@ -103,5 +105,39 @@ class StreamViewModelTest {
         assertTrue(sm.state.value is StreamState.Buffering)
         fresh.clearViaStore()
         assertEquals(StreamState.Idle, sm.state.value)
+    }
+
+    @Test
+    fun oldVmCancel_afterNewSession_newSurvives() = runTest {
+        val sm = manager()
+        val old = vm(sm)
+        runCurrent()
+        val fresh = vm(sm)
+        runCurrent()
+        old.cancel()
+        assertTrue(sm.state.value is StreamState.Buffering)
+        assertEquals(1, engine.removed.size)
+        fresh.cancel()
+        assertEquals(StreamState.Idle, sm.state.value)
+    }
+
+    @Test
+    fun warning_onlyExposesOwnedSession_andWaitingDoesNotStopIt() = runTest {
+        val sm = StreamManager(engine, StreamServer(backgroundScope), dir, backgroundScope,
+            clock = { testScheduler.currentTime })
+        val old = vm(sm)
+        runCurrent()
+        advanceTimeBy(30_000)
+        runCurrent()
+        assertEquals(sm.currentSessionId(), old.stallWarning.first()?.sessionId)
+        assertTrue(sm.state.value is StreamState.Buffering)
+
+        val fresh = vm(sm)
+        runCurrent()
+        advanceTimeBy(30_000)
+        runCurrent()
+        assertNull(old.stallWarning.first())
+        assertEquals(sm.currentSessionId(), fresh.stallWarning.first()?.sessionId)
+        sm.stop()
     }
 }

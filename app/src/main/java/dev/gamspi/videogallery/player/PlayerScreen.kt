@@ -44,6 +44,7 @@ import androidx.media3.common.TrackSelectionOverride
 import dev.gamspi.videogallery.subs.Layer
 import dev.gamspi.videogallery.subs.LayerSource
 import dev.gamspi.videogallery.BuildConfig
+import dev.gamspi.videogallery.stream.StreamStallNotice
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
@@ -72,6 +73,9 @@ fun PlayerScreen(onBack: () -> Unit) {
     val vm = hiltViewModel<PlayerViewModel>()
     val state by vm.state.collectAsState()
     val statusLine by vm.statusLine.collectAsState()
+    val stallWarning by vm.stallWarning.collectAsState(initial = null)
+    var stallDismissed by remember { mutableStateOf(false) }
+    LaunchedEffect(stallWarning) { stallDismissed = false }
     val layers by vm.layers.collectAsState()
     val remoteOptions by vm.remoteOptions.collectAsState()
     val subtitlePrefs by vm.subtitlePrefs.collectAsState()
@@ -121,6 +125,8 @@ fun PlayerScreen(onBack: () -> Unit) {
     var exited by remember { mutableStateOf(false) }
     val rootFocus = remember { FocusRequester() }
     val errorFocus = remember { FocusRequester() }
+    val showStallNotice = stallWarning != null && !stallDismissed && !menuOpen &&
+        state.resumeOffer == null && state.error == null
 
     fun durationOrZero(): Long = player.duration.takeIf { it > 0 } ?: 0L
 
@@ -129,6 +135,11 @@ fun PlayerScreen(onBack: () -> Unit) {
         exited = true
         vm.onPauseOrExit(player.currentPosition, durationOrZero())
         onBack()
+    }
+
+    fun seekTo(position: Long) {
+        vm.onPlaybackSeek()
+        player.seekTo(position)
     }
 
     fun selectAudio(t: AudioTrack) {
@@ -142,6 +153,10 @@ fun PlayerScreen(onBack: () -> Unit) {
     DisposableEffect(player) {
         var initialAudioDone = false
         var started = false
+        fun reportWaiting() = vm.onPlaybackWaiting(
+            player.playbackState == Player.STATE_BUFFERING && player.playWhenReady &&
+                lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED),
+        )
         val listener = object : Player.Listener {
             override fun onTracksChanged(tracks: Tracks) {
                 embedded = tracks.textTracks()
@@ -157,6 +172,7 @@ fun PlayerScreen(onBack: () -> Unit) {
 
             override fun onPlaybackStateChanged(playbackState: Int) {
                 buffering = playbackState == Player.STATE_BUFFERING
+                reportWaiting()
                 if (playbackState == Player.STATE_ENDED) {
                     val d = durationOrZero()
                     vm.onPauseOrExit(d, d)
@@ -177,9 +193,11 @@ fun PlayerScreen(onBack: () -> Unit) {
 
             override fun onPlayWhenReadyChanged(playWhenReady2: Boolean, reason: Int) {
                 playWhenReady = playWhenReady2
+                reportWaiting()
             }
 
             override fun onPlayerError(error: PlaybackException) {
+                vm.onPlaybackWaiting(false)
                 lastPositionMs = player.currentPosition
                 vm.onError(error.errorCodeName)
             }
@@ -197,6 +215,7 @@ fun PlayerScreen(onBack: () -> Unit) {
             vm.onError("EMPTY_URL")
         }
         onDispose {
+            vm.onPlaybackWaiting(false)
             vm.onPauseOrExit(player.currentPosition, durationOrZero())
             player.removeListener(listener)
             player.release()
@@ -205,7 +224,11 @@ fun PlayerScreen(onBack: () -> Unit) {
 
     DisposableEffect(lifecycleOwner, player) {
         val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_START) {
+                vm.onPlaybackWaiting(player.playbackState == Player.STATE_BUFFERING && player.playWhenReady)
+            }
             if (event == Lifecycle.Event.ON_STOP) {
+                vm.onPlaybackWaiting(false)
                 vm.onPauseOrExit(player.currentPosition, durationOrZero())
                 player.pause()
             }
@@ -254,8 +277,10 @@ fun PlayerScreen(onBack: () -> Unit) {
     }
 
     // Return focus to the root when no dialog/menu owns it.
-    LaunchedEffect(menuOpen, state.resumeOffer, state.error) {
-        if (!menuOpen && state.resumeOffer == null && state.error == null) rootFocus.requestFocus()
+    LaunchedEffect(menuOpen, showStallNotice, state.resumeOffer, state.error) {
+        if (!menuOpen && !showStallNotice && state.resumeOffer == null && state.error == null) {
+            rootFocus.requestFocus()
+        }
     }
 
     fun execute(cmd: PlayerCommand) {
@@ -266,7 +291,7 @@ fun PlayerScreen(onBack: () -> Unit) {
             } else {
                 player.play()
             }
-            is PlayerCommand.SeekTo -> player.seekTo(cmd.ms)
+            is PlayerCommand.SeekTo -> seekTo(cmd.ms)
             PlayerCommand.OpenAudioMenu -> menuOpen = true
             PlayerCommand.CloseMenu -> menuOpen = false
             PlayerCommand.Exit -> exit()
@@ -276,6 +301,7 @@ fun PlayerScreen(onBack: () -> Unit) {
     fun onBackKey() {
         when {
             state.error != null || state.resumeOffer != null -> exit()
+            showStallNotice -> stallDismissed = true
             else -> execute(handleKey(RemoteKey.Back, player.currentPosition, durationOrZero(), menuOpen))
         }
     }
@@ -313,8 +339,8 @@ fun PlayerScreen(onBack: () -> Unit) {
                     if (isDown && ev.nativeKeyEvent.repeatCount == 0) onBackKey()
                     return@onPreviewKeyEvent true
                 }
-                // Menu, resume dialog and error screen own every key except Back.
-                if (menuOpen || state.resumeOffer != null || state.error != null) {
+                // Focused panels and dialogs own every key except Back.
+                if (menuOpen || showStallNotice || state.resumeOffer != null || state.error != null) {
                     return@onPreviewKeyEvent false
                 }
                 if (key == null) return@onPreviewKeyEvent false
@@ -350,7 +376,7 @@ fun PlayerScreen(onBack: () -> Unit) {
                 onRetry = {
                     vm.clearError()
                     player.prepare()
-                    player.seekTo(lastPositionMs)
+                    seekTo(lastPositionMs)
                 },
                 onBack = ::exit,
             )
@@ -359,12 +385,12 @@ fun PlayerScreen(onBack: () -> Unit) {
                 durationMs = durationMs,
                 onContinue = {
                     vm.dismissResume()
-                    player.seekTo(offer)
+                    seekTo(offer)
                     player.play()
                 },
                 onRestart = {
                     vm.dismissResume()
-                    player.seekTo(0)
+                    seekTo(0)
                     player.play()
                 },
             )
@@ -407,6 +433,17 @@ fun PlayerScreen(onBack: () -> Unit) {
                         onSelect = vm::select,
                         onShift = vm::shiftOffset,
                         modifier = Modifier.align(Alignment.CenterEnd),
+                    )
+                }
+                if (showStallNotice) {
+                    StreamStallNotice(
+                        status = statusLine,
+                        onContinue = { stallDismissed = true },
+                        onChooseAnother = {
+                            vm.chooseAnotherTorrent()
+                            exit()
+                        },
+                        modifier = Modifier.align(Alignment.Center),
                     )
                 }
             }

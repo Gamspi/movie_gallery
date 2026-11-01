@@ -5,6 +5,8 @@ import java.io.File
 import java.io.RandomAccessFile
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
@@ -30,12 +32,18 @@ class StreamManager(
     private val scope: CoroutineScope,
     private val metadataTimeoutMs: Long = 60_000,
     private val tickMs: Long = 1_000,
+    private val clock: () -> Long = { System.nanoTime() / 1_000_000L },
 ) {
     private class Session(val id: Long, val title: String) {
         private var hashValue: String? = null
         @Volatile var job: Job? = null
         @Volatile var files: List<TorrentFile> = emptyList()
-        @Volatile var source: Closeable? = null
+        @Volatile var source: EnginePieceSource? = null
+        var playbackWaiting = false
+        var playbackWaitingSince = 0L
+        var demandResetAt = 0L
+        val initialStall = StallMonitor()
+        val rangeStalls = mutableMapOf<Long, StallMonitor>()
 
         val hash: String? @Synchronized get() = hashValue
 
@@ -53,6 +61,9 @@ class StreamManager(
     private val _statusLine = MutableStateFlow<String?>(null)
     val statusLine: StateFlow<String?> = _statusLine.asStateFlow()
 
+    private val _stallWarning = MutableStateFlow<StreamStallWarning?>(null)
+    val stallWarning: StateFlow<StreamStallWarning?> = _stallWarning.asStateFlow()
+
     private val lock = Any()
     private var session: Session? = null
     private var counter = 0L
@@ -62,14 +73,31 @@ class StreamManager(
 
     /** Stops the session only if [id] is still the current one. */
     fun stopIf(id: Long) {
-        val current = synchronized(lock) { session?.id == id }
-        if (current) stop()
+        synchronized(lock) { if (session?.id == id) stopLocked() }
+    }
+
+    fun reportPlaybackWaiting(sessionId: Long, waiting: Boolean) = synchronized(lock) {
+        val s = session?.takeIf { it.id == sessionId } ?: return@synchronized
+        if (waiting && !s.playbackWaiting) s.playbackWaitingSince = clock()
+        s.playbackWaiting = waiting
+        if (!waiting) {
+            s.rangeStalls.clear()
+            _stallWarning.value = null
+        }
+    }
+
+    fun resetPlaybackDemand(sessionId: Long) = synchronized(lock) {
+        val s = session?.takeIf { it.id == sessionId } ?: return@synchronized
+        s.rangeStalls.clear()
+        s.demandResetAt = clock()
+        _stallWarning.value = null
     }
 
     fun start(magnet: String, title: String) {
-        stop()
-        val s = synchronized(lock) { Session(++counter, title).also { session = it } }
-        _state.value = StreamState.FetchingMetadata
+        val s = synchronized(lock) {
+            stopLocked()
+            Session(++counter, title).also { session = it; _state.value = StreamState.FetchingMetadata }
+        }
         s.job = scope.launch {
             try {
                 guarded(s) {
@@ -87,7 +115,9 @@ class StreamManager(
                     when {
                         videos.isEmpty() -> fail(s, "Видеофайлы не найдены")
                         videos.size == 1 -> buffer(s, hash, videos[0].index)
-                        else -> if (isCurrent(s)) _state.value = StreamState.ChooseFile(videos)
+                        else -> synchronized(lock) {
+                            if (session === s) _state.value = StreamState.ChooseFile(videos)
+                        }
                     }
                 }
             } finally {
@@ -97,21 +127,27 @@ class StreamManager(
     }
 
     fun chooseFile(index: Int) {
-        val s = synchronized(lock) { session } ?: return
-        val hash = s.hash ?: return
-        val cur = _state.value
-        if (cur !is StreamState.ChooseFile || s.files.none { it.index == index }) return
-        // Claim the choice synchronously: a second call sees Buffering and returns.
-        if (!_state.compareAndSet(cur, StreamState.Buffering(0, ""))) return
-        s.job = scope.launch { guarded(s) { buffer(s, hash, index) } }
+        synchronized(lock) {
+            val s = session ?: return
+            val hash = s.hash ?: return
+            if (_state.value !is StreamState.ChooseFile || s.files.none { it.index == index }) return
+            // Claim this session's choice before a new start can replace it.
+            _state.value = StreamState.Buffering(0, "")
+            s.job = scope.launch { guarded(s) { buffer(s, hash, index) } }
+        }
     }
 
     fun stop() {
-        val s = synchronized(lock) { session.also { session = null } }
+        synchronized(lock) { stopLocked() }
+    }
+
+    private fun stopLocked() {
+        val s = session.also { session = null }
         s?.job?.cancel()
         server.stop()
         if (s != null) cleanup(s)
         _statusLine.value = null
+        _stallWarning.value = null
         _state.value = StreamState.Idle
     }
 
@@ -128,10 +164,13 @@ class StreamManager(
     private fun isCurrent(s: Session) = synchronized(lock) { session === s }
 
     private fun fail(s: Session, message: String) {
-        if (!isCurrent(s)) return
-        cleanup(s)
-        _statusLine.value = null
-        _state.value = StreamState.Failed(message)
+        synchronized(lock) {
+            if (session !== s) return
+            cleanup(s)
+            _statusLine.value = null
+            _stallWarning.value = null
+            _state.value = StreamState.Failed(message)
+        }
     }
 
     private fun cleanup(s: Session) {
@@ -143,6 +182,8 @@ class StreamManager(
     }
 
     private suspend fun buffer(s: Session, hash: String, index: Int) {
+        currentCoroutineContext().ensureActive()
+        if (!isCurrent(s)) return
         engine.selectFile(hash, index)
         val span = engine.fileSpan(hash, index)
         val needed = span.readinessPieces()
@@ -153,27 +194,64 @@ class StreamManager(
         while (true) {
             if (!isCurrent(s)) return
             if (!ready) {
-                val percent = readinessPercent(needed) { engine.havePiece(hash, it) }
+                val completed = needed.count { engine.havePiece(hash, it) }
+                val percent = if (needed.isEmpty()) 100 else completed * 100 / needed.size
                 val st = engine.status(hash)
-                _statusLine.value = statusLine(st.downloadRate, st.peers, overallPercent(st))
-                if (percent >= 100) {
-                    val src = EnginePieceSource(engine, hash, span, engine.filePath(hash, index))
-                    s.source = src
-                    val url = server.start(src)
-                    ready = true
-                    _state.value = StreamState.Ready(url, "bt:$hash:$index", s.title)
-                } else {
-                    _state.value = StreamState.Buffering(percent, statusLine(st.downloadRate, st.peers, null))
+                synchronized(lock) {
+                    if (session !== s) return
+                    _statusLine.value = statusLine(st.downloadRate, st.peers, overallPercent(st))
+                    _stallWarning.value = if (s.initialStall.update(clock(), percent < 100, index, completed.toLong())) {
+                        StreamStallWarning(s.id)
+                    } else null
+                    if (percent >= 100) {
+                        val src = EnginePieceSource(engine, hash, span, engine.filePath(hash, index), clock = clock)
+                        s.source = src
+                        val url = server.start(src)
+                        ready = true
+                        _state.value = StreamState.Ready(url, "bt:$hash:$index", s.title)
+                    } else {
+                        _state.value = StreamState.Buffering(percent, statusLine(st.downloadRate, st.peers, null))
+                    }
                 }
             } else {
                 // A one-off failure must not tear down a playing session.
-                runCatching {
+                try {
+                    updatePlaybackStall(s)
                     val st = engine.status(hash)
-                    _statusLine.value = statusLine(st.downloadRate, st.peers, overallPercent(st))
+                    synchronized(lock) {
+                        if (session === s) _statusLine.value = statusLine(st.downloadRate, st.peers, overallPercent(st))
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    // Retry monitoring on the next tick.
                 }
             }
             delay(tickMs)
         }
+    }
+
+    private fun updatePlaybackStall(s: Session) = synchronized(lock) {
+        if (session !== s) return@synchronized
+        if (!s.playbackWaiting) {
+            s.rangeStalls.clear()
+            _stallWarning.value = null
+            return@synchronized
+        }
+        val demands = s.source?.pendingDemands().orEmpty()
+        val ids = demands.mapTo(HashSet()) { it.id }
+        s.rangeStalls.keys.retainAll(ids)
+        var stalled = false
+        val now = clock()
+        for (demand in demands) {
+            val monitor = s.rangeStalls.getOrPut(demand.id) {
+                StallMonitor().also {
+                    it.update(maxOf(demand.startedAt, s.playbackWaitingSince, s.demandResetAt), true, demand.id, demand.initialProgress)
+                }
+            }
+            if (monitor.update(now, true, demand.id, demand.progress)) stalled = true
+        }
+        _stallWarning.value = if (stalled) StreamStallWarning(s.id) else null
     }
 
     private fun overallPercent(st: EngineStatus) = (st.progress * 100).toInt().coerceIn(0, 100)
@@ -186,6 +264,7 @@ internal class EnginePieceSource(
     private val span: FileSpan,
     private val file: File,
     private val readAheadBytes: Long = READ_AHEAD_BYTES,
+    private val clock: () -> Long = { System.nanoTime() / 1_000_000L },
 ) : PieceSource, Closeable {
     override val length: Long = span.length
     override val fileName: String = file.name
@@ -195,6 +274,17 @@ internal class EnginePieceSource(
     private var lastEnd = -1L
     private var raf: RandomAccessFile? = null
     private var closed = false
+    private var demandCounter = 0L
+    private data class Pending(val pieces: IntRange, val startedAt: Long, val initialProgress: Long)
+    private val pending = mutableMapOf<Long, Pending>()
+
+    internal data class Demand(val id: Long, val progress: Long, val startedAt: Long, val initialProgress: Long)
+
+    @Synchronized
+    internal fun pendingDemands(): List<Demand> = if (closed) emptyList() else pending.mapNotNull { (id, wait) ->
+        val completed = wait.pieces.count { engine.havePiece(hash, it) }
+        if (completed == wait.pieces.count()) null else Demand(id, completed.toLong(), wait.startedAt, wait.initialProgress)
+    }
 
     private fun setDeadlines(start: Long, endInclusive: Long) = synchronized(deadlined) {
         val seek = lastStart >= 0 && (start < lastStart || start > lastEnd + readAheadBytes)
@@ -212,21 +302,38 @@ internal class EnginePieceSource(
         }
     }
 
-    override suspend fun awaitRange(start: Long, endInclusive: Long) {
-        setDeadlines(start, endInclusive)
-        for (piece in span.piecesFor(start, endInclusive)) {
-            // Subscribe first, then check; the timeout re-checks in case an event was dropped.
-            var first = true
-            while (!engine.havePiece(hash, piece)) {
-                // Another connection's seek may have cleared our deadline: re-apply after each timeout.
-                if (!first) engine.prioritize(hash, piece..piece, RANGE_DEADLINE_MS)
-                first = false
-                withTimeoutOrNull(HAVE_POLL_MS) {
-                    engine.pieceFinished
-                        .onSubscription { if (engine.havePiece(hash, piece)) emit(hash to piece) }
-                        .first { it.first == hash && it.second == piece }
+    override suspend fun awaitRange(start: Long, endInclusive: Long) = awaitRange(start, endInclusive, true)
+
+    override suspend fun awaitRange(start: Long, endInclusive: Long, trackStall: Boolean) {
+        currentCoroutineContext().ensureActive()
+        val pieces = span.piecesFor(start, endInclusive)
+        val demand = synchronized(this) {
+            if (closed) throw CancellationException("Piece source closed")
+            val completed = pieces.count { engine.havePiece(hash, it) }
+            if (trackStall && completed < pieces.count()) {
+                (++demandCounter).also { pending[it] = Pending(pieces, clock(), completed.toLong()) }
+            } else null
+        }
+        try {
+            setDeadlines(start, endInclusive)
+            for (piece in pieces) {
+                // Subscribe first, then check; the timeout re-checks in case an event was dropped.
+                var first = true
+                while (!engine.havePiece(hash, piece)) {
+                    currentCoroutineContext().ensureActive()
+                    synchronized(this) { if (closed) throw CancellationException("Piece source closed") }
+                    // Another connection's seek may have cleared our deadline: re-apply after each timeout.
+                    if (!first) engine.prioritize(hash, piece..piece, RANGE_DEADLINE_MS)
+                    first = false
+                    withTimeoutOrNull(HAVE_POLL_MS) {
+                        engine.pieceFinished
+                            .onSubscription { if (engine.havePiece(hash, piece)) emit(hash to piece) }
+                            .first { it.first == hash && it.second == piece }
+                    }
                 }
             }
+        } finally {
+            synchronized(this) { if (demand != null) pending.remove(demand) }
         }
     }
 
@@ -241,6 +348,7 @@ internal class EnginePieceSource(
     @Synchronized
     override fun close() {
         closed = true
+        pending.clear()
         runCatching { raf?.close() }
         raf = null
     }

@@ -11,6 +11,8 @@ import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertTrue
@@ -200,6 +202,53 @@ class PlayerViewModelTest {
         sm.start("magnet:def", "Film2")
         runCurrent()
         old.clearViaStore()
+        assertTrue(sm.state.value is StreamState.Buffering)
+        sm.stop()
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun warning_onlyExposesOwnedTorrentSession() = runTest {
+        val engine = FakeTorrentEngine().apply { files = listOf(TorrentFile(0, "a.mkv", 10L * 1024 * 1024)) }
+        val sm = StreamManager(engine, StreamServer(backgroundScope), File("unused"), backgroundScope,
+            clock = { testScheduler.currentTime })
+        sm.start("magnet:abc", "Film")
+        runCurrent()
+        val bt = vm(key = "bt:abc:0", manager = sm)
+        val url = vm(manager = sm)
+        advanceTimeBy(30_000)
+        runCurrent()
+        assertEquals(sm.currentSessionId(), bt.stallWarning.first()?.sessionId)
+        assertNull(url.stallWarning.first())
+        url.chooseAnotherTorrent()
+        assertTrue(sm.state.value is StreamState.Buffering)
+        bt.chooseAnotherTorrent()
+        assertEquals(StreamState.Idle, sm.state.value)
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun oldPlaybackSignalsAndChooseAnother_doNotChangeNewSessionWarning() = runTest {
+        val engine = FakeTorrentEngine().apply { files = listOf(TorrentFile(0, "a.mkv", 10L * 1024 * 1024)) }
+        val sm = StreamManager(engine, StreamServer(backgroundScope), File("unused"), backgroundScope,
+            clock = { testScheduler.currentTime })
+        sm.start("magnet:abc", "Film")
+        runCurrent()
+        val old = vm(key = "bt:abc:0", manager = sm)
+        sm.start("magnet:def", "Film2")
+        runCurrent()
+        advanceTimeBy(30_000)
+        runCurrent()
+        val warning = sm.stallWarning.value
+        assertTrue(warning != null)
+        assertNull(old.stallWarning.first())
+        old.onPlaybackWaiting(true)
+        old.onPlaybackWaiting(false)
+        old.onPlaybackSeek()
+        old.onPauseOrExit(0, 0)
+        old.chooseAnotherTorrent()
+        old.clearViaStore()
+        assertEquals(warning, sm.stallWarning.value)
         assertTrue(sm.state.value is StreamState.Buffering)
         sm.stop()
     }

@@ -1,10 +1,14 @@
 package dev.gamspi.videogallery.stream
 
 import java.io.File
+import java.net.Socket
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -24,15 +28,18 @@ class StreamManagerTest {
         var files: List<TorrentFile> = emptyList()
         var metadata: (suspend () -> List<TorrentFile>)? = null
         var addError: Throwable? = null
-        val have = mutableSetOf<Int>()
+        val have: MutableSet<Int> = java.util.concurrent.ConcurrentHashMap.newKeySet()
         val removed = mutableListOf<Pair<String, Boolean>>()
         val selected = mutableListOf<Pair<String, Int>>()
         val added = mutableListOf<String>()
         val live = mutableSetOf<String>()
         var addDelayMs = 0L
         var statusError = false
+        var haveError = false
+        var haveErrorThread: Thread? = null
         var spanOffset = 0L
-        val prioritized = mutableListOf<Pair<IntRange, Int>>()
+        val prioritized = java.util.concurrent.CopyOnWriteArrayList<Pair<IntRange, Int>>()
+        var onPrioritize: ((IntRange) -> Unit)? = null
         var cleared = 0
         override val pieceFinished = MutableSharedFlow<Pair<String, Int>>(extraBufferCapacity = 64)
 
@@ -55,9 +62,15 @@ class StreamManagerTest {
             selected += hash to fileIndex
         }
 
-        override fun havePiece(hash: String, piece: Int) = piece in have
+        override fun havePiece(hash: String, piece: Int): Boolean {
+            if (haveError && (haveErrorThread == null || haveErrorThread === Thread.currentThread())) {
+                throw IllegalStateException("piece status")
+            }
+            return piece in have
+        }
         override fun prioritize(hash: String, pieces: IntRange, deadlineMs: Int) {
             prioritized += pieces to deadlineMs
+            onPrioritize?.invoke(pieces)
         }
 
         override fun clearDeadlines(hash: String) {
@@ -89,7 +102,7 @@ class StreamManagerTest {
     }
 
     private fun TestScope.manager(): StreamManager =
-        StreamManager(engine, StreamServer(backgroundScope), dir, backgroundScope)
+        StreamManager(engine, StreamServer(backgroundScope), dir, backgroundScope, clock = { testScheduler.currentTime })
 
     @Test
     fun metadataTimeout_failsNoPeers() = runTest {
@@ -310,5 +323,221 @@ class StreamManagerTest {
         assertTrue(engine.prioritized.count { it.first == 3..3 } > before)
         engine.have += 3
         advanceTimeBy(1_100)
+    }
+
+    @Test fun initialStall_warns_at_30_seconds_without_stopping_or_failing() = runTest {
+        engine.files = listOf(TorrentFile(0, "a.mkv", 100 * mib))
+        val sm = manager()
+        sm.start("magnet:stall", "Film")
+        runCurrent()
+        advanceTimeBy(29_999)
+        runCurrent()
+        assertNull(sm.stallWarning.value)
+        advanceTimeBy(1)
+        runCurrent()
+        assertEquals(sm.currentSessionId(), sm.stallWarning.value!!.sessionId)
+        assertTrue(sm.state.value is StreamState.Buffering)
+        assertTrue(engine.removed.isEmpty())
+        sm.stop()
+        assertNull(sm.stallWarning.value)
+    }
+
+    @Test fun initialStall_only_needed_completed_piece_resets_interval() = runTest {
+        engine.files = listOf(TorrentFile(0, "a.mkv", 100 * mib))
+        val sm = manager()
+        sm.start("magnet:progress", "Film")
+        runCurrent()
+        advanceTimeBy(20_000)
+        engine.have += 50 // Not a head/tail readiness piece; global rate/progress is also positive.
+        advanceTimeBy(10_000)
+        runCurrent()
+        assertTrue(sm.stallWarning.value != null)
+        engine.have += 0
+        advanceTimeBy(1_000)
+        runCurrent()
+        assertNull(sm.stallWarning.value)
+        advanceTimeBy(29_999)
+        runCurrent()
+        assertNull(sm.stallWarning.value)
+        advanceTimeBy(1)
+        runCurrent()
+        assertTrue(sm.stallWarning.value != null)
+        sm.stop()
+    }
+
+    @Test fun initialStall_ready_transition_clears_warning_and_stays_ready() = runTest {
+        engine.files = listOf(TorrentFile(0, "a.mkv", 100 * mib))
+        val sm = manager()
+        sm.start("magnet:recover", "Film")
+        runCurrent()
+        advanceTimeBy(30_000)
+        runCurrent()
+        assertTrue(sm.stallWarning.value != null)
+        engine.have += FileSpan(0, 100 * mib, mib.toInt()).readinessPieces()
+        advanceTimeBy(1_000)
+        runCurrent()
+        assertTrue(sm.state.value is StreamState.Ready)
+        assertNull(sm.stallWarning.value)
+        sm.reportPlaybackWaiting(sm.currentSessionId(), true)
+        advanceTimeBy(60_000) // BUFFERING alone, with no missing HTTP range, is not a stall.
+        runCurrent()
+        assertTrue(sm.state.value is StreamState.Ready)
+        assertNull(sm.stallWarning.value)
+        sm.stop()
+    }
+
+    @Test fun newSession_ignores_old_stop_and_playback_callbacks() = runTest {
+        engine.files = listOf(TorrentFile(0, "a.mkv", 100 * mib))
+        val sm = manager()
+        sm.start("magnet:old", "Old")
+        runCurrent()
+        val old = sm.currentSessionId()
+        advanceTimeBy(30_000)
+        runCurrent()
+        assertTrue(sm.stallWarning.value != null)
+        sm.start("magnet:new", "New")
+        runCurrent()
+        assertNull(sm.stallWarning.value)
+        sm.stopIf(old)
+        sm.reportPlaybackWaiting(old, false)
+        sm.resetPlaybackDemand(old)
+        assertTrue(sm.state.value is StreamState.Buffering)
+        advanceTimeBy(30_000)
+        runCurrent()
+        assertEquals(sm.currentSessionId(), sm.stallWarning.value!!.sessionId)
+        sm.reportPlaybackWaiting(old, false)
+        assertTrue(sm.stallWarning.value != null)
+        sm.stop()
+    }
+
+    private fun openMissingRange(url: String, piece: Int, auxiliary: Boolean = false): Socket {
+        val started = CountDownLatch(1)
+        engine.onPrioritize = { if (piece in it) started.countDown() }
+        val port = url.substringAfter("127.0.0.1:").substringBefore('/').toInt()
+        val socket = Socket("127.0.0.1", port)
+        val marker = if (auxiliary) "X-VideoGallery-Request: subtitle-hash\r\n" else ""
+        socket.getOutputStream().write(("GET /stream HTTP/1.1\r\nHost: x\r\n" +
+            "Range: bytes=${piece * mib}-${piece * mib + 255}\r\n$marker\r\n").toByteArray())
+        socket.getOutputStream().flush()
+        assertTrue("range did not enter source", started.await(3, TimeUnit.SECONDS))
+        engine.onPrioritize = null
+        return socket
+    }
+
+    @Test fun playbackStall_pause_and_seek_restart_timer_while_live_range_remains() = runTest {
+        engine.files = listOf(TorrentFile(0, "a.mkv", 100 * mib))
+        engine.have += FileSpan(0, 100 * mib, mib.toInt()).readinessPieces()
+        val sm = manager()
+        sm.start("magnet:play", "Film")
+        runCurrent()
+        val ready = sm.state.value as StreamState.Ready
+        val id = sm.currentSessionId()
+        openMissingRange(ready.url, 20).use {
+            sm.reportPlaybackWaiting(id, true)
+            advanceTimeBy(30_000)
+            runCurrent()
+            assertTrue(sm.stallWarning.value != null)
+            assertEquals(ready, sm.state.value)
+            sm.reportPlaybackWaiting(id, false)
+            assertNull(sm.stallWarning.value)
+            advanceTimeBy(60_000)
+            runCurrent()
+            assertNull(sm.stallWarning.value)
+            sm.reportPlaybackWaiting(id, true)
+            advanceTimeBy(20_000)
+            runCurrent()
+            sm.resetPlaybackDemand(id) // Same-position seek can leave the existing request alive.
+            advanceTimeBy(29_999)
+            runCurrent()
+            assertNull(sm.stallWarning.value)
+            advanceTimeBy(1)
+            runCurrent()
+            assertTrue(sm.stallWarning.value != null)
+        }
+        sm.stop()
+    }
+
+    @Test fun playbackStall_auxiliary_range_does_not_count_even_while_buffering() = runTest {
+        engine.files = listOf(TorrentFile(0, "a.mkv", 100 * mib))
+        engine.have += FileSpan(0, 100 * mib, mib.toInt()).readinessPieces()
+        val sm = manager()
+        sm.start("magnet:hash", "Film")
+        runCurrent()
+        openMissingRange((sm.state.value as StreamState.Ready).url, 20, auxiliary = true).use {
+            sm.reportPlaybackWaiting(sm.currentSessionId(), true)
+            advanceTimeBy(60_000)
+            runCurrent()
+            assertNull(sm.stallWarning.value)
+        }
+        sm.stop()
+    }
+
+    @Test fun playbackStall_transient_havePiece_failure_keeps_ready_session() = runTest {
+        engine.files = listOf(TorrentFile(0, "a.mkv", 100 * mib))
+        engine.have += FileSpan(0, 100 * mib, mib.toInt()).readinessPieces()
+        val sm = manager()
+        sm.start("magnet:transient", "Film")
+        runCurrent()
+        val ready = sm.state.value as StreamState.Ready
+        openMissingRange(ready.url, 20).use {
+            sm.reportPlaybackWaiting(sm.currentSessionId(), true)
+            engine.haveErrorThread = Thread.currentThread()
+            engine.haveError = true
+            advanceTimeBy(1_000)
+            runCurrent()
+            assertEquals(ready, sm.state.value)
+            assertTrue(engine.removed.isEmpty())
+            engine.haveError = false
+            advanceTimeBy(29_000)
+            runCurrent()
+            assertTrue(sm.stallWarning.value != null)
+            assertEquals(ready, sm.state.value)
+        }
+        sm.stop()
+    }
+
+    @Test fun pendingDemands_independent_requests_progress_and_cancellation() = runTest {
+        val src = source()
+        val first = launch { src.awaitRange(0, 2 * mib - 1) } // pieces 3 and 4
+        val second = launch { src.awaitRange(20 * mib, 20 * mib + 10) } // piece 23
+        runCurrent()
+        val initial = src.pendingDemands()
+        assertEquals(2, initial.size)
+        assertEquals(listOf(0L, 0L), initial.map { it.progress })
+        engine.have += 3
+        engine.have += 50 // Unrelated piece must not alter either demand's progress.
+        assertEquals(listOf(1L, 0L), src.pendingDemands().map { it.progress })
+        first.cancelAndJoin()
+        assertEquals(listOf(initial[1].id), src.pendingDemands().map { it.id })
+        second.cancelAndJoin()
+        assertTrue(src.pendingDemands().isEmpty())
+    }
+
+    @Test fun pendingDemands_completion_and_close_remove_waits() = runTest {
+        val src = source()
+        val first = launch { src.awaitRange(0, 10) }
+        val second = launch { src.awaitRange(20 * mib, 20 * mib + 10) }
+        runCurrent()
+        engine.have += 3
+        engine.pieceFinished.emit("h" to 3)
+        runCurrent()
+        assertTrue(first.isCompleted)
+        assertEquals(1, src.pendingDemands().size)
+        src.close()
+        assertTrue(src.pendingDemands().isEmpty())
+        advanceTimeBy(1_100)
+        runCurrent()
+        assertTrue(second.isCancelled)
+    }
+
+    @Test fun pendingDemands_auxiliary_and_already_ready_never_register() = runTest {
+        val src = source()
+        val auxiliary = launch { src.awaitRange(0, 10, trackStall = false) }
+        runCurrent()
+        assertTrue(src.pendingDemands().isEmpty())
+        auxiliary.cancelAndJoin()
+        engine.have += 3
+        src.awaitRange(0, 10)
+        assertTrue(src.pendingDemands().isEmpty())
     }
 }

@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 
 @HiltViewModel
 class StreamViewModel @Inject constructor(
@@ -25,9 +26,13 @@ class StreamViewModel @Inject constructor(
         sessionId = manager.currentSessionId()
     }
 
+    val stallWarning = manager.stallWarning.map { warning ->
+        warning?.takeIf { it.sessionId == sessionId }
+    }
+
     fun chooseFile(index: Int) = manager.chooseFile(index)
 
-    fun cancel() = manager.stop()
+    fun cancel() = manager.stopIf(sessionId)
 
     /** After Ready the player owns the session; before that, leaving the screen cancels it. */
     override fun onCleared() {

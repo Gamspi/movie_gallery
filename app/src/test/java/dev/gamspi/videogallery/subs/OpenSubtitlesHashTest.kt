@@ -10,6 +10,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
+import java.net.InetAddress
 
 class OpenSubtitlesHashTest {
     private lateinit var server: MockWebServer
@@ -41,10 +42,30 @@ class OpenSubtitlesHashTest {
         val d = file(200000)
         server.enqueue(rangeResponse(d, 0, 65535))
         server.enqueue(rangeResponse(d, 200000 - 65536, 199999))
-        val h = fetchHashOverHttp(OkHttpClient(), server.url("/v").toString())
+        val url = server.url("/v").newBuilder().host("127.0.0.1").build()
+        val h = fetchHashOverHttp(OkHttpClient(), url.toString())
         assertEquals(openSubtitlesHash(200000, d.copyOfRange(0, 65536), d.copyOfRange(200000 - 65536, 200000)), h)
-        assertEquals("bytes=0-65535", server.takeRequest().headers["Range"])
-        assertEquals("bytes=134464-199999", server.takeRequest().headers["Range"])
+        val head = server.takeRequest()
+        val tail = server.takeRequest()
+        assertEquals("bytes=0-65535", head.headers["Range"])
+        assertEquals("bytes=134464-199999", tail.headers["Range"])
+        assertEquals("subtitle-hash", head.headers["X-VideoGallery-Request"])
+        assertEquals("subtitle-hash", tail.headers["X-VideoGallery-Request"])
+    }
+
+    @Test
+    fun fetchHash_external_host_does_not_send_internal_header() = runBlocking {
+        val d = file(200000)
+        server.enqueue(rangeResponse(d, 0, 65535))
+        server.enqueue(rangeResponse(d, 200000 - 65536, 199999))
+        // Resolve the external-looking test host locally; no external server is contacted.
+        val http = OkHttpClient.Builder()
+            .dns { listOf(InetAddress.getByName("127.0.0.1")) }.build()
+        val url = server.url("/v").newBuilder().host("video.example").build()
+        val hash = fetchHashOverHttp(http, url.toString())
+        assertEquals(openSubtitlesHash(200000, d.copyOfRange(0, 65536), d.copyOfRange(200000 - 65536, 200000)), hash)
+        assertNull(server.takeRequest().headers["X-VideoGallery-Request"])
+        assertNull(server.takeRequest().headers["X-VideoGallery-Request"])
     }
 
     @Test

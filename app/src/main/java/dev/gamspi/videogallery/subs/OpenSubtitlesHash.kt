@@ -42,7 +42,11 @@ suspend fun fetchHashOverHttp(client: OkHttpClient, url: String): String? {
 
 /** Returns total size (from Content-Range) and body for a 206 answer, else null. */
 private suspend fun rangeGet(client: OkHttpClient, url: String, range: String): Pair<Long?, ByteArray>? {
-    val request = Request.Builder().url(url).header("Range", range).build()
+    val builder = Request.Builder().url(url).header("Range", range)
+    if (builder.build().url.host == "127.0.0.1") {
+        builder.header("X-VideoGallery-Request", "subtitle-hash")
+    }
+    val request = builder.build()
     return client.newCall(request).awaitBody { response ->
         if (response.code != 206) return@awaitBody null
         val total = response.header("Content-Range")?.substringAfterLast('/')?.toLongOrNull()

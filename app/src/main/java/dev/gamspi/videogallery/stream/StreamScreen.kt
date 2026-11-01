@@ -12,7 +12,9 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,6 +40,9 @@ fun StreamScreen(
     viewModel: StreamViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val stallWarning by viewModel.stallWarning.collectAsStateWithLifecycle(initialValue = null)
+    var stallDismissed by remember { mutableStateOf(false) }
+    LaunchedEffect(stallWarning) { stallDismissed = false }
     val lifecycleOwner = LocalLifecycleOwner.current
 
     fun back() {
@@ -67,6 +72,13 @@ fun StreamScreen(
             ) {
                 Text("Буферизация ${s.percent} %", style = MaterialTheme.typography.titleMedium)
                 if (s.status.isNotBlank()) Text(s.status, style = MaterialTheme.typography.bodyMedium)
+                if (stallWarning != null && !stallDismissed) {
+                    StreamStallNotice(
+                        status = null,
+                        onContinue = { stallDismissed = true },
+                        onChooseAnother = ::back,
+                    )
+                }
             }
             is StreamState.ChooseFile -> ChooseFileList(s.files, viewModel::chooseFile)
             is StreamState.Failed -> FailedContent(s.message, ::back)

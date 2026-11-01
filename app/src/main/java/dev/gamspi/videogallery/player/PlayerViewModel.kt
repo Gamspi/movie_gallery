@@ -9,6 +9,7 @@ import javax.inject.Inject
 import dev.gamspi.videogallery.stream.StreamManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 import dev.gamspi.videogallery.settings.SettingsRepository
 import dev.gamspi.videogallery.settings.SubtitlePrefs
 import dev.gamspi.videogallery.subs.*
@@ -190,6 +191,22 @@ class PlayerViewModel internal constructor(
     private val isTorrent = key.startsWith("bt:")
     private val sessionId = manager.currentSessionId()
 
+    val stallWarning = manager.stallWarning.map { warning ->
+        warning?.takeIf { isTorrent && it.sessionId == sessionId }
+    }
+
+    fun onPlaybackWaiting(waiting: Boolean) {
+        if (isTorrent && !cleared) manager.reportPlaybackWaiting(sessionId, waiting)
+    }
+
+    fun onPlaybackSeek() {
+        if (isTorrent && !cleared) manager.resetPlaybackDemand(sessionId)
+    }
+
+    fun chooseAnotherTorrent() {
+        if (isTorrent) manager.stopIf(sessionId)
+    }
+
     /** Download status line; only for torrent sessions. */
     val statusLine: StateFlow<String?> = if (isTorrent) manager.statusLine else MutableStateFlow(null)
 
@@ -198,6 +215,7 @@ class PlayerViewModel internal constructor(
     }
 
     override fun onCleared() {
+        if (isTorrent) manager.reportPlaybackWaiting(sessionId, false)
         cleared = true
         layerJobs.values.forEach { it.cancel() }
         if (isTorrent) manager.stopIf(sessionId)
@@ -227,6 +245,7 @@ class PlayerViewModel internal constructor(
     }
 
     fun onPauseOrExit(positionMs: Long, durationMs: Long) {
+        onPlaybackWaiting(false)
         if (positionMs <= 0) return
         lastSaveAt = clock()
         if (isFinished(positionMs, durationMs)) store.clearPosition(key) else store.savePosition(key, positionMs)

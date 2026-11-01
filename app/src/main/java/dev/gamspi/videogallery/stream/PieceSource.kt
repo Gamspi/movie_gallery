@@ -7,5 +7,8 @@ interface PieceSource {
     /** Raises priority (deadlines) for the range and suspends until bytes are on disk. Cancellable. */
     suspend fun awaitRange(start: Long, endInclusive: Long)
 
+    /** Auxiliary requests can wait for bytes without representing playback demand. */
+    suspend fun awaitRange(start: Long, endInclusive: Long, trackStall: Boolean) = awaitRange(start, endInclusive)
+
     fun read(position: Long, buffer: ByteArray, offset: Int, count: Int): Int
 }
