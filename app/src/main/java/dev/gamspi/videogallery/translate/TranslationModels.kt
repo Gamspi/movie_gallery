@@ -3,6 +3,7 @@ package dev.gamspi.videogallery.translate
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -74,9 +75,11 @@ class TranslationModelsImpl(
 
     override suspend fun ensureDownloaded() {
         val running = synchronized(lock) {
-            job?.takeIf { it.isActive } ?: scope.launch { download() }.also {
+            job?.takeIf { it.isActive } ?: scope.launch(start = CoroutineStart.LAZY) { download() }.also {
                 job = it
                 _state.value = ModelState.Downloading(null)
+                // Start only after state is set, so a fast download cannot be overwritten.
+                it.start()
             }
         }
         // Caller cancellation only stops waiting; the shared download continues.

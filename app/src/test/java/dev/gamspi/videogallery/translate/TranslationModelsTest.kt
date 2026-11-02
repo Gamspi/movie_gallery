@@ -7,6 +7,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -105,6 +106,21 @@ class TranslationModelsTest {
         val models = models(backend)
         advanceUntilIdle()
         assertEquals(ModelState.Ready, models.state.value)
+    }
+
+    @Test fun instant_download_is_not_overwritten_by_downloading_state() = runTest {
+        val backend = FakeBackend()
+        // Unconfined: the job body runs as soon as it is started, like a fast real thread.
+        val models = TranslationModelsImpl(backend, CoroutineScope(UnconfinedTestDispatcher(testScheduler)))
+        models.ensureDownloaded()
+        assertEquals(ModelState.Ready, models.state.value)
+    }
+
+    @Test fun instant_failure_is_not_overwritten_by_downloading_state() = runTest {
+        val backend = FakeBackend().apply { failure = IOException("offline") }
+        val models = TranslationModelsImpl(backend, CoroutineScope(UnconfinedTestDispatcher(testScheduler)))
+        models.ensureDownloaded()
+        assertEquals(ModelState.Failed(ModelFailure.NoNetwork), models.state.value)
     }
 
     @Test fun translate_lang_mapping() {
