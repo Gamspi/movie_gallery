@@ -41,7 +41,7 @@ class StreamStorageIntegrationTest {
         var priorities = 0
         override val pieceFinished = MutableSharedFlow<Pair<String, Int>>()
         override fun hashOf(magnet: String) = magnet.removePrefix("magnet:")
-        override suspend fun add(magnet: String, saveDir: File): String {
+        override suspend fun add(magnet: String, saveDir: File, torrentFile: File?): String {
             val hash = hashOf(magnet)
             adds += hash
             addEntered.complete(Unit)

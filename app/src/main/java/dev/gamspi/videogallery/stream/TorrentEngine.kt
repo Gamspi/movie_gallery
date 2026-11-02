@@ -9,10 +9,13 @@ interface TorrentEngine {
     /** Resolves the directory key before the native engine can touch retained files. */
     fun hashOf(magnet: String): String? = null
 
+    /** Returns the lowercase v1 info-hash, or null for invalid or v2-only metadata. */
+    fun torrentHashOf(bytes: ByteArray): String? = null
+
     fun checkStorageError(hash: String) {}
 
     /** Добавляет раздачу; файлы кладёт в `saveDir/<infoHash>/`. Возвращает infoHash в нижнем регистре. */
-    suspend fun add(magnet: String, saveDir: File): String
+    suspend fun add(magnet: String, saveDir: File, torrentFile: File? = null): String
 
     suspend fun awaitMetadata(hash: String): List<TorrentFile>
 

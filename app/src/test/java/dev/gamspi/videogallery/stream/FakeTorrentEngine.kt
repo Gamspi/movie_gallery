@@ -8,10 +8,15 @@ class FakeTorrentEngine : TorrentEngine {
     val have = mutableSetOf<Int>()
     val removed = mutableListOf<Pair<String, Boolean>>()
     val added = mutableListOf<String>()
+    val addedFiles = mutableListOf<File?>()
+    var torrentHash: (ByteArray) -> String? = { null }
     override val pieceFinished = MutableSharedFlow<Pair<String, Int>>(extraBufferCapacity = 64)
 
-    override suspend fun add(magnet: String, saveDir: File): String {
+    override fun torrentHashOf(bytes: ByteArray): String? = torrentHash(bytes)
+
+    override suspend fun add(magnet: String, saveDir: File, torrentFile: File?): String {
         added += magnet
+        addedFiles += torrentFile
         return magnet.removePrefix("magnet:").lowercase()
     }
 

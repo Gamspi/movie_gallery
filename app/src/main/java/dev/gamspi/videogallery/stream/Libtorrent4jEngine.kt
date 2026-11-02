@@ -3,11 +3,14 @@ package dev.gamspi.videogallery.stream
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.libtorrent4j.AddTorrentParams
 import org.libtorrent4j.AlertListener
@@ -20,6 +23,7 @@ import org.libtorrent4j.SettingsPack
 import org.libtorrent4j.Sha1Hash
 import org.libtorrent4j.TorrentHandle
 import org.libtorrent4j.TorrentFlags
+import org.libtorrent4j.TorrentInfo
 import org.libtorrent4j.alerts.Alert
 import org.libtorrent4j.alerts.AlertType
 import org.libtorrent4j.alerts.AddTorrentAlert
@@ -53,6 +57,10 @@ internal val FALLBACK_TRACKERS = listOf(
 /** Existing trackers first, then fallbacks not already present. */
 internal fun withFallbackTrackers(existing: List<String>): List<String> =
     (existing + FALLBACK_TRACKERS).distinct()
+
+/** Source order is preserved; fallback trackers are appended only once. */
+internal fun mergeTrackers(vararg sources: List<String>): List<String> =
+    withFallbackTrackers(sources.flatMap { it }.filter { it.isNotEmpty() }.distinct())
 
 /** One hash rule everywhere: v1 if present, else the best (truncated v2). */
 private fun InfoHash.key(): String = (if (hasV1()) v1 else best).toHex().lowercase()
@@ -151,9 +159,36 @@ class Libtorrent4jEngine : TorrentEngine {
         h.prioritizeFiles(Array(n) { Priority.IGNORE })
     }
 
-    override suspend fun add(magnet: String, saveDir: File): String {
+    override suspend fun add(magnet: String, saveDir: File, torrentFile: File?): String = withContext(Dispatchers.IO) {
         ensureStarted()
         val hash = hashOf(magnet)
+        addPrepared(hash, saveDir, paramsFor(magnet, torrentFile))
+    }
+
+    private fun paramsFor(magnet: String, torrentFile: File?): AddTorrentParams {
+        val magnetParams = AddTorrentParams.parseMagnetUri(magnet).apply {
+            trackers = withFallbackTrackers(trackers.toList())
+        }
+        if (torrentFile == null) return magnetParams
+        return try {
+            val ti = TorrentInfo(torrentFile)
+            val hashes = ti.infoHashes()
+            if (!hashes.hasV1() || hashes.getV1().toHex().lowercase() != magnetParams.infoHashes.key()) {
+                return magnetParams
+            }
+            AddTorrentParams().apply {
+                setTorrentInfo(ti)
+                // libtorrent also uses the trackers embedded in TorrentInfo.
+                trackers = mergeTrackers(magnetParams.trackers.toList())
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            magnetParams
+        }
+    }
+
+    private suspend fun addPrepared(hash: String, saveDir: File, params: AddTorrentParams): String {
         check(hash !in uncertainAdds) { "Previous add is unresolved" }
         // A previous session of the same torrent may still be shutting down.
         removing[hash]?.let { pending ->
@@ -164,8 +199,6 @@ class Libtorrent4jEngine : TorrentEngine {
         paused.remove(hash)
         storageErrors.remove(hash)
         metadata.getOrPut(hash) { CompletableDeferred() }
-        val params = AddTorrentParams.parseMagnetUri(magnet)
-        params.trackers = withFallbackTrackers(params.trackers.toList())
         params.savePath = dir.absolutePath
         // Metadata is allowed, payload requests wait for storage admission and file selection.
         params.flags = params.flags.and_(TorrentFlags.AUTO_MANAGED.inv())
@@ -187,6 +220,15 @@ class Libtorrent4jEngine : TorrentEngine {
     }
 
     override fun hashOf(magnet: String): String = AddTorrentParams.parseMagnetUri(magnet).infoHashes.key()
+
+    override fun torrentHashOf(bytes: ByteArray): String? = try {
+        val hashes = TorrentInfo.bdecode(bytes).infoHashes()
+        if (hashes.hasV1()) hashes.getV1().toHex().lowercase() else null
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        null
+    }
 
     override fun checkStorageError(hash: String) {
         storageErrors[hash]?.let { throw it }

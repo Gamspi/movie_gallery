@@ -43,7 +43,7 @@ class StreamManagerTest {
         var cleared = 0
         override val pieceFinished = MutableSharedFlow<Pair<String, Int>>(extraBufferCapacity = 64)
 
-        override suspend fun add(magnet: String, saveDir: File): String {
+        override suspend fun add(magnet: String, saveDir: File, torrentFile: File?): String {
             addError?.let { throw it }
             if (addDelayMs > 0) kotlinx.coroutines.delay(addDelayMs)
             added += magnet
