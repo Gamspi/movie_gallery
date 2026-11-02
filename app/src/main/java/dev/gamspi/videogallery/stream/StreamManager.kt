@@ -1,12 +1,14 @@
 package dev.gamspi.videogallery.stream
 
 import dev.gamspi.videogallery.settings.TorrentStoragePrefs
+import java.io.ByteArrayOutputStream
 import java.io.Closeable
 import java.io.File
 import java.io.RandomAccessFile
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.Job
@@ -22,6 +24,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 private const val READINESS_DEADLINE_STEP_MS = 100
 private const val RANGE_DEADLINE_MS = 500
@@ -39,6 +42,8 @@ class StreamManager(
     private val clock: () -> Long = { System.nanoTime() / 1_000_000L },
     private val cache: TorrentCacheStore? = null,
     private val storagePrefs: () -> TorrentStoragePrefs = { TorrentStoragePrefs() },
+    private val torrentFiles: TorrentFileSource? = null,
+    private val log: (String) -> Unit = {},
 ) {
     private class Session(val id: Long, val title: String, val predecessor: Job?) {
         private var hashValue: String? = null
@@ -105,7 +110,7 @@ class StreamManager(
         _stallWarning.value = null
     }
 
-    fun start(magnet: String, title: String) {
+    fun start(magnet: String, title: String, torrentUrl: String? = null) {
         val s = synchronized(lock) {
             stopLocked()
             Session(++counter, title, cleanupTail).also { session = it; _state.value = StreamState.FetchingMetadata }
@@ -113,20 +118,27 @@ class StreamManager(
         val worker = scope.launch(start = CoroutineStart.LAZY) {
                 guarded(s) {
                     s.predecessor?.join()
+                    val expectedHash = engine.hashOf(magnet)
+                    val metadata = expectedHash?.let { prepareTorrentFile(it, torrentUrl) }
+                    currentCoroutineContext().ensureActive()
                     // add() must not be cancelled half-way, or the torrent would be lost.
                     val hash = withContext(NonCancellable) {
                         operations.withLock {
                             cleanupFailure?.let { throw it }
                             if (!isCurrent(s)) throw CancellationException("Session replaced")
                             cache?.initialize()
-                            val expectedHash = engine.hashOf(magnet)
                             if (expectedHash != null) {
                                 cache?.acquire(expectedHash)
                                 s.acquired = cache != null
                                 s.setHash(expectedHash)
                             }
+                            val torrentFile = if (expectedHash != null && metadata != null) {
+                                storeTorrentFile(expectedHash, metadata.bytes)
+                            } else null
+                            val source = if (torrentFile != null && metadata != null) metadata.source else "magnet"
+                            logTorrentSource(source, torrentUrl)
                             val addedHash = try {
-                                engine.add(magnet, File(filesDir, "torrents"))
+                                engine.add(magnet, File(filesDir, "torrents"), torrentFile)
                             } catch (e: Exception) {
                                 if (expectedHash != null) {
                                     // An asynchronous native add may still finish after its timeout.
@@ -167,6 +179,71 @@ class StreamManager(
             if (session !== s) worker.cancel()
         }
         worker.start()
+    }
+
+    private data class TorrentMetadata(val bytes: ByteArray, val source: String)
+
+    private suspend fun prepareTorrentFile(hash: String, url: String?): TorrentMetadata? =
+        withContext(Dispatchers.IO) {
+            readTorrentFile(hash)?.let { return@withContext TorrentMetadata(it, "stored") }
+            val fetched = torrentOrNull { url?.let { torrentFiles?.fetch(it) } }
+                ?: return@withContext null
+            if (matchesTorrentHash(fetched, hash)) TorrentMetadata(fetched, "fetched") else null
+        }
+
+    // Called on IO; bound the read even if the file grows after the length check.
+    private fun readTorrentFile(hash: String): ByteArray? = torrentOrNull {
+        val file = File(filesDir, "torrents/$hash/meta.torrent")
+        if (!file.isFile || file.length() > TORRENT_FILE_MAX_BYTES) return@torrentOrNull null
+        val bytes = file.inputStream().use { input ->
+            val output = ByteArrayOutputStream()
+            val buffer = ByteArray(8192)
+            while (output.size().toLong() <= TORRENT_FILE_MAX_BYTES) {
+                val remaining = TORRENT_FILE_MAX_BYTES + 1 - output.size()
+                val count = input.read(buffer, 0, minOf(buffer.size.toLong(), remaining).toInt())
+                if (count == -1) break
+                output.write(buffer, 0, count)
+            }
+            output.toByteArray()
+        }
+        if (matchesTorrentHash(bytes, hash)) bytes else {
+            file.delete()
+            null
+        }
+    }
+
+    private fun matchesTorrentHash(bytes: ByteArray, hash: String): Boolean =
+        bytes.size.toLong() <= TORRENT_FILE_MAX_BYTES &&
+            torrentOrNull { engine.torrentHashOf(bytes)?.equals(hash, ignoreCase = true) } == true
+
+    private suspend fun storeTorrentFile(hash: String, bytes: ByteArray): File? = withContext(Dispatchers.IO) {
+        torrentOrNull {
+            val file = File(filesDir, "torrents/$hash/meta.torrent")
+            val temporary = File(file.parentFile, "meta.torrent.tmp")
+            try {
+                val directory = file.parentFile!!
+                if (!directory.isDirectory && !directory.mkdirs()) return@torrentOrNull null
+                temporary.writeBytes(bytes)
+                if (temporary.renameTo(file)) file else null
+            } finally {
+                torrentOrNull { temporary.delete() }
+            }
+        }
+    }
+
+    private fun logTorrentSource(source: String, url: String?) {
+        torrentOrNull {
+            val host = url?.toHttpUrlOrNull()?.host
+            log("source=$source" + if (host != null) " host=$host" else "")
+        }
+    }
+
+    private inline fun <T> torrentOrNull(block: () -> T): T? = try {
+        block()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        null
     }
 
     fun chooseFile(index: Int) {
