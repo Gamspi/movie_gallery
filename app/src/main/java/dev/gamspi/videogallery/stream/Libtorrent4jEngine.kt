@@ -39,6 +39,21 @@ private const val POLL_MS = 1_000L
 private const val ADD_WAIT_MS = 5_000
 private const val ADD_POLL_MS = 50L
 
+// HTTP trackers verified from the target TV; the ISP blocks BitTorrent UDP (UDP trackers, DHT).
+internal val FALLBACK_TRACKERS = listOf(
+    "http://tracker.dler.org:6969/announce",
+    "http://t.overflow.biz:6969/announce",
+    "http://tracker.qu.ax:6969/announce",
+    "http://tracker.mywaifu.best:6969/announce",
+    "http://tracker.lintk.me:2710/announce",
+    "http://bt.poletracker.org:2710/announce",
+    "http://tracker.skyts.net:6969/announce",
+)
+
+/** Existing trackers first, then fallbacks not already present. */
+internal fun withFallbackTrackers(existing: List<String>): List<String> =
+    (existing + FALLBACK_TRACKERS).distinct()
+
 /** One hash rule everywhere: v1 if present, else the best (truncated v2). */
 private fun InfoHash.key(): String = (if (hasV1()) v1 else best).toHex().lowercase()
 
@@ -110,6 +125,9 @@ class Libtorrent4jEngine : TorrentEngine {
             val settings = SettingsPack().uploadRateLimit(UPLOAD_LIMIT_BYTES)
             settings.setEnableDht(true)
             settings.setEnableLsd(true)
+            // Dead UDP tiers must not delay the HTTP trackers.
+            settings.setBoolean(settings_pack.bool_types.announce_to_all_tiers.swigValue(), true)
+            settings.setBoolean(settings_pack.bool_types.announce_to_all_trackers.swigValue(), true)
             // Without an explicit mask piece_finished / metadata_received alerts may never be posted.
             val mask = swigAlert.status_notification
                 .or_(swigAlert.storage_notification)
@@ -147,6 +165,7 @@ class Libtorrent4jEngine : TorrentEngine {
         storageErrors.remove(hash)
         metadata.getOrPut(hash) { CompletableDeferred() }
         val params = AddTorrentParams.parseMagnetUri(magnet)
+        params.trackers = withFallbackTrackers(params.trackers.toList())
         params.savePath = dir.absolutePath
         // Metadata is allowed, payload requests wait for storage admission and file selection.
         params.flags = params.flags.and_(TorrentFlags.AUTO_MANAGED.inv())
