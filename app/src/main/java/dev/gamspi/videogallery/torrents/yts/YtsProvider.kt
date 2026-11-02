@@ -25,6 +25,7 @@ internal class YtsTorrent(
     val seeds: Int = 0,
     val peers: Int = 0,
     val size_bytes: Long = 0,
+    val url: String = "",
 )
 
 @Serializable
@@ -79,6 +80,7 @@ class YtsProvider(
                     quality = parseQuality(t.quality),
                     infoHash = t.hash,
                     magnet = magnetOf(t.hash, title),
+                    torrentUrl = t.url.ifBlank { null },
                 )
             }
         }

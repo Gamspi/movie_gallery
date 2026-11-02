@@ -47,6 +47,18 @@ class RutorParserTest {
     }
 
     @Test
+    fun parsesTorrentUrl() {
+        assertEquals("https://d.rutor.info/download/1098254", RutorParser.parse(fixture())[0].torrentUrl)
+    }
+
+    @Test
+    fun missingDownloadLinkGivesNullUrl() {
+        val r = RutorParser.parse(row("1&nbsp;GB")).single()
+        assertEquals(null, r.torrentUrl)
+        assertEquals(3, r.seeders)
+    }
+
+    @Test
     fun parsesSizeUnits() {
         fun size(s: String) = RutorParser.parse(row(s)).single().sizeBytes
         assertEquals((700.5 * 1024 * 1024).toLong(), size("700.5&nbsp;MB"))

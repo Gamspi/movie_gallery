@@ -30,7 +30,15 @@ object RutorParser {
             quality = parseQuality(title),
             infoHash = hash,
             magnet = magnet,
+            torrentUrl = torrentUrl(row),
         )
+    }
+
+    // Protocol-relative links become https; only http(s) is accepted
+    private fun torrentUrl(row: Element): String? {
+        val href = row.selectFirst("a[href*=/download/]")?.attr("href")?.trim().orEmpty()
+        val url = if (href.startsWith("//")) "https:$href" else href
+        return url.takeIf { it.startsWith("http://") || it.startsWith("https://") }
     }
 
     private fun count(e: Element?): Int =

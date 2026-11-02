@@ -13,6 +13,7 @@ data class TorrentResult(
     val quality: Quality?,
     val infoHash: String,
     val magnet: String,
+    val torrentUrl: String? = null,
 )
 
 private val trackers = listOf(

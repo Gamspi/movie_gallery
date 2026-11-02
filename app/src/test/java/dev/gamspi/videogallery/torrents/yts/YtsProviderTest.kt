@@ -48,6 +48,14 @@ class YtsProviderTest {
     }
 
     @Test
+    fun mapsTorrentUrl() = runBlocking {
+        enqueue(fixture("yts.json"))
+        val list = provider().search(movie())
+        assertEquals("https://yts.mx/torrent/download/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", list[0].torrentUrl)
+        assertEquals(null, list[1].torrentUrl)
+    }
+
+    @Test
     fun sendsImdbQuery() = runBlocking {
         enqueue(fixture("yts_empty.json"))
         provider().search(movie())
