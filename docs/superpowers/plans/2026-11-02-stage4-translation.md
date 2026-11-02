@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Статус:** план принят 2026-11-02, реализация не начата. Задача 1 — блокирующий gate.
+**Статус:** задачи 1–7 выполнены 2026-11-02 (`c6891c8`..`92bf3db` + документы). Gate пройден условно; приёмка на ТВ — по отчёту пользователя; офлайн-перевод не проверен. Чекбоксы шагов ниже не отмечались по отдельности; авторитетный статус — этот абзац, STATUS и протоколы.
 
 **Goal:** ручной перевод текста одного слоя субтитров в другой (en ↔ ru) на устройстве через ML Kit, с кэшем Room для скачанных субтитров.
 
