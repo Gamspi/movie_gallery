@@ -14,9 +14,28 @@ import kotlinx.coroutines.flow.map
 import dev.gamspi.videogallery.settings.SettingsRepository
 import dev.gamspi.videogallery.settings.SubtitlePrefs
 import dev.gamspi.videogallery.subs.*
+import dev.gamspi.videogallery.translate.CacheKey
+import dev.gamspi.videogallery.translate.EmbeddedTranslation
+import dev.gamspi.videogallery.translate.ModelFailure
+import dev.gamspi.videogallery.translate.ModelState
+import dev.gamspi.videogallery.translate.SubtitleTranslator
+import dev.gamspi.videogallery.translate.TrackTranslation
+import dev.gamspi.videogallery.translate.TranslateLang
+import dev.gamspi.videogallery.translate.TranslationCache
+import dev.gamspi.videogallery.translate.TranslationModels
+import dev.gamspi.videogallery.translate.message
+import dev.gamspi.videogallery.translate.other
+import dev.gamspi.videogallery.translate.translateLang
+import kotlin.math.abs
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -32,6 +51,17 @@ data class PlayerUiState(
 
 private const val SAVE_INTERVAL_MS = 10_000L
 
+/** Position jump between subtitle frames that reorders the background translation. */
+private const val TRANSLATION_SEEK_JUMP_MS = 5_000L
+private const val NO_SOURCE_NOTE = "Нет субтитров для перевода"
+private const val TRANSLATING_NOTE = "Перевод…"
+private const val UNAVAILABLE_NOTE = "Перевод недоступен"
+
+private fun downloadNote(state: ModelState): String =
+    "Загрузка модели…" + ((state as? ModelState.Downloading)?.progress?.let { " $it%" } ?: "")
+
+private fun Layer.other() = if (this == Layer.A) Layer.B else Layer.A
+
 @HiltViewModel
 class PlayerViewModel internal constructor(
     savedState: SavedStateHandle,
@@ -40,15 +70,20 @@ class PlayerViewModel internal constructor(
     private val client: SubtitleClient? = null,
     prefs: StateFlow<SubtitlePrefs> = MutableStateFlow(SubtitlePrefs()),
     private val hashFetcher: suspend (String) -> String? = { null },
+    private val models: TranslationModels? = null,
+    private val translator: SubtitleTranslator? = null,
+    private val cache: TranslationCache? = null,
+    private val translationDispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val clock: () -> Long,
 ) : ViewModel() {
     @Inject
     constructor(
         savedState: SavedStateHandle, store: PlaybackStore, manager: StreamManager,
         client: OpenSubtitlesClient, settings: SettingsRepository,
+        models: TranslationModels, translator: SubtitleTranslator, cache: TranslationCache,
     ) : this(savedState, store, manager, client, settings.subtitlePrefs, { url ->
         fetchHashOverHttp(subtitleHashHttp, url)
-    }, SystemClock::elapsedRealtime)
+    }, models, translator, cache, Dispatchers.Default, SystemClock::elapsedRealtime)
 
     companion object {
         private val subtitleHashHttp by lazy {
@@ -76,6 +111,17 @@ class PlayerViewModel internal constructor(
     private val manual = mutableSetOf<Layer>()
     private val layerJobs = mutableMapOf<Layer, Job>()
     private val generations = mutableMapOf<Layer, Long>()
+
+    private class RemoteTranslation(val translation: TrackTranslation, var positionMs: Long)
+    private class EmbeddedRuntime(val translation: EmbeddedTranslation, val scope: CoroutineScope, val generation: Long)
+    private val remoteTranslations = mutableMapOf<Layer, RemoteTranslation>()
+    private val embeddedTranslations = mutableMapOf<Layer, EmbeddedRuntime>()
+    private val lastEmbeddedText = mutableMapOf<Layer, String>()
+    private var lastPositionMs = 0L
+    private val _translatedEmbedded = MutableStateFlow<Map<Layer, String?>>(emptyMap())
+
+    /** Translated text of embedded cues, keyed by the target layer. */
+    val translatedEmbedded: StateFlow<Map<Layer, String?>> = _translatedEmbedded
 
     fun onTextTracks(tracks: List<TextTrack>) {
         if (cleared) return
@@ -114,6 +160,7 @@ class PlayerViewModel internal constructor(
     fun select(layer: Layer, source: LayerSource) {
         if (cleared) return
         if (source is LayerSource.Embedded && (!source.track.supported || source.track !in embedded)) return
+        if (source is LayerSource.Translated && source !in translationOptions(layer)) return
         manual += layer
         if (source is LayerSource.Embedded) {
             val other = if (layer == Layer.A) Layer.B else Layer.A
@@ -127,12 +174,29 @@ class PlayerViewModel internal constructor(
 
     private fun applySource(layer: Layer, source: LayerSource) {
         layerJobs.remove(layer)?.cancel()
+        remoteTranslations.remove(layer)?.translation?.cancel()
+        embeddedTranslations.remove(layer)
+        lastEmbeddedText.remove(layer)
+        if (layer in _translatedEmbedded.value) _translatedEmbedded.value -= layer
         val generation = (generations[layer] ?: 0) + 1
         generations[layer] = generation
         updateLayer(layer) { it.copy(source = source, track = null,
             note = if (source == LayerSource.None) missingNote(layer) else null) }
         updateSlots()
-        if (source !is LayerSource.Remote) return
+        when (source) {
+            is LayerSource.Remote -> startDownload(layer, source, generation)
+            is LayerSource.Translated -> startTranslation(layer, source, generation)
+            else -> {}
+        }
+        // A layer translating this one starts over with the new source.
+        if (source !is LayerSource.Translated) {
+            val dependent = layer.other()
+            val translated = _layers.value.getValue(dependent).source
+            if (translated is LayerSource.Translated && translated.from == layer) applySource(dependent, translated)
+        }
+    }
+
+    private fun startDownload(layer: Layer, source: LayerSource.Remote, generation: Long) {
         layerJobs[layer] = viewModelScope.launch {
             val result = client?.download(source.sub.fileId) ?: SubsResult.NoKey
             ensureActive()
@@ -146,6 +210,129 @@ class PlayerViewModel internal constructor(
                 track?.cues.isNullOrEmpty() -> "ошибка загрузки"
                 else -> null
             }) }
+        }
+    }
+
+    /** Translation sources the menu may offer for [layer]; empty when unavailable. */
+    fun translationOptions(layer: Layer): List<LayerSource.Translated> {
+        if (translator == null || models == null || cache == null) return emptyList()
+        val from = layer.other()
+        val origin = _layers.value.getValue(from).source
+        val language = when (origin) {
+            is LayerSource.Remote -> origin.sub.language
+            is LayerSource.Embedded -> origin.track.language
+            else -> return emptyList()
+        }
+        // Unknown embedded language: the user picks the direction.
+        if (origin is LayerSource.Embedded && subtitleLanguage(language) == null) {
+            return TranslateLang.entries.map { LayerSource.Translated(from, it) }
+        }
+        val sourceLang = translateLang(language) ?: return emptyList()
+        val target = translateLang(if (layer == Layer.A) initialSubtitlePrefs.languageA else initialSubtitlePrefs.languageB)
+        return if (target == sourceLang.other()) listOf(LayerSource.Translated(from, sourceLang)) else emptyList()
+    }
+
+    private fun startTranslation(layer: Layer, source: LayerSource.Translated, generation: Long) {
+        fun current() = !cleared && generations[layer] == generation
+        fun note(text: String?) {
+            if (current() && _layers.value.getValue(layer).note != text) updateLayer(layer) { it.copy(note = text) }
+        }
+        val models = models
+        val translator = translator
+        val cache = cache
+        if (models == null || translator == null || cache == null || source !in translationOptions(layer)) {
+            note(NO_SOURCE_NOTE)
+            return
+        }
+        val origin = _layers.value.getValue(source.from).source
+        note(when {
+            models.state.value != ModelState.Ready -> downloadNote(models.state.value)
+            origin is LayerSource.Remote -> TRANSLATING_NOTE
+            else -> null
+        })
+        layerJobs[layer] = viewModelScope.launch {
+            if (models.state.value != ModelState.Ready) {
+                coroutineScope {
+                    val watcher = launch {
+                        models.state.collect { if (it is ModelState.Downloading) note(downloadNote(it)) }
+                    }
+                    models.ensureDownloaded()
+                    watcher.cancel()
+                }
+                ensureActive()
+                if (!current()) return@launch
+                when (val state = models.state.value) {
+                    ModelState.Ready -> {}
+                    is ModelState.Failed -> return@launch note(state.reason.message())
+                    else -> return@launch note(ModelFailure.Other.message())
+                }
+            }
+            when (origin) {
+                is LayerSource.Remote -> {
+                    note(TRANSLATING_NOTE)
+                    val ready = _layers.first {
+                        val s = it.getValue(source.from)
+                        s.source != origin || s.note != null || !s.track?.cues.isNullOrEmpty()
+                    }.getValue(source.from)
+                    val track = ready.track
+                    if (ready.source != origin || track == null || track.cues.isEmpty()) {
+                        return@launch note(NO_SOURCE_NOTE)
+                    }
+                    coroutineScope {
+                        val start = lastPositionMs - ready.offsetMs
+                        val translation = TrackTranslation(track,
+                            CacheKey(origin.sub.fileId, source.sourceLang.other(), translator.modelVersion),
+                            source.sourceLang, translator, cache, this, start, translationDispatcher)
+                        remoteTranslations[layer] = RemoteTranslation(translation, start)
+                        // Collected inside the layer job: values of a cancelled translation never get here.
+                        combine(translation.translated, translation.failed) { t, failed -> t to failed }
+                            .collect { (translated, failed) ->
+                                ensureActive()
+                                if (!current()) return@collect
+                                updateLayer(layer) { it.copy(track = translated, note = when {
+                                    failed -> UNAVAILABLE_NOTE
+                                    translated.cues.isEmpty() -> TRANSLATING_NOTE
+                                    else -> null
+                                }) }
+                            }
+                    }
+                }
+                is LayerSource.Embedded -> coroutineScope {
+                    note(null)
+                    val runtime = EmbeddedRuntime(EmbeddedTranslation(translator, source.sourceLang), this, generation)
+                    embeddedTranslations[layer] = runtime
+                    lastEmbeddedText[source.from]?.let { translateCue(layer, runtime, it) }
+                    awaitCancellation()
+                }
+                else -> note(NO_SOURCE_NOTE)
+            }
+        }
+    }
+
+    /** Embedded cue text of [layer] changed; null when no cue is shown. */
+    fun onEmbeddedText(layer: Layer, text: String?) {
+        if (cleared) return
+        val cue = text?.takeIf { it.isNotBlank() }
+        if (cue == null) lastEmbeddedText.remove(layer) else lastEmbeddedText[layer] = cue
+        val target = layer.other()
+        val source = _layers.value.getValue(target).source
+        if (source !is LayerSource.Translated || source.from != layer) return
+        val runtime = embeddedTranslations[target] ?: return
+        if (cue == null) {
+            runtime.translation.invalidate()
+            _translatedEmbedded.value += target to null
+        } else translateCue(target, runtime, cue)
+    }
+
+    private fun translateCue(target: Layer, runtime: EmbeddedRuntime, text: String) {
+        _translatedEmbedded.value += target to null
+        runtime.scope.launch {
+            val out = runtime.translation.translate(text)
+            ensureActive()
+            if (cleared || generations[target] != runtime.generation) return@launch
+            if (out != null) _translatedEmbedded.value += target to out
+            val note = if (runtime.translation.failed) UNAVAILABLE_NOTE else null
+            if (_layers.value.getValue(target).note != note) updateLayer(target) { it.copy(note = note) }
         }
     }
 
@@ -171,8 +358,23 @@ class PlayerViewModel internal constructor(
     }
 
     fun textAt(layer: Layer, positionMs: Long): String? {
+        lastPositionMs = positionMs
         val state = _layers.value.getValue(layer)
-        return if (state.source is LayerSource.Remote) state.track?.textAt(positionMs - state.offsetMs) else null
+        return when (val source = state.source) {
+            is LayerSource.Remote -> state.track?.textAt(positionMs - state.offsetMs)
+            is LayerSource.Translated -> {
+                // Translated downloaded cues follow the source layer's offset.
+                val origin = _layers.value.getValue(source.from)
+                if (origin.source !is LayerSource.Remote) return null
+                val pos = positionMs - origin.offsetMs
+                remoteTranslations[layer]?.let {
+                    if (abs(pos - it.positionMs) > TRANSLATION_SEEK_JUMP_MS) it.translation.seek(pos)
+                    it.positionMs = pos
+                }
+                state.track?.textAt(pos)
+            }
+            else -> null
+        }
     }
 
     private fun SubsResult<*>.note(): String = when (this) {
@@ -244,6 +446,7 @@ class PlayerViewModel internal constructor(
     }
 
     fun onProgress(positionMs: Long, durationMs: Long) {
+        lastPositionMs = positionMs
         val now = clock()
         val last = lastSaveAt
         if (last != null && now - last < SAVE_INTERVAL_MS) return

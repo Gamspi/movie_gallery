@@ -2,6 +2,7 @@ package dev.gamspi.videogallery.subs
 
 import dev.gamspi.videogallery.player.TextTrack
 import dev.gamspi.videogallery.settings.LayerStyle
+import dev.gamspi.videogallery.translate.TranslateLang
 import java.util.Locale
 import java.util.MissingResourceException
 
@@ -16,6 +17,9 @@ sealed interface LayerSource {
     data object Off : LayerSource
     data class Embedded(val track: TextTrack) : LayerSource
     data class Remote(val sub: RemoteSubtitle) : LayerSource
+
+    /** Machine translation of layer [from], whose text is in [sourceLang]. */
+    data class Translated(val from: Layer, val sourceLang: TranslateLang) : LayerSource
     data object None : LayerSource
 }
 
