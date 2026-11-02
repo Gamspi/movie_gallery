@@ -5,6 +5,10 @@ import java.io.ByteArrayOutputStream
 import java.io.Closeable
 import java.io.File
 import java.io.RandomAccessFile
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption.ATOMIC_MOVE
+import java.nio.file.StandardCopyOption.REPLACE_EXISTING
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -224,7 +228,12 @@ class StreamManager(
                 val directory = file.parentFile!!
                 if (!directory.isDirectory && !directory.mkdirs()) return@torrentOrNull null
                 temporary.writeBytes(bytes)
-                if (temporary.renameTo(file)) file else null
+                try {
+                    Files.move(temporary.toPath(), file.toPath(), REPLACE_EXISTING, ATOMIC_MOVE)
+                } catch (_: AtomicMoveNotSupportedException) {
+                    Files.move(temporary.toPath(), file.toPath(), REPLACE_EXISTING)
+                }
+                file
             } finally {
                 torrentOrNull { temporary.delete() }
             }

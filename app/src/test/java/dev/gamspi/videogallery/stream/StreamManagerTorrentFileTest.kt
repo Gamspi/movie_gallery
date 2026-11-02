@@ -325,7 +325,19 @@ class StreamManagerTorrentFileTest {
         } finally { f.close() }
     }
 
-    @Test fun renameFailureUsesMagnetAndRemovesTemporaryFile() = runBlocking<Unit> {
+    @Test fun replacesExistingDestinationWithFetchedBytes() = runBlocking<Unit> {
+        val f = Fixture()
+        try {
+            f.fetch = { f.store("stale metadata".toByteArray()); bytes }
+            f.manager.start(magnet, "Film", url)
+            f.ready()
+            assertEquals(f.stored, f.fake.addedFiles.single())
+            assertArrayEquals(bytes, f.stored.readBytes())
+            assertFalse(f.temporary.exists())
+        } finally { f.close() }
+    }
+
+    @Test fun moveFailureUsesMagnetAndRemovesTemporaryFile() = runBlocking<Unit> {
         val f = Fixture()
         try {
             f.stored.mkdirs()
@@ -334,6 +346,7 @@ class StreamManagerTorrentFileTest {
             f.ready()
             assertNull(f.fake.addedFiles.single())
             assertFalse(f.temporary.exists())
+            assertEquals("occupied", File(f.stored, "obstacle").readText())
         } finally { f.close() }
     }
 

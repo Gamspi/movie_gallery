@@ -1,5 +1,6 @@
 package dev.gamspi.videogallery.stream
 
+import android.util.Log
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
@@ -69,6 +70,8 @@ private class PendingRemoval(val deleteFiles: Boolean) {
     val done = CompletableDeferred<Unit>()
 }
 
+private class NativeAddException(code: Int) : IOException("Torrent add rejected: $code")
+
 /** Движок на libtorrent4j. Сессия стартует лениво при первом [add]. */
 class Libtorrent4jEngine : TorrentEngine {
     private val sm = SessionManager(false)
@@ -78,6 +81,7 @@ class Libtorrent4jEngine : TorrentEngine {
     private val paused = ConcurrentHashMap<String, CompletableDeferred<Unit>>()
     private val storageErrors = ConcurrentHashMap<String, TorrentStorageException>()
     private val uncertainAdds = ConcurrentHashMap.newKeySet<String>()
+    private val addErrors = ConcurrentHashMap<String, CompletableDeferred<Int>>()
     private val pieces = MutableSharedFlow<Pair<String, Int>>(extraBufferCapacity = 1024)
 
     override val pieceFinished: SharedFlow<Pair<String, Int>> = pieces.asSharedFlow()
@@ -97,6 +101,13 @@ class Libtorrent4jEngine : TorrentEngine {
         override fun alert(alert: Alert<*>) {
             when (alert) {
                 is AddTorrentAlert -> {
+                    val error = alert.error()
+                    if (error.isError) {
+                        val params = alert.params()
+                        val hash = (params.torrentInfo?.infoHashes() ?: params.infoHashes).key()
+                        addErrors[hash]?.complete(error.value)
+                        return
+                    }
                     val h = alert.handle()
                     if (h.isValid && keyOf(h) in uncertainAdds) h.pause()
                 }
@@ -162,33 +173,50 @@ class Libtorrent4jEngine : TorrentEngine {
     override suspend fun add(magnet: String, saveDir: File, torrentFile: File?): String = withContext(Dispatchers.IO) {
         ensureStarted()
         val hash = hashOf(magnet)
-        addPrepared(hash, saveDir, paramsFor(magnet, torrentFile))
-    }
-
-    private fun paramsFor(magnet: String, torrentFile: File?): AddTorrentParams {
         val magnetParams = AddTorrentParams.parseMagnetUri(magnet).apply {
             trackers = withFallbackTrackers(trackers.toList())
         }
+        addPrepared(hash, saveDir, paramsFor(magnetParams, torrentFile), magnetParams)
+    }
+
+    private fun logMagnetFallback(reason: String) {
+        Log.i("Libtorrent4jEngine", "source=magnet fallback=$reason")
+    }
+
+    private fun paramsFor(magnetParams: AddTorrentParams, torrentFile: File?): AddTorrentParams {
         if (torrentFile == null) return magnetParams
         return try {
             val ti = TorrentInfo(torrentFile)
             val hashes = ti.infoHashes()
-            if (!hashes.hasV1() || hashes.getV1().toHex().lowercase() != magnetParams.infoHashes.key()) {
+            if (!hashes.hasV1()) {
+                logMagnetFallback("no v1")
+                return magnetParams
+            }
+            if (hashes.getV1().toHex().lowercase() != magnetParams.infoHashes.key()) {
+                logMagnetFallback("hash mismatch")
                 return magnetParams
             }
             AddTorrentParams().apply {
                 setTorrentInfo(ti)
+                // Keep the identity available even if a rejected add drops TorrentInfo.
+                infoHashes = hashes
                 // libtorrent also uses the trackers embedded in TorrentInfo.
                 trackers = mergeTrackers(magnetParams.trackers.toList())
             }
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
+            logMagnetFallback("parse error")
             magnetParams
         }
     }
 
-    private suspend fun addPrepared(hash: String, saveDir: File, params: AddTorrentParams): String {
+    private suspend fun addPrepared(
+        hash: String,
+        saveDir: File,
+        params: AddTorrentParams,
+        magnetParams: AddTorrentParams,
+    ): String {
         check(hash !in uncertainAdds) { "Previous add is unresolved" }
         // A previous session of the same torrent may still be shutting down.
         removing[hash]?.let { pending ->
@@ -199,24 +227,42 @@ class Libtorrent4jEngine : TorrentEngine {
         paused.remove(hash)
         storageErrors.remove(hash)
         metadata.getOrPut(hash) { CompletableDeferred() }
+        try {
+            addAndAwaitHandle(hash, dir, params)
+        } catch (e: NativeAddException) {
+            if (params === magnetParams) throw e
+            logMagnetFallback("native add error")
+            addAndAwaitHandle(hash, dir, magnetParams)
+        }
+        return hash
+    }
+
+    private suspend fun addAndAwaitHandle(hash: String, dir: File, params: AddTorrentParams) {
         params.savePath = dir.absolutePath
         // Metadata is allowed, payload requests wait for storage admission and file selection.
         params.flags = params.flags.and_(TorrentFlags.AUTO_MANAGED.inv())
             .and_(TorrentFlags.PAUSED.inv()).or_(TorrentFlags.UPLOAD_MODE)
-        SessionHandle(sm.swig()).asyncAddTorrent(params)
-        // download() is asynchronous: wait until the handle exists, or remove() could not find it.
-        val sha = Sha1Hash.parseHex(hash)
-        var waited = 0
-        while (sm.find(sha) == null) {
-            if (waited >= ADD_WAIT_MS) {
-                uncertainAdds += hash
-                runCatching { handle(hash).pause() }
-                error("torrent add has not completed: $hash")
+        val rejected = CompletableDeferred<Int>()
+        addErrors[hash] = rejected
+        try {
+            SessionHandle(sm.swig()).asyncAddTorrent(params)
+            // Wait for a handle or a definite rejection before treating the add as unresolved.
+            val sha = Sha1Hash.parseHex(hash)
+            var waited = 0
+            while (true) {
+                if (rejected.isCompleted) throw NativeAddException(rejected.await())
+                if (sm.find(sha) != null) return
+                if (waited >= ADD_WAIT_MS) {
+                    uncertainAdds += hash
+                    runCatching { handle(hash).pause() }
+                    error("torrent add has not completed: $hash")
+                }
+                delay(ADD_POLL_MS)
+                waited += ADD_POLL_MS.toInt()
             }
-            delay(ADD_POLL_MS)
-            waited += ADD_POLL_MS.toInt()
+        } finally {
+            addErrors.remove(hash, rejected)
         }
-        return hash
     }
 
     override fun hashOf(magnet: String): String = AddTorrentParams.parseMagnetUri(magnet).infoHashes.key()
