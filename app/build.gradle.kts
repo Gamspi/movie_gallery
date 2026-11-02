@@ -4,6 +4,12 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.room)
+}
+
+room {
+    // Exported schemas are checked in for migration review
+    schemaDirectory("$projectDir/schemas")
 }
 
 android {
@@ -64,6 +70,9 @@ dependencies {
     implementation(libs.libtorrent4j)
     implementation(libs.libtorrent4j.android.arm)
     implementation(libs.mlkit.translate)
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
     ksp(libs.hilt.compiler)
     debugImplementation(libs.androidx.compose.ui.tooling)
 

@@ -1,0 +1,113 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "40eaa78450fd600a4baa8315df0b78ea",
+    "entities": [
+      {
+        "tableName": "translated_cue",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`fileId` INTEGER NOT NULL, `target` TEXT NOT NULL, `modelVersion` TEXT NOT NULL, `cueIndex` INTEGER NOT NULL, `text` TEXT NOT NULL, PRIMARY KEY(`fileId`, `target`, `modelVersion`, `cueIndex`))",
+        "fields": [
+          {
+            "fieldPath": "fileId",
+            "columnName": "fileId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "target",
+            "columnName": "target",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "modelVersion",
+            "columnName": "modelVersion",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cueIndex",
+            "columnName": "cueIndex",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "text",
+            "columnName": "text",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "fileId",
+            "target",
+            "modelVersion",
+            "cueIndex"
+          ]
+        }
+      },
+      {
+        "tableName": "cache_entry",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`fileId` INTEGER NOT NULL, `target` TEXT NOT NULL, `modelVersion` TEXT NOT NULL, `bytes` INTEGER NOT NULL, `lastUsedMs` INTEGER NOT NULL, PRIMARY KEY(`fileId`, `target`, `modelVersion`))",
+        "fields": [
+          {
+            "fieldPath": "fileId",
+            "columnName": "fileId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "target",
+            "columnName": "target",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "modelVersion",
+            "columnName": "modelVersion",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bytes",
+            "columnName": "bytes",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastUsedMs",
+            "columnName": "lastUsedMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "fileId",
+            "target",
+            "modelVersion"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_cache_entry_lastUsedMs",
+            "unique": false,
+            "columnNames": [
+              "lastUsedMs"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_cache_entry_lastUsedMs` ON `${TABLE_NAME}` (`lastUsedMs`)"
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '40eaa78450fd600a4baa8315df0b78ea')"
+    ]
+  }
+}
