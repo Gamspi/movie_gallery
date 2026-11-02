@@ -15,7 +15,10 @@ class FakeTranslationModels(initial: ModelState = ModelState.Ready) : Translatio
         onEnsure()
     }
 
+    var deleteCalls = 0
+
     override suspend fun delete() {
+        deleteCalls++
         state.value = ModelState.NotDownloaded
     }
 }

@@ -11,7 +11,10 @@ import dev.gamspi.videogallery.translate.*
 import java.io.File
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlin.coroutines.ContinuationInterceptor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.NonCancellable
@@ -54,6 +57,7 @@ class PlayerTranslationViewModelTest {
         models: TranslationModels = FakeTranslationModels(),
         prefs: SubtitlePrefs = SubtitlePrefs(),
         files: Map<Long, ByteArray> = mapOf(7L to hello, 8L to world),
+        dispatcher: CoroutineDispatcher = StandardTestDispatcher(testScheduler),
     ) = PlayerViewModel(
         SavedStateHandle(mapOf("url" to "http://test/movie.mkv")),
         FakePlaybackStore(),
@@ -61,7 +65,7 @@ class PlayerTranslationViewModelTest {
             File("unused"), CoroutineScope(Dispatchers.Unconfined)),
         client = FakeClient(files), prefs = MutableStateFlow(prefs), clock = { 0 },
         models = models, translator = fake, cache = cache,
-        translationDispatcher = StandardTestDispatcher(testScheduler),
+        translationDispatcher = dispatcher,
     )
 
     private fun PlayerViewModel.layer(l: Layer) = layers.value.getValue(l)
@@ -154,6 +158,7 @@ class PlayerTranslationViewModelTest {
             advanceUntilIdle()
             assertEquals(ModelFailure.NoNetwork.message(), vm.layer(Layer.B).note)
             assertNull(vm.textAt(Layer.B, 1_500))
+            assertEquals(ModelFailure.NoNetwork.message(), vm.overlayText(Layer.B, 1_500))
             models.onEnsure = { models.state.value = ModelState.Ready }
             vm.select(Layer.B, LayerSource.Translated(Layer.A, TranslateLang.EN))
             advanceUntilIdle()
@@ -337,6 +342,105 @@ class PlayerTranslationViewModelTest {
             advanceUntilIdle()
             assertNull(vm.translatedEmbedded.value[Layer.B])
             assertEquals("Нет субтитров для перевода", vm.layer(Layer.B).note)
+        } finally { vm.clearViaStore() }
+    }
+
+    @Test fun overlay_shows_translating_only_without_ready_cue_at_position() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        // The first batch (c0..c19) is published; c20 is held.
+        fake.onCall = { if (it == "c20") gate.await() }
+        val vm = vm(files = mapOf(7L to srt(25)))
+        try {
+            vm.remoteA(en)
+            vm.select(Layer.B, LayerSource.Translated(Layer.A, TranslateLang.EN))
+            advanceUntilIdle()
+            assertEquals("[c0]", vm.overlayText(Layer.B, 500))
+            // Between cues there is nothing to translate.
+            assertNull(vm.overlayText(Layer.B, 950))
+            assertEquals("Перевод…", vm.overlayText(Layer.B, 20_500))
+            // The source layer offset decides the current cue.
+            vm.shiftOffset(Layer.A, 500)
+            assertEquals("[c19]", vm.overlayText(Layer.B, 20_200))
+            assertEquals("Перевод…", vm.overlayText(Layer.B, 20_600))
+            gate.complete(Unit)
+            advanceUntilIdle()
+            assertEquals("[c20]", vm.overlayText(Layer.B, 20_600))
+        } finally { vm.clearViaStore() }
+    }
+
+    @Test fun overlay_for_embedded_translation_is_empty_until_translated() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        fake.onCall = { gate.await() }
+        val vm = vm()
+        try {
+            val track = TextTrack(1, 0, "en", null, true)
+            vm.onTextTracks(listOf(track))
+            vm.select(Layer.A, LayerSource.Embedded(track))
+            vm.select(Layer.B, LayerSource.Translated(Layer.A, TranslateLang.EN))
+            advanceUntilIdle()
+            vm.onEmbeddedText(Layer.A, "Hello")
+            runCurrent()
+            assertEquals("Hello", vm.overlayText(Layer.A, 0, "Hello"))
+            assertNull(vm.overlayText(Layer.B, 0))
+            gate.complete(Unit)
+            advanceUntilIdle()
+            assertEquals("[Hello]", vm.overlayText(Layer.B, 0))
+        } finally { vm.clearViaStore() }
+    }
+
+    @Test fun embedded_translation_runs_on_translation_dispatcher() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val seen = mutableListOf<Any?>()
+        fake.onCall = { seen += currentCoroutineContext()[ContinuationInterceptor] }
+        val vm = vm(dispatcher = dispatcher)
+        try {
+            val track = TextTrack(1, 0, "en", null, true)
+            vm.onTextTracks(listOf(track))
+            vm.select(Layer.A, LayerSource.Embedded(track))
+            vm.select(Layer.B, LayerSource.Translated(Layer.A, TranslateLang.EN))
+            advanceUntilIdle()
+            vm.onEmbeddedText(Layer.A, "Hello")
+            advanceUntilIdle()
+            assertEquals("[Hello]", vm.translatedEmbedded.value[Layer.B])
+            assertEquals(listOf<Any?>(dispatcher), seen)
+        } finally { vm.clearViaStore() }
+    }
+
+    @Test fun new_embedded_cue_cancels_previous_translation() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        var cancelled = 0
+        fake.onCall = {
+            if (it == "One") try { gate.await() } catch (e: CancellationException) {
+                cancelled++
+                throw e
+            }
+        }
+        val vm = vm()
+        try {
+            val track = TextTrack(1, 0, "en", null, true)
+            vm.onTextTracks(listOf(track))
+            vm.select(Layer.A, LayerSource.Embedded(track))
+            vm.select(Layer.B, LayerSource.Translated(Layer.A, TranslateLang.EN))
+            advanceUntilIdle()
+            vm.onEmbeddedText(Layer.A, "One")
+            runCurrent()
+            assertEquals(listOf("One"), fake.texts)
+            vm.onEmbeddedText(Layer.A, "Two")
+            runCurrent()
+            assertEquals(1, cancelled)
+            advanceUntilIdle()
+            assertEquals("[Two]", vm.translatedEmbedded.value[Layer.B])
+            // A cleared cue cancels the in-flight call too.
+            fake.onCall = { if (it == "Three") try { gate.await() } catch (e: CancellationException) {
+                cancelled++
+                throw e
+            } }
+            vm.onEmbeddedText(Layer.A, "Three")
+            runCurrent()
+            vm.onEmbeddedText(Layer.A, null)
+            runCurrent()
+            assertEquals(2, cancelled)
+            assertNull(vm.translatedEmbedded.value[Layer.B])
         } finally { vm.clearViaStore() }
     }
 }

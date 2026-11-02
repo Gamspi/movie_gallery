@@ -169,6 +169,16 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.bodySmall,
             )
         }
+        Text("Перевод субтитров", style = MaterialTheme.typography.titleLarge)
+        val modelStatus by viewModel.modelStatus.collectAsState()
+        val modelMessage by viewModel.modelMessage.collectAsState()
+        Text(modelStatus)
+        // Buttons stay enabled so focus is never lost; the view model ignores repeated presses.
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Button(onClick = viewModel::downloadModels) { Text("Скачать модели перевода") }
+            Button(onClick = viewModel::deleteModels) { Text("Удалить модели перевода") }
+        }
+        modelMessage?.let { Text(it) }
         TvTextField(
             value = osKey,
             onValueChange = { osKey = it },

@@ -117,6 +117,7 @@ class PlayerViewModel internal constructor(
     private val remoteTranslations = mutableMapOf<Layer, RemoteTranslation>()
     private val embeddedTranslations = mutableMapOf<Layer, EmbeddedRuntime>()
     private val lastEmbeddedText = mutableMapOf<Layer, String>()
+    private val embeddedJobs = mutableMapOf<Layer, Job>()
     private var lastPositionMs = 0L
     private val _translatedEmbedded = MutableStateFlow<Map<Layer, String?>>(emptyMap())
 
@@ -176,6 +177,7 @@ class PlayerViewModel internal constructor(
         layerJobs.remove(layer)?.cancel()
         remoteTranslations.remove(layer)?.translation?.cancel()
         embeddedTranslations.remove(layer)
+        embeddedJobs.remove(layer)?.cancel()
         lastEmbeddedText.remove(layer)
         if (layer in _translatedEmbedded.value) _translatedEmbedded.value -= layer
         val generation = (generations[layer] ?: 0) + 1
@@ -319,15 +321,18 @@ class PlayerViewModel internal constructor(
         if (source !is LayerSource.Translated || source.from != layer) return
         val runtime = embeddedTranslations[target] ?: return
         if (cue == null) {
+            embeddedJobs.remove(target)?.cancel()
             runtime.translation.invalidate()
             _translatedEmbedded.value += target to null
         } else translateCue(target, runtime, cue)
     }
 
     private fun translateCue(target: Layer, runtime: EmbeddedRuntime, text: String) {
+        // Only the latest cue matters: stop the call for the previous one.
+        embeddedJobs.remove(target)?.cancel()
         _translatedEmbedded.value += target to null
-        runtime.scope.launch {
-            val out = runtime.translation.translate(text)
+        embeddedJobs[target] = runtime.scope.launch {
+            val out = withContext(translationDispatcher) { runtime.translation.translate(text) }
             ensureActive()
             if (cleared || generations[target] != runtime.generation) return@launch
             if (out != null) _translatedEmbedded.value += target to out
@@ -374,6 +379,32 @@ class PlayerViewModel internal constructor(
                 state.track?.textAt(pos)
             }
             else -> null
+        }
+    }
+
+    /**
+     * Text the overlay shows for [layer]: [embeddedText] for an embedded layer,
+     * [translatedText] for a translation of an embedded layer, otherwise the downloaded/translated cue.
+     * A translated layer shows its note (model download, errors), and «Перевод…» only while
+     * the source has a cue at the current moment that is not translated yet.
+     */
+    fun overlayText(
+        layer: Layer,
+        positionMs: Long,
+        embeddedText: String? = null,
+        translatedText: String? = _translatedEmbedded.value[layer],
+    ): String? {
+        val state = _layers.value.getValue(layer)
+        val source = state.source
+        if (source is LayerSource.Embedded) return embeddedText
+        if (source !is LayerSource.Translated) return textAt(layer, positionMs)
+        val origin = _layers.value.getValue(source.from)
+        val note = state.note?.takeIf { it != TRANSLATING_NOTE }
+        return when (origin.source) {
+            is LayerSource.Embedded -> translatedText ?: note
+            is LayerSource.Remote -> textAt(layer, positionMs) ?: note
+                ?: TRANSLATING_NOTE.takeIf { origin.track?.textAt(positionMs - origin.offsetMs) != null }
+            else -> note
         }
     }
 

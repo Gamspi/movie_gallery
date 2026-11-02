@@ -3,10 +3,21 @@ package dev.gamspi.videogallery.settings
 import dev.gamspi.videogallery.torrents.ProviderId
 import dev.gamspi.videogallery.stream.TorrentCacheStore
 import java.nio.file.Files
+import dev.gamspi.videogallery.translate.CacheKey
+import dev.gamspi.videogallery.translate.FakeTranslationModels
+import dev.gamspi.videogallery.translate.InMemoryTranslationDao
+import dev.gamspi.videogallery.translate.ModelFailure
+import dev.gamspi.videogallery.translate.ModelState
+import dev.gamspi.videogallery.translate.TranslateLang
+import dev.gamspi.videogallery.translate.TranslationCache
+import dev.gamspi.videogallery.translate.message
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -41,6 +52,60 @@ class SettingsViewModelTest {
             vm.clearTorrentCache()
             val result = vm.torrentCacheClear.first { !it.busy }
             assertEquals("Не удалось очистить сохранённые торренты. Попробуйте ещё раз.", result.message)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    private fun translationCache() =
+        TranslationCache(InMemoryTranslationDao(), tx = { it() }, dispatcher = Dispatchers.Unconfined)
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun downloadModels_callsEnsureAndStatusFollowsModelState() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val gate = CompletableDeferred<Unit>()
+            val models = FakeTranslationModels(ModelState.NotDownloaded).apply {
+                onEnsure = { gate.await(); state.value = ModelState.Ready }
+            }
+            val vm = SettingsViewModel(SettingsRepository(FakeSecretStore()), null, models, translationCache())
+            runCurrent()
+            assertEquals("Модели не скачаны", vm.modelStatus.value)
+            vm.downloadModels()
+            runCurrent()
+            assertEquals(1, models.ensureCalls)
+            assertEquals("Загрузка…", vm.modelStatus.value)
+            // A second press while downloading does not start another download.
+            vm.downloadModels()
+            runCurrent()
+            assertEquals(1, models.ensureCalls)
+            gate.complete(Unit)
+            advanceUntilIdle()
+            assertEquals("Модели готовы", vm.modelStatus.value)
+            models.state.value = ModelState.Failed(ModelFailure.NoSpace)
+            runCurrent()
+            assertEquals(ModelFailure.NoSpace.message(), vm.modelStatus.value)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun deleteModels_deletesModelsAndClearsCache() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val models = FakeTranslationModels(ModelState.Ready)
+            val cache = translationCache()
+            val key = CacheKey(7, TranslateLang.RU, "v1")
+            cache.put(key, mapOf(0 to "Привет"))
+            val vm = SettingsViewModel(SettingsRepository(FakeSecretStore()), null, models, cache)
+            vm.deleteModels()
+            advanceUntilIdle()
+            assertEquals(1, models.deleteCalls)
+            assertEquals("Модели не скачаны", vm.modelStatus.value)
+            assertEquals(emptyMap<Int, String>(), cache.get(key))
         } finally {
             Dispatchers.resetMain()
         }

@@ -45,7 +45,6 @@ import androidx.media3.common.Player
 import androidx.media3.common.Tracks
 import androidx.media3.common.TrackSelectionOverride
 import dev.gamspi.videogallery.subs.Layer
-import dev.gamspi.videogallery.subs.LayerSource
 import dev.gamspi.videogallery.BuildConfig
 import dev.gamspi.videogallery.stream.StreamStallNotice
 import androidx.media3.datasource.DefaultHttpDataSource
@@ -83,6 +82,7 @@ fun PlayerScreen(onBack: () -> Unit) {
     var stallDismissed by remember { mutableStateOf(false) }
     LaunchedEffect(stallWarning) { stallDismissed = false }
     val layers by vm.layers.collectAsState()
+    val translatedEmbedded by vm.translatedEmbedded.collectAsState()
     val remoteOptions by vm.remoteOptions.collectAsState()
     val subtitlePrefs by vm.subtitlePrefs.collectAsState()
     val embeddedSlots by vm.embeddedSlots.collectAsState()
@@ -319,6 +319,9 @@ fun PlayerScreen(onBack: () -> Unit) {
 
     LaunchedEffect(embeddedSlots.first) { embeddedTextA = null }
     LaunchedEffect(embeddedSlots.second) { embeddedTextB = null }
+    // Embedded cues feed the translation of the other layer.
+    LaunchedEffect(embeddedTextA) { vm.onEmbeddedText(Layer.A, embeddedTextA) }
+    LaunchedEffect(embeddedTextB) { vm.onEmbeddedText(Layer.B, embeddedTextB) }
 
     LaunchedEffect(player) {
         while (true) {
@@ -487,10 +490,13 @@ fun PlayerScreen(onBack: () -> Unit) {
             )
             else -> {
                 SubtitleOverlay(
-                    textA = if (layers[Layer.A]?.source is LayerSource.Embedded) embeddedTextA
-                        else vm.textAt(Layer.A, subtitlePositionMs),
-                    textB = if (layers[Layer.B]?.source is LayerSource.Embedded) embeddedTextB
-                        else vm.textAt(Layer.B, subtitlePositionMs),
+                    // layers and translatedEmbedded are read here so their changes recompose the overlay.
+                    textA = layers.let {
+                        vm.overlayText(Layer.A, subtitlePositionMs, embeddedTextA, translatedEmbedded[Layer.A])
+                    },
+                    textB = layers.let {
+                        vm.overlayText(Layer.B, subtitlePositionMs, embeddedTextB, translatedEmbedded[Layer.B])
+                    },
                     styleA = subtitlePrefs.styleA,
                     styleB = subtitlePrefs.styleB,
                     liftDp = if (overlayVisible || menuOpen) 170.dp else 0.dp,
@@ -521,6 +527,7 @@ fun PlayerScreen(onBack: () -> Unit) {
                         layers = layers,
                         languageA = subtitlePrefs.languageA,
                         languageB = subtitlePrefs.languageB,
+                        translations = remember(layers) { Layer.entries.associateWith(vm::translationOptions) },
                         onSelect = vm::select,
                         onShift = vm::shiftOffset,
                         modifier = Modifier.align(Alignment.CenterEnd),

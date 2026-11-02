@@ -42,6 +42,7 @@ fun layerOptions(
     embedded: List<TextTrack>,
     remote: List<RemoteSubtitle>,
     note: String? = null,
+    translations: List<LayerSource.Translated> = emptyList(),
 ): List<SubtitleMenuOption> = buildList {
     add(SubtitleMenuOption("Выкл", LayerSource.Off))
     embedded.forEachIndexed { ordinal, track ->
@@ -54,10 +55,16 @@ fun layerOptions(
         .distinctBy { it.fileId }.take(5).forEach {
             add(SubtitleMenuOption("OpenSubtitles · ${it.release.ifBlank { it.language }}", LayerSource.Remote(it)))
         }
+    translations.forEach { add(SubtitleMenuOption("Перевод с ${it.sourceLang.tag}", it)) }
     if (size == 1 || note != null) {
         add(SubtitleMenuOption(note ?: "нет субтитров", null, false))
     }
+    if (translations.isEmpty() && note != NO_TRANSLATION_SOURCE) {
+        add(SubtitleMenuOption(NO_TRANSLATION_SOURCE, null, false))
+    }
 }
+
+private const val NO_TRANSLATION_SOURCE = "Нет субтитров для перевода"
 
 fun formatOffset(ms: Long): String {
     if (ms == 0L) return "0 с"
@@ -78,6 +85,7 @@ fun TracksMenu(
     layers: Map<Layer, LayerState>,
     languageA: String,
     languageB: String,
+    translations: Map<Layer, List<LayerSource.Translated>>,
     onSelect: (Layer, LayerSource) -> Unit,
     onShift: (Layer, Long) -> Unit,
     modifier: Modifier = Modifier,
@@ -106,7 +114,8 @@ fun TracksMenu(
             val language = if (layer == Layer.A) languageA else languageB
             val state = layers[layer] ?: LayerState()
             Text("Субтитры ${layer.name} ($language)", color = Color.White)
-            layerOptions(language, embedded, remoteOptions, state.note).forEachIndexed { index, option ->
+            layerOptions(language, embedded, remoteOptions, state.note, translations[layer].orEmpty())
+                .forEachIndexed { index, option ->
                 if (option.source == null) {
                     Text(option.label, color = Color.LightGray)
                     return@forEachIndexed
@@ -125,6 +134,7 @@ fun TracksMenu(
                 Text("Сдвиг встроенной дорожки недоступен", color = Color.LightGray)
             }
         }
+        // Translated layers follow the source offset, so only Remote layers get controls.
         val external = Layer.entries.filter { layers[it]?.source is LayerSource.Remote }
         if (external.isNotEmpty()) Text("Сдвиг", color = Color.White)
         external.forEach { layer ->
