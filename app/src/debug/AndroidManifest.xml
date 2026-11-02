@@ -19,5 +19,9 @@
             android:name=".settings.SettingsProbeActivity"
             android:exported="true"
             android:launchMode="singleTop" />
+        <activity
+            android:name=".translate.TranslateProbeActivity"
+            android:exported="true"
+            android:launchMode="singleTop" />
     </application>
 </manifest>

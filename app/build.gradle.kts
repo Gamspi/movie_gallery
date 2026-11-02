@@ -63,6 +63,7 @@ dependencies {
     implementation(libs.media3.ui)
     implementation(libs.libtorrent4j)
     implementation(libs.libtorrent4j.android.arm)
+    implementation(libs.mlkit.translate)
     ksp(libs.hilt.compiler)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
