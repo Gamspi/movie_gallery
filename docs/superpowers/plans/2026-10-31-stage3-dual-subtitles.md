@@ -38,7 +38,7 @@ Implementation/test/commit checkboxes for tasks 1–4 below are updated from cod
 - Order of sources for each language: tracks inside the file → OpenSubtitles (by file hash, then by imdb id). Translation is stage 4 and is not part of this stage.
 
 ## Calls I made (the user can correct them)
-- Stage 3 currently limits time offsets to external (OpenSubtitles) subtitles. Media3 drives embedded cue timing; embedded tracks are not guaranteed to be correctly synchronized. The narrower scope versus the original spec is tracked as G-07; the UI must make the limitation explicit.
+- Stage 3 currently limits time offsets to external (OpenSubtitles) subtitles. Media3 drives embedded cue timing; embedded tracks are not guaranteed to be correctly synchronized. The narrower scope versus the original spec is tracked as G-07; the UI must make the limitation explicit. Decision 2026-11-02: keep the limitation; revisit only if embedded tracks are found out of sync in practice.
 - Offsets live in two places:
   - **Settings:** the starting offset for each layer.
   - **Player menu «Сдвиг»:** ±0,5 s for this viewing only. It is not saved.

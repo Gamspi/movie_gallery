@@ -163,6 +163,11 @@ fun SettingsScreen(
                 Text(formatOffset(style.offsetMs))
                 Button(onClick = { viewModel.changeOffset(layer, SUB_OFFSET_STEP_MS) }) { Text("+0,5 с") }
             }
+            Text(
+                "Только для скачанных субтитров (OpenSubtitles)",
+                color = Color.Gray,
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
         TvTextField(
             value = osKey,
