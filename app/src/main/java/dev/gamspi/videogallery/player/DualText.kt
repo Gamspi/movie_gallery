@@ -3,11 +3,16 @@ package dev.gamspi.videogallery.player
 import android.content.Context
 import android.os.Looper
 import androidx.media3.common.C
+import androidx.media3.common.Format
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.text.Cue
 import androidx.media3.common.text.CueGroup
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.Renderer
 import androidx.media3.exoplayer.RendererCapabilities
+import androidx.media3.exoplayer.audio.AudioOffloadSupport
+import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.ForwardingAudioSink
 import androidx.media3.exoplayer.text.TextOutput
 import androidx.media3.exoplayer.text.TextRenderer
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
@@ -26,6 +31,23 @@ fun textSlotDefinitions(
     }
 }
 
+/**
+ * TrueHD passthrough stalls on some TVs (AudioTrack underruns, clock stuck at 0).
+ * Rejecting encoded TrueHD makes MediaCodec decline it, so FFmpeg decodes it to PCM.
+ */
+class NoTrueHdPassthroughAudioSink(sink: AudioSink) : ForwardingAudioSink(sink) {
+    override fun supportsFormat(format: Format) =
+        getFormatSupport(format) != AudioSink.SINK_FORMAT_UNSUPPORTED
+
+    override fun getFormatSupport(format: Format) =
+        if (format.isTrueHd()) AudioSink.SINK_FORMAT_UNSUPPORTED else super.getFormatSupport(format)
+
+    override fun getFormatOffloadSupport(format: Format): AudioOffloadSupport =
+        if (format.isTrueHd()) AudioOffloadSupport.DEFAULT_UNSUPPORTED else super.getFormatOffloadSupport(format)
+
+    private fun Format.isTrueHd() = sampleMimeType == MimeTypes.AUDIO_TRUEHD
+}
+
 class DualTextRenderersFactory(
     context: Context,
     private val outA: (List<Cue>) -> Unit,
@@ -35,6 +57,13 @@ class DualTextRenderersFactory(
         setExtensionRendererMode(EXTENSION_RENDERER_MODE_ON)
         setEnableDecoderFallback(true)
     }
+
+    override fun buildAudioSink(
+        context: Context,
+        enableFloatOutput: Boolean,
+        enableAudioTrackPlaybackParams: Boolean,
+    ): AudioSink? = super.buildAudioSink(context, enableFloatOutput, enableAudioTrackPlaybackParams)
+        ?.let(::NoTrueHdPassthroughAudioSink)
 
     override fun buildTextRenderers(
         context: Context,
