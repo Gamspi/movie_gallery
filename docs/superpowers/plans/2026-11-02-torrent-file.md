@@ -10,6 +10,8 @@
 
 **Spec:** `docs/superpowers/specs/2026-11-02-torrent-file-design.md`
 
+**Статус:** задачи 1–6 выполнены 2026-11-02 (`36adfca`..`feb2598` + документы); реализация задач 2–5 и финальных правок — Codex CLI, ревью, тесты и коммиты — Claude. Приёмка на ТВ: [протокол](../../verification/2026-11-02-torrent-file.md); сценарий `stored` и трекеры файла на ТВ не проверены. Чекбоксы шагов ниже по отдельности не отмечались.
+
 ## Global Constraints
 
 - Сборка и тесты только через Docker: `./scripts/gradle-docker.ps1 ./gradlew testDebugUnitTest assembleDebug`; проверять XML в `app/build/test-results/testDebugUnitTest/`.
