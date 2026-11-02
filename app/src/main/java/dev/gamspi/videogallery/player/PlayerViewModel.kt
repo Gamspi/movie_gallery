@@ -26,7 +26,6 @@ import dev.gamspi.videogallery.translate.TranslationModels
 import dev.gamspi.videogallery.translate.message
 import dev.gamspi.videogallery.translate.other
 import dev.gamspi.videogallery.translate.translateLang
-import kotlin.math.abs
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -51,8 +50,11 @@ data class PlayerUiState(
 
 private const val SAVE_INTERVAL_MS = 10_000L
 
-/** Position jump between subtitle frames that reorders the background translation. */
+/** Forward position jump between subtitle frames that reorders the background translation. */
 private const val TRANSLATION_SEEK_JUMP_MS = 5_000L
+
+/** Any backward jump beyond playback jitter reorders it: earlier cues sit at the queue tail. */
+private const val TRANSLATION_SEEK_BACK_MS = 1_000L
 private const val NO_SOURCE_NOTE = "Нет субтитров для перевода"
 private const val TRANSLATING_NOTE = "Перевод…"
 private const val UNAVAILABLE_NOTE = "Перевод недоступен"
@@ -373,7 +375,8 @@ class PlayerViewModel internal constructor(
                 if (origin.source !is LayerSource.Remote) return null
                 val pos = positionMs - origin.offsetMs
                 remoteTranslations[layer]?.let {
-                    if (abs(pos - it.positionMs) > TRANSLATION_SEEK_JUMP_MS) it.translation.seek(pos)
+                    val delta = pos - it.positionMs
+                    if (delta > TRANSLATION_SEEK_JUMP_MS || delta < -TRANSLATION_SEEK_BACK_MS) it.translation.seek(pos)
                     it.positionMs = pos
                 }
                 state.track?.textAt(pos)

@@ -70,6 +70,37 @@ class TrackTranslationTest {
     }
 
     @Test
+    fun seekMidBatchDropsRestAndPublishesEachCue() = runTest {
+        lateinit var t: TrackTranslation
+        var shownBeforeNext: List<String>? = null
+        fake.onCall = {
+            if (it == "c5") t.seek(50_000)
+            // c50 must be visible before the rest of its batch is translated.
+            if (it == "c51") shownBeforeNext = texts(t)
+        }
+        t = start(track(100))
+        advanceUntilIdle()
+        assertEquals(((0..5) + (50 until 100) + (6 until 50)).map { "c$it" }, fake.texts)
+        assertEquals(((0..5) + 50).map { "[c$it]" }, shownBeforeNext)
+        assertEquals(100, fake.calls.size)
+        assertEquals(100, t.translated.value.cues.size)
+    }
+
+    @Test
+    fun eachCueIsPublishedBeforeBatchEnds() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        fake.onCall = { if (it == "c3") gate.await() }
+        val t = start(track(30))
+        runCurrent()
+        assertEquals(listOf("[c0]", "[c1]", "[c2]"), texts(t))
+        // No cache write until the batch ends.
+        assertTrue(cache.get(key).isEmpty())
+        gate.complete(Unit)
+        advanceUntilIdle()
+        assertEquals(30, cache.get(key).size)
+    }
+
+    @Test
     fun cachedCuesAreShownImmediatelyAndNotTranslated() = runTest {
         val cached = mapOf(0 to "к0", 1 to "к1", 25 to "к25")
         cache.put(key, cached)

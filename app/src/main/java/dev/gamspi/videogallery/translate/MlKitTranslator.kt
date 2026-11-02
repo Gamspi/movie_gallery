@@ -25,7 +25,8 @@ internal suspend fun <T> Task<T>.awaitTask(): T = suspendCancellableCoroutine { 
 class MlKitTranslator : SubtitleTranslator {
     private val translators = HashMap<Pair<TranslateLang, TranslateLang>, Translator>()
 
-    override val modelVersion: String = "mlkit-translate-17.0.3"
+    // fmt: cue indexing (SubtitleParser + SubtitleTrack sort); bump when it changes.
+    override val modelVersion: String = "mlkit-translate-17.0.3;fmt1"
 
     override suspend fun translate(text: String, from: TranslateLang, to: TranslateLang): String =
         translatorFor(from, to).translate(text).awaitTask()

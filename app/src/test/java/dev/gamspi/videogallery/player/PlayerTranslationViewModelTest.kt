@@ -285,7 +285,8 @@ class PlayerTranslationViewModelTest {
             vm.textAt(Layer.B, 10_000)
             gate.complete(Unit)
             advanceUntilIdle()
-            assertEquals(((60 until 80) + (10 until 60)).map { "c$it" }, fake.texts.take(70))
+            // The seek drops the rest of the first batch right after c60.
+            assertEquals((listOf(60) + (10 until 60) + (61 until 100) + (0 until 10)).map { "c$it" }, fake.texts)
             assertEquals(100, fake.calls.size)
         } finally { vm.clearViaStore() }
     }
@@ -301,6 +302,41 @@ class PlayerTranslationViewModelTest {
             vm.select(Layer.B, LayerSource.Translated(Layer.A, TranslateLang.EN))
             runCurrent()
             vm.textAt(Layer.B, 64_000)
+            gate.complete(Unit)
+            advanceUntilIdle()
+            assertEquals(((60 until 100) + (0 until 60)).map { "c$it" }, fake.texts)
+        } finally { vm.clearViaStore() }
+    }
+
+    @Test fun small_backward_jump_seeks() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        fake.onCall = { if (it == "c60") gate.await() }
+        val vm = vm(files = mapOf(7L to srt(100)))
+        try {
+            vm.remoteA(en)
+            runCurrent()
+            vm.textAt(Layer.A, 60_000)
+            vm.select(Layer.B, LayerSource.Translated(Layer.A, TranslateLang.EN))
+            runCurrent()
+            vm.textAt(Layer.B, 58_000)
+            gate.complete(Unit)
+            advanceUntilIdle()
+            assertEquals((listOf(60, 58, 59) + (61 until 100) + (0 until 58)).map { "c$it" }, fake.texts)
+        } finally { vm.clearViaStore() }
+    }
+
+    @Test fun backward_jitter_does_not_reorder() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        fake.onCall = { if (it == "c60") gate.await() }
+        val vm = vm(files = mapOf(7L to srt(100)))
+        try {
+            vm.remoteA(en)
+            runCurrent()
+            vm.textAt(Layer.A, 60_000)
+            vm.select(Layer.B, LayerSource.Translated(Layer.A, TranslateLang.EN))
+            runCurrent()
+            // A seek to 59.5 s would start with c59, which is still on screen there.
+            vm.textAt(Layer.B, 59_500)
             gate.complete(Unit)
             advanceUntilIdle()
             assertEquals(((60 until 100) + (0 until 60)).map { "c$it" }, fake.texts)

@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicInteger
 
 const val TRANSLATION_BATCH = 20
 
@@ -17,7 +18,9 @@ const val TRANSLATION_MAX_FAILURES = 5
 
 /**
  * Translates a whole track in the background, starting from the playback position.
- * Batch order is rebuilt from the latest [seek] position; done or failed cues are never resent.
+ * Each translated cue is published at once; the cache is written once per batch.
+ * A [seek] drops the rest of the current batch and rebuilds the order from the new position;
+ * done or failed cues are never resent.
  */
 class TrackTranslation(
     track: SubtitleTrack,
@@ -41,10 +44,14 @@ class TrackTranslation(
     @Volatile
     private var positionMs: Long = startPositionMs
 
+    // Bumped by seek; the worker drops the current batch when it changes.
+    private val seeks = AtomicInteger(0)
+
     private val job = scope.launch(dispatcher) { run() }
 
     fun seek(positionMs: Long) {
         this.positionMs = positionMs
+        seeks.incrementAndGet()
     }
 
     fun cancel() {
@@ -60,9 +67,11 @@ class TrackTranslation(
 
         var failures = 0
         while (pending.isNotEmpty()) {
+            val seen = seeks.get()
             val batch = nextBatch(pending)
             var added = false
             for (i in batch) {
+                if (seeks.get() != seen) break
                 pending.remove(i)
                 val result = try {
                     translateCue(cues[i].text)
@@ -81,6 +90,7 @@ class TrackTranslation(
                     failures = 0
                     done[i] = result
                     added = true
+                    publish(done)
                 }
             }
             if (added) save(done)
@@ -88,7 +98,6 @@ class TrackTranslation(
     }
 
     private suspend fun save(done: Map<Int, String>) {
-        publish(done)
         // put replaces all cues of the key, so pass the full map.
         cache.put(key, HashMap(done))
     }
