@@ -71,14 +71,14 @@ fun AppNavHost() {
                     nav.navigateOnce(
                         entry,
                         "stream?magnet=${Uri.encode(r.magnet)}&title=${Uri.encode(r.title)}" +
-                            "&imdb=${Uri.encode(imdb.orEmpty())}",
+                            "&imdb=${Uri.encode(imdb.orEmpty())}&torrent=${Uri.encode(r.torrentUrl.orEmpty())}",
                     )
                 },
             )
         }
         composable(
             STREAM_ROUTE,
-            arguments = listOf("magnet", "title", "imdb").map {
+            arguments = listOf("magnet", "title", "imdb", "torrent").map {
                 navArgument(it) { type = NavType.StringType; defaultValue = "" }
             },
         ) { entry ->
@@ -106,4 +106,4 @@ private fun NavController.navigateOnce(
     if (from.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) navigate(route, builder)
 }
 
-private const val STREAM_ROUTE = "stream?magnet={magnet}&title={title}&imdb={imdb}"
+private const val STREAM_ROUTE = "stream?magnet={magnet}&title={title}&imdb={imdb}&torrent={torrent}"

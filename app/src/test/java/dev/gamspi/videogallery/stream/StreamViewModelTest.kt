@@ -2,7 +2,11 @@ package dev.gamspi.videogallery.stream
 
 import androidx.lifecycle.SavedStateHandle
 import java.io.File
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -48,6 +52,50 @@ class StreamViewModelTest {
         assertEquals(listOf("magnet:abc"), engine.added)
         assertTrue(sm.state.value is StreamState.Buffering)
         sm.stop()
+    }
+
+    @Test
+    fun passesTorrentUrl() = runBlocking {
+        assertTorrentUrl("https://x/t", listOf("https://x/t"))
+    }
+
+    @Test
+    fun emptyTorrentUrlUsesNull() = runBlocking {
+        assertTorrentUrl("", emptyList())
+    }
+
+    @Test
+    fun blankTorrentUrlUsesNull() = runBlocking {
+        assertTorrentUrl(" \t\n", emptyList())
+    }
+
+    @Test
+    fun missingTorrentUrlUsesNull() = runBlocking {
+        assertTorrentUrl(null, emptyList())
+    }
+
+    private suspend fun assertTorrentUrl(torrent: String?, expectedUrls: List<String>) = coroutineScope {
+        val fetched = CopyOnWriteArrayList<String>()
+        val knownHashEngine = object : TorrentEngine by engine {
+            override fun hashOf(magnet: String): String = magnet.removePrefix("magnet:")
+        }
+        val sm = StreamManager(
+            knownHashEngine, StreamServer(this), dir, this,
+            torrentFiles = TorrentFileSource { fetched += it; null },
+        )
+        val savedState = SavedStateHandle(mapOf("magnet" to "magnet:abc", "title" to "Film"))
+        if (torrent != null) savedState["torrent"] = torrent
+        try {
+            StreamViewModel(savedState, sm)
+            val state = withTimeout(5_000) {
+                sm.state.first { it is StreamState.Buffering || it is StreamState.Failed }
+            }
+            assertTrue("Expected Buffering, was $state", state is StreamState.Buffering)
+            assertEquals(expectedUrls, fetched.toList())
+            assertEquals(listOf("magnet:abc"), engine.added)
+        } finally {
+            sm.stop()
+        }
     }
 
     @Test

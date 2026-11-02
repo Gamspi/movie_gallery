@@ -22,6 +22,7 @@ class StreamViewModel @Inject constructor(
         manager.start(
             savedState.get<String>("magnet").orEmpty(),
             savedState.get<String>("title").orEmpty(),
+            savedState.get<String>("torrent")?.takeIf { it.isNotBlank() },
         )
         sessionId = manager.currentSessionId()
     }

@@ -12,6 +12,7 @@ import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import okhttp3.OkHttpClient
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -27,6 +28,11 @@ object StreamModule {
 
     @Provides
     @Singleton
+    fun provideTorrentFileSource(): TorrentFileSource =
+        TorrentFileFetcher(OkHttpClient.Builder().build())
+
+    @Provides
+    @Singleton
     fun provideStreamServer(): StreamServer =
         StreamServer(CoroutineScope(SupervisorJob() + Dispatchers.IO))
 
@@ -38,6 +44,7 @@ object StreamModule {
         @ApplicationContext context: Context,
         cache: TorrentCacheStore,
         settings: SettingsRepository,
+        torrentFiles: TorrentFileSource,
     ): StreamManager = StreamManager(
         engine,
         server,
@@ -45,5 +52,7 @@ object StreamModule {
         CoroutineScope(SupervisorJob() + Dispatchers.IO),
         cache = cache,
         storagePrefs = { settings.torrentStoragePrefs.value },
+        torrentFiles = torrentFiles,
+        log = { android.util.Log.i("StreamManager", it) },
     )
 }
