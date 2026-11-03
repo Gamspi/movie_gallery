@@ -11,9 +11,21 @@ import androidx.compose.material3.darkColorScheme as m3DarkColorScheme
 
 @Composable
 fun VideoGalleryTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = darkColorScheme()) {
+    MaterialTheme(
+        colorScheme = darkColorScheme(
+            primary = AppColors.Accent,
+            onPrimary = AppColors.OnAccent,
+            border = AppColors.Accent,
+            surfaceTint = AppColors.Accent,
+        ),
+    ) {
         // Dark M3 scheme for compose-material3 widgets (OutlinedTextField).
-        M3MaterialTheme(colorScheme = m3DarkColorScheme()) {
+        M3MaterialTheme(
+            colorScheme = m3DarkColorScheme(
+                primary = AppColors.Accent,
+                onPrimary = AppColors.OnAccent,
+            ),
+        ) {
             // tv-material LocalContentColor defaults to black; Surface provides onSurface
             // (light) as content color for every Text outside Card/Button.
             Surface(modifier = Modifier.fillMaxSize()) {
