@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,31 +14,33 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.tv.material3.Button
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import dev.gamspi.videogallery.ui.components.ErrorView
 import dev.gamspi.videogallery.ui.components.FullScreenLoader
+import dev.gamspi.videogallery.ui.components.IconPillButton
 import dev.gamspi.videogallery.ui.components.MovieCard
 import dev.gamspi.videogallery.ui.components.ShimmerHost
 import dev.gamspi.videogallery.ui.components.SkeletonBar
 import dev.gamspi.videogallery.ui.components.SkeletonRow
+import dev.gamspi.videogallery.ui.icons.AppIcons
 
 @Composable
 fun GalleryScreen(
@@ -74,6 +77,35 @@ private fun GallerySkeleton() {
     }
 }
 
+/**
+ * Last focused card, kept outside the snapshot system: focus moves write it on every D-pad
+ * press, and a snapshot read in card composition would recompose every visible card.
+ */
+private class GalleryFocusMemory(
+    var row: Int = -1,
+    var movieId: Int = -1,
+    var initialFocusDone: Boolean = false,
+) {
+    // Per appearance (not saved): header DPAD_DOWN target.
+    var lastFocused: FocusRequester? = null
+    var firstCardAttached = false
+
+    companion object {
+        val Saver = listSaver<GalleryFocusMemory, Int>(
+            save = { listOf(it.row, it.movieId, if (it.initialFocusDone) 1 else 0) },
+            restore = { GalleryFocusMemory(it[0], it[1], it[2] == 1) },
+        )
+    }
+}
+
+/** Card to focus once per appearance, captured when the content enters composition. */
+private class RestoreTarget(private val row: Int, private val movieId: Int, private val firstCard: Boolean) {
+    var handled = false
+
+    fun matches(rowIndex: Int, index: Int, id: Int): Boolean =
+        if (movieId != -1) rowIndex == row && id == movieId else firstCard && rowIndex == 0 && index == 0
+}
+
 @Composable
 private fun GalleryContent(
     content: GalleryUiState.Content,
@@ -81,25 +113,43 @@ private fun GalleryContent(
     onOpenSearch: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
-    // Survive navigation (saved with the back stack entry): last focused card and one-time initial focus.
-    var focusedRow by rememberSaveable { mutableIntStateOf(-1) }
-    var focusedMovieId by rememberSaveable { mutableIntStateOf(-1) }
-    var initialFocusDone by rememberSaveable { mutableStateOf(false) }
-    // Per composition: was the focus request for this appearance already issued.
-    var restoreHandled by remember { mutableStateOf(false) }
+    // Survives navigation (saved with the back stack entry).
+    val memory = rememberSaveable(saver = GalleryFocusMemory.Saver) { GalleryFocusMemory() }
+    val restore = remember { RestoreTarget(memory.row, memory.movieId, !memory.initialFocusDone) }
+    val firstCard = remember { FocusRequester() }
+    val openMovie by rememberUpdatedState(onOpenMovie)
     val listState = rememberLazyListState()
+    // Down from the header: previously focused card, else the first card, else default search.
+    val headerFocus = remember {
+        Modifier.focusProperties {
+            down = memory.lastFocused ?: if (memory.firstCardAttached) firstCard else FocusRequester.Default
+        }
+    }
 
     ShimmerHost {
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 48.dp, vertical = 24.dp),
+        contentPadding = PaddingValues(vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Button(onClick = onOpenSearch) { Text("Поиск") }
-                Button(onClick = onOpenSettings) { Text("Настройки") }
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 48.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "VideoGallery",
+                    style = MaterialTheme.typography.headlineSmall,
+                    modifier = Modifier.weight(1f),
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.End),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconPillButton(AppIcons.Search, "Поиск", onOpenSearch, headerFocus)
+                    IconPillButton(AppIcons.Settings, "Настройки", onOpenSettings, headerFocus)
+                }
             }
         }
         itemsIndexed(content.rows, key = { index, _ -> "row-$index" }) { rowIndex, row ->
@@ -109,38 +159,46 @@ private fun GalleryContent(
                 Text(
                     row.title,
                     style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.padding(bottom = 8.dp),
+                    modifier = Modifier.padding(horizontal = 48.dp),
                 )
-                LazyRow(state = rowState, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                LazyRow(
+                    state = rowState,
+                    contentPadding = PaddingValues(horizontal = 48.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
                     itemsIndexed(row.movies, key = { _, m -> m.id }) { index, movie ->
-                        val saved = focusedMovieId != -1
-                        val isTarget = if (saved) {
-                            rowIndex == focusedRow && movie.id == focusedMovieId
-                        } else {
-                            !initialFocusDone && rowIndex == 0 && index == 0
-                        }
-                        val requester = remember { FocusRequester() }
-                        if (isTarget && !restoreHandled) {
+                        val isFirst = rowIndex == 0 && index == 0
+                        val ownRequester = remember { FocusRequester() }
+                        val requester = if (isFirst) firstCard else ownRequester
+                        if (!restore.handled && restore.matches(rowIndex, index, movie.id)) {
                             // The card is composed and attached by the time this runs (after first frame).
                             LaunchedEffect(Unit) {
                                 withFrameNanos { }
-                                restoreHandled = true
-                                initialFocusDone = true
+                                restore.handled = true
+                                memory.initialFocusDone = true
                                 requester.requestFocus()
                             }
                         }
-                        MovieCard(
-                            movie = movie,
-                            onClick = { onOpenMovie(movie.id) },
-                            modifier = Modifier
+                        DisposableEffect(requester, isFirst) {
+                            if (isFirst) memory.firstCardAttached = true
+                            onDispose {
+                                if (isFirst) memory.firstCardAttached = false
+                                if (memory.lastFocused === requester) memory.lastFocused = null
+                            }
+                        }
+                        val cardModifier = remember(requester, rowIndex, movie.id) {
+                            Modifier
                                 .focusRequester(requester)
                                 .onFocusChanged {
                                     if (it.hasFocus) {
-                                        focusedRow = rowIndex
-                                        focusedMovieId = movie.id
+                                        memory.row = rowIndex
+                                        memory.movieId = movie.id
+                                        memory.lastFocused = requester
                                     }
-                                },
-                        )
+                                }
+                        }
+                        val onClick = remember(movie.id) { { openMovie(movie.id) } }
+                        MovieCard(movie = movie, onClick = onClick, modifier = cardModifier)
                     }
                 }
             }
