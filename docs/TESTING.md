@@ -28,6 +28,8 @@ Unit-тесты и debug-only Activity используют debug. Ручные 
 ```powershell
 ./scripts/gradle-docker.ps1 ./gradlew assembleRelease
 adb -s <device> install -r app/build/outputs/apk/release/app-release.apk
+# compile the bundled profile now instead of waiting for idle dexopt
+adb -s <device> shell cmd package compile -m speed-profile -f dev.gamspi.videogallery
 ```
 
 Release минифицируется R8 (`app/proguard-rules.pro`), включает профиль `profileinstaller` и подписан тем же debug-ключом из Docker-тома `videogallery-android-home`, поэтому ставится поверх debug без удаления данных. Debug-only probe-Activity (`app/src/debug`) в release отсутствуют. После установки проверьте `adb -s <device> logcat -d -b crash`: падение из-за R8 обычно выглядит как `ClassNotFoundException`, `NoSuchMethodError` или ошибка JNI.
