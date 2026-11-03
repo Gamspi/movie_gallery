@@ -67,6 +67,7 @@ private fun remoteKeyOf(keyCode: Int): RemoteKey? = when (keyCode) {
     KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> RemoteKey.PlayPause
     KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_MEDIA_REWIND -> RemoteKey.Left
     KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> RemoteKey.Right
+    KeyEvent.KEYCODE_DPAD_UP -> RemoteKey.Up
     KeyEvent.KEYCODE_DPAD_DOWN -> RemoteKey.Down
     KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_ESCAPE -> RemoteKey.Back
     else -> null
@@ -361,18 +362,26 @@ fun PlayerScreen(onBack: () -> Unit) {
                 player.play()
             }
             is PlayerCommand.SeekTo -> seekTo(cmd.ms)
-            PlayerCommand.OpenAudioMenu -> menuOpen = true
+            // Buttons are not wired yet: Down opens the audio menu as before.
+            PlayerCommand.FocusButtons -> menuOpen = true
             PlayerCommand.CloseMenu -> menuOpen = false
             PlayerCommand.Exit -> exit()
+            PlayerCommand.PassToFocus,
+            PlayerCommand.ReleaseButtons,
+            PlayerCommand.OpenMenuSection,
+            PlayerCommand.BackToSections,
+            -> Unit
         }
     }
+
+    fun currentFocus() = if (menuOpen) PlayerFocus.MenuSections else PlayerFocus.None
 
     fun onBackKey() {
         when {
             recoveryAudioOpen -> recoveryAudioOpen = false
             playbackError != null || state.resumeOffer != null -> exit()
             showStallNotice -> stallDismissed = true
-            else -> execute(handleKey(RemoteKey.Back, player.currentPosition, durationOrZero(), menuOpen))
+            else -> execute(handleKey(RemoteKey.Back, player.currentPosition, durationOrZero(), currentFocus()))
         }
     }
 
@@ -414,13 +423,15 @@ fun PlayerScreen(onBack: () -> Unit) {
                     return@onPreviewKeyEvent false
                 }
                 if (key == null) return@onPreviewKeyEvent false
+                val cmd = handleKey(key, player.currentPosition, durationOrZero(), currentFocus())
+                if (cmd == PlayerCommand.PassToFocus) return@onPreviewKeyEvent false
                 overlayVisible = true
                 overlayTick++
                 if (!isDown) return@onPreviewKeyEvent true
                 val repeats = ev.nativeKeyEvent.repeatCount > 0
                 val seeks = key == RemoteKey.Left || key == RemoteKey.Right
                 if (repeats && !seeks) return@onPreviewKeyEvent true
-                execute(handleKey(key, player.currentPosition, durationOrZero(), menuOpen))
+                execute(cmd)
                 true
             },
     ) {
