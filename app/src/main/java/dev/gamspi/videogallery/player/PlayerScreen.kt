@@ -132,7 +132,13 @@ fun PlayerScreen(onBack: () -> Unit) {
     var lastAudio by remember(player) { mutableStateOf(emptyList<AudioTrack>()) }
     var lastSelectedAudio by remember(player) { mutableStateOf<Pair<Int, Int>?>(null) }
     var failedAudioSelection by remember(player) { mutableStateOf<Pair<Int, Int>?>(null) }
-    var menuOpen by remember { mutableStateOf(false) }
+    var playerFocus by remember { mutableStateOf(PlayerFocus.None) }
+    var menuSection by remember { mutableStateOf<PlayerMenuSection?>(null) }
+    val menuOpen = playerFocus == PlayerFocus.MenuSections || playerFocus == PlayerFocus.MenuSection
+    // Focus requests wait for the composition that makes their target focusable.
+    var pendingFocus by remember { mutableStateOf<FocusRequester?>(null) }
+    val playButtonFocus = remember { FocusRequester() }
+    val settingsButtonFocus = remember { FocusRequester() }
     var recoveryAudioOpen by remember { mutableStateOf(false) }
     var overlayVisible by remember { mutableStateOf(true) }
     var overlayTick by remember { mutableLongStateOf(0L) }
@@ -152,14 +158,29 @@ fun PlayerScreen(onBack: () -> Unit) {
             vm.onPauseOrExit(player.currentPosition, durationOrZero())
             player.pause()
             player.stop()
-            menuOpen = false
             recoveryAudioOpen = false
         }
     }
 
     LaunchedEffect(playbackError) {
-        if (playbackError != null) player.pause()
+        if (playbackError != null) {
+            player.pause()
+            playerFocus = PlayerFocus.None
+            menuSection = null
+        }
         recoveryAudioOpen = false
+    }
+
+    // The stall notice takes focus from the buttons; the menu hides the notice instead.
+    LaunchedEffect(showStallNotice) {
+        if (showStallNotice && playerFocus == PlayerFocus.Buttons) playerFocus = PlayerFocus.None
+    }
+
+    LaunchedEffect(pendingFocus) {
+        pendingFocus?.let {
+            it.requestFocus()
+            pendingFocus = null
+        }
     }
 
     fun exit() {
@@ -332,8 +353,9 @@ fun PlayerScreen(onBack: () -> Unit) {
         }
     }
 
-    LaunchedEffect(overlayTick, playWhenReady) {
-        if (playWhenReady) {
+    // The panel stays while buttons or the menu hold focus.
+    LaunchedEffect(overlayTick, playWhenReady, playerFocus) {
+        if (playWhenReady && playerFocus == PlayerFocus.None) {
             delay(OVERLAY_HIDE_MS)
             overlayVisible = false
         } else {
@@ -346,9 +368,9 @@ fun PlayerScreen(onBack: () -> Unit) {
         onDispose { view.keepScreenOn = false }
     }
 
-    // Return focus to the root when no dialog/menu owns it.
-    LaunchedEffect(menuOpen, showStallNotice, state.resumeOffer, playbackError) {
-        if (!menuOpen && !showStallNotice && state.resumeOffer == null && playbackError == null) {
+    // Return focus to the root when no dialog, button or menu owns it.
+    LaunchedEffect(playerFocus, showStallNotice, state.resumeOffer, playbackError) {
+        if (playerFocus == PlayerFocus.None && !showStallNotice && state.resumeOffer == null && playbackError == null) {
             rootFocus.requestFocus()
         }
     }
@@ -362,19 +384,32 @@ fun PlayerScreen(onBack: () -> Unit) {
                 player.play()
             }
             is PlayerCommand.SeekTo -> seekTo(cmd.ms)
-            // Buttons are not wired yet: Down opens the audio menu as before.
-            PlayerCommand.FocusButtons -> menuOpen = true
-            PlayerCommand.CloseMenu -> menuOpen = false
+            PlayerCommand.FocusButtons -> {
+                overlayVisible = true
+                playerFocus = PlayerFocus.Buttons
+                pendingFocus = playButtonFocus
+            }
+            PlayerCommand.ReleaseButtons -> {
+                playerFocus = PlayerFocus.None
+                rootFocus.requestFocus()
+            }
+            // Section is chosen by the menu item itself (onOpenSection).
+            PlayerCommand.OpenMenuSection -> playerFocus = PlayerFocus.MenuSection
+            PlayerCommand.BackToSections -> {
+                menuSection = null
+                playerFocus = PlayerFocus.MenuSections
+            }
+            PlayerCommand.CloseMenu -> {
+                menuSection = null
+                playerFocus = PlayerFocus.Buttons
+                pendingFocus = settingsButtonFocus
+            }
             PlayerCommand.Exit -> exit()
-            PlayerCommand.PassToFocus,
-            PlayerCommand.ReleaseButtons,
-            PlayerCommand.OpenMenuSection,
-            PlayerCommand.BackToSections,
-            -> Unit
+            PlayerCommand.PassToFocus -> Unit
         }
     }
 
-    fun currentFocus() = if (menuOpen) PlayerFocus.MenuSections else PlayerFocus.None
+    fun currentFocus() = playerFocus
 
     fun onBackKey() {
         when {
@@ -418,8 +453,8 @@ fun PlayerScreen(onBack: () -> Unit) {
                     if (isDown && ev.nativeKeyEvent.repeatCount == 0) onBackKey()
                     return@onPreviewKeyEvent true
                 }
-                // Focused panels and dialogs own every key except Back.
-                if (menuOpen || showStallNotice || state.resumeOffer != null || playbackError != null) {
+                // Dialogs own every key except Back; buttons and menu get theirs via PassToFocus.
+                if (showStallNotice || state.resumeOffer != null || playbackError != null) {
                     return@onPreviewKeyEvent false
                 }
                 if (key == null) return@onPreviewKeyEvent false
@@ -511,7 +546,7 @@ fun PlayerScreen(onBack: () -> Unit) {
                     },
                     styleA = subtitlePrefs.styleA,
                     styleB = subtitlePrefs.styleB,
-                    liftDp = if (overlayVisible || menuOpen) 170.dp else 0.dp,
+                    liftDp = if (overlayVisible || playerFocus != PlayerFocus.None) 200.dp else 0.dp,
                     modifier = Modifier.align(Alignment.BottomCenter),
                 )
                 if (buffering) {
@@ -520,13 +555,21 @@ fun PlayerScreen(onBack: () -> Unit) {
                         modifier = Modifier.align(Alignment.TopEnd).padding(32.dp),
                     )
                 }
-                if (overlayVisible || menuOpen) {
+                if (overlayVisible || playerFocus != PlayerFocus.None) {
                     PlayerOverlay(
                         title = state.title,
                         positionMs = positionMs,
                         durationMs = durationMs,
                         playWhenReady = playWhenReady,
                         buffering = buffering,
+                        buttonsFocused = playerFocus == PlayerFocus.Buttons,
+                        onTogglePlay = { execute(PlayerCommand.TogglePlay) },
+                        onOpenMenu = {
+                            menuSection = null
+                            playerFocus = PlayerFocus.MenuSections
+                        },
+                        playButtonFocus = playButtonFocus,
+                        settingsButtonFocus = settingsButtonFocus,
                         statusLine = statusLine,
                         modifier = Modifier.align(Alignment.BottomCenter),
                     )
@@ -538,7 +581,7 @@ fun PlayerScreen(onBack: () -> Unit) {
                         onAudioSelect = {
                             selectAudio(it)
                             vm.onAudioSelected(it)
-                            menuOpen = false
+                            execute(PlayerCommand.CloseMenu)
                         },
                         embedded = embedded,
                         remoteOptions = remoteOptions,
@@ -548,6 +591,11 @@ fun PlayerScreen(onBack: () -> Unit) {
                         translations = remember(layers) { Layer.entries.associateWith(vm::translationOptions) },
                         onSelect = vm::select,
                         onShift = vm::shiftOffset,
+                        section = menuSection,
+                        onOpenSection = {
+                            menuSection = it
+                            execute(PlayerCommand.OpenMenuSection)
+                        },
                         modifier = Modifier.align(Alignment.CenterEnd),
                     )
                 }

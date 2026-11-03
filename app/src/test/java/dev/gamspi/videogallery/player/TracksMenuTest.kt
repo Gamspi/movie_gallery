@@ -71,5 +71,9 @@ class TracksMenuTest {
         assertEquals("−10 с", formatOffset(-10000))
     }
 
+    @Test fun menuSectionsOrder() {
+        assertEquals(listOf("Субтитры", "Аудиодорожка", "Прочее"), PlayerMenuSection.entries.map { it.title })
+    }
+
     private fun remote(id: Long, language: String) = RemoteSubtitle(id, language, "release $id", false, 0)
 }
