@@ -24,13 +24,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.tv.material3.Button
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
 import dev.gamspi.videogallery.catalog.model.MovieDetails
 import dev.gamspi.videogallery.ui.components.ErrorView
 import dev.gamspi.videogallery.ui.components.FullScreenLoader
+import dev.gamspi.videogallery.ui.components.AccentButton
 
 @Composable
 fun DetailsScreen(
@@ -100,7 +100,7 @@ private fun DetailsContent(details: MovieDetails, onWatch: () -> Unit) {
                 if (movie.overview.isNotBlank()) {
                     Text(movie.overview, style = MaterialTheme.typography.bodyMedium, maxLines = 8, overflow = TextOverflow.Ellipsis)
                 }
-                Button(
+                AccentButton(
                     onClick = onWatch,
                     modifier = Modifier.focusRequester(watchFocus),
                 ) {

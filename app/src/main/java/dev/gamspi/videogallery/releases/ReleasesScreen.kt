@@ -27,8 +27,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.tv.material3.Button
-import androidx.tv.material3.ButtonDefaults
+import dev.gamspi.videogallery.ui.components.AccentButton
 import androidx.tv.material3.ListItem
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
@@ -127,16 +126,9 @@ private fun ReleasesContent(
 
 @Composable
 private fun FilterButton(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    Button(
+    AccentButton(
         onClick = onClick,
-        colors = if (selected) {
-            ButtonDefaults.colors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-            )
-        } else {
-            ButtonDefaults.colors()
-        },
+        selected = selected,
         modifier = modifier,
     ) { Text(if (selected) "✓ $label" else label) }
 }

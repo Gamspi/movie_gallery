@@ -55,9 +55,9 @@ import androidx.media3.exoplayer.ExoPlaybackException
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
 import androidx.media3.ui.PlayerView
-import androidx.tv.material3.Button
 import androidx.tv.material3.Text
 import kotlinx.coroutines.delay
+import dev.gamspi.videogallery.ui.components.AccentButton
 
 private const val OVERLAY_HIDE_MS = 3_000L
 private const val POLL_MS = 500L
@@ -433,7 +433,7 @@ fun PlayerScreen(onBack: () -> Unit) {
                 val keyCode = ev.nativeKeyEvent.keyCode
                 val isDown = ev.type == KeyEventType.KeyDown
                 if ((keyCode == KeyEvent.KEYCODE_MEDIA_PLAY || keyCode == KeyEvent.KEYCODE_MEDIA_PAUSE) &&
-                    !menuOpen && state.resumeOffer == null && playbackError == null
+                    state.resumeOffer == null && playbackError == null
                 ) {
                     overlayVisible = true
                     overlayTick++
@@ -626,10 +626,10 @@ private fun ResumeContent(
     LaunchedEffect(Unit) { focus.requestFocus() }
     Box(Modifier.fillMaxSize().background(Color(0x99000000)), contentAlignment = Alignment.Center) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Button(onClick = onContinue, modifier = Modifier.focusRequester(focus)) {
+            AccentButton(onClick = onContinue, modifier = Modifier.focusRequester(focus)) {
                 Text("Продолжить с ${formatTime(offer, durationMs)}")
             }
-            Button(onClick = onRestart) { Text("Сначала") }
+            AccentButton(onClick = onRestart) { Text("Сначала") }
         }
     }
 }
@@ -650,12 +650,12 @@ private fun ErrorContent(
             Text(error, color = Color(0xFFBBBBBB))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (onChooseAudio != null) {
-                    Button(onClick = onChooseAudio, modifier = Modifier.focusRequester(focus)) { Text("Другая аудиодорожка") }
+                    AccentButton(onClick = onChooseAudio, modifier = Modifier.focusRequester(focus)) { Text("Другая аудиодорожка") }
                 }
                 if (onRetry != null) {
-                    Button(onClick = onRetry, modifier = if (onChooseAudio == null) Modifier.focusRequester(focus) else Modifier) { Text("Повторить") }
+                    AccentButton(onClick = onRetry, modifier = if (onChooseAudio == null) Modifier.focusRequester(focus) else Modifier) { Text("Повторить") }
                 }
-                Button(onClick = onBack, modifier = if (onRetry == null && onChooseAudio == null) Modifier.focusRequester(focus) else Modifier) {
+                AccentButton(onClick = onBack, modifier = if (onRetry == null && onChooseAudio == null) Modifier.focusRequester(focus) else Modifier) {
                     Text(backLabel)
                 }
             }
@@ -680,11 +680,11 @@ private fun AudioRecoveryContent(
         ) {
             Text("Выберите другую аудиодорожку", color = Color.White)
             tracks.forEachIndexed { index, track ->
-                Button(onClick = { onSelect(track) }, modifier = if (index == 0) Modifier.focusRequester(focus) else Modifier) {
+                AccentButton(onClick = { onSelect(track) }, modifier = if (index == 0) Modifier.focusRequester(focus) else Modifier) {
                     Text(track.displayName(index + 1))
                 }
             }
-            Button(onClick = onBack, modifier = if (tracks.isEmpty()) Modifier.focusRequester(focus) else Modifier) { Text("Назад") }
+            AccentButton(onClick = onBack, modifier = if (tracks.isEmpty()) Modifier.focusRequester(focus) else Modifier) { Text("Назад") }
         }
     }
 }

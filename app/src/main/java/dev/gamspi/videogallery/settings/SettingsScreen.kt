@@ -39,11 +39,10 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.tv.material3.Button
-import androidx.tv.material3.ButtonDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import dev.gamspi.videogallery.torrents.ProviderId
+import dev.gamspi.videogallery.ui.components.AccentButton
 
 @Composable
 fun SettingsSectionScreen(
@@ -187,17 +186,17 @@ private fun StorageSection(viewModel: SettingsViewModel) {
     val firstFocus = remember { FocusRequester() }
     InitialFocus(firstFocus)
     SectionColumn(SettingsSection.Storage.title) {
-        Button(onClick = viewModel::toggleTorrentRetention, modifier = Modifier.focusRequester(firstFocus)) {
+        AccentButton(onClick = viewModel::toggleTorrentRetention, modifier = Modifier.focusRequester(firstFocus)) {
             Text("После просмотра: ${if (storage.keepAfterPlayback) "хранить" else "удалять"}")
         }
         Text("Режим применяется при выходе из просмотра. Хранение не продолжает раздачу.")
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Button(onClick = { viewModel.changeTorrentLimit(-1) }, enabled = storage.limitGiB > 1) { Text("−1 ГиБ") }
+            AccentButton(onClick = { viewModel.changeTorrentLimit(-1) }, enabled = storage.limitGiB > 1) { Text("−1 ГиБ") }
             Text("Лимит: ${storage.limitGiB} ГиБ")
-            Button(onClick = { viewModel.changeTorrentLimit(1) }, enabled = storage.limitGiB < 100) { Text("+1 ГиБ") }
+            AccentButton(onClick = { viewModel.changeTorrentLimit(1) }, enabled = storage.limitGiB < 100) { Text("+1 ГиБ") }
         }
         Text("При нехватке места удаляются самые старые сохранённые раздачи. Активная раздача не удаляется.")
-        Button(onClick = viewModel::clearTorrentCache, enabled = !clearState.busy) {
+        AccentButton(onClick = viewModel::clearTorrentCache, enabled = !clearState.busy) {
             Text(if (clearState.busy) "Очищаем…" else "Очистить сохранённые торренты")
         }
         clearState.message?.let { Text(it) }
@@ -216,21 +215,21 @@ private fun SubtitlesSection(viewModel: SettingsViewModel) {
             val lang = if (isA) prefs.languageA else prefs.languageB
             val style = if (isA) prefs.styleA else prefs.styleB
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Button(
+                AccentButton(
                     onClick = { viewModel.cycleLanguage(layer) },
                     modifier = if (isA) Modifier.focusRequester(firstFocus) else Modifier,
                 ) { Text("Язык $name: $lang") }
-                Button(onClick = { viewModel.cycleSize(layer) }) { Text("Размер $name: ${style.size.label}") }
-                Button(onClick = { viewModel.cycleColor(layer) }) { Text("Цвет $name: ${style.color.label}") }
+                AccentButton(onClick = { viewModel.cycleSize(layer) }) { Text("Размер $name: ${style.size.label}") }
+                AccentButton(onClick = { viewModel.cycleColor(layer) }) { Text("Цвет $name: ${style.color.label}") }
             }
             Row(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("Сдвиг $name")
-                Button(onClick = { viewModel.changeOffset(layer, -SUB_OFFSET_STEP_MS) }) { Text("−0,5 с") }
+                AccentButton(onClick = { viewModel.changeOffset(layer, -SUB_OFFSET_STEP_MS) }) { Text("−0,5 с") }
                 Text(formatOffset(style.offsetMs))
-                Button(onClick = { viewModel.changeOffset(layer, SUB_OFFSET_STEP_MS) }) { Text("+0,5 с") }
+                AccentButton(onClick = { viewModel.changeOffset(layer, SUB_OFFSET_STEP_MS) }) { Text("+0,5 с") }
             }
             Text(
                 "Только для скачанных субтитров (OpenSubtitles)",
@@ -251,10 +250,10 @@ private fun TranslationSection(viewModel: SettingsViewModel) {
         Text(modelStatus)
         // Buttons stay enabled so focus is never lost; the view model ignores repeated presses.
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Button(onClick = viewModel::downloadModels, modifier = Modifier.focusRequester(firstFocus)) {
+            AccentButton(onClick = viewModel::downloadModels, modifier = Modifier.focusRequester(firstFocus)) {
                 Text("Скачать модели перевода")
             }
-            Button(onClick = viewModel::deleteModels) { Text("Удалить модели перевода") }
+            AccentButton(onClick = viewModel::deleteModels) { Text("Удалить модели перевода") }
         }
         modelMessage?.let { Text(it) }
     }
@@ -307,7 +306,7 @@ private fun DebugSection(viewModel: SettingsViewModel, onPlayTest: (String) -> U
             label = "Тестовый URL",
             modifier = Modifier.focusRequester(urlFocus),
         )
-        Button(
+        AccentButton(
             onClick = {
                 returnToPlay = true
                 viewModel.setTestUrl(testUrl)
@@ -385,14 +384,9 @@ private fun SourceButton(
     focusRequester: FocusRequester?,
     onClick: () -> Unit,
 ) {
-    Button(
+    AccentButton(
         onClick = onClick,
-        colors = ButtonDefaults.colors(
-            containerColor = if (selected) Color(0xFF23598A) else Color(0xFF34343C),
-            contentColor = Color.White,
-            focusedContainerColor = Color(0xFF386DA0),
-            focusedContentColor = Color.White,
-        ),
+        selected = selected,
         modifier = if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier,
-    ) { Text(if (selected) "✓ $label" else label, color = Color.White) }
+    ) { Text(if (selected) "✓ $label" else label) }
 }

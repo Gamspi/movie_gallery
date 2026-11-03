@@ -238,14 +238,15 @@ private fun OtherSection(
         ) {
             MenuButton(
                 label = "−0,5 с",
-                onClick = { onShift(layer, -SUB_OFFSET_STEP_MS) },
-                enabled = offset > -SUB_OFFSET_MAX_MS,
+                // Stays enabled at the limit so focus is never lost; the click is a no-op there.
+                onClick = { if (offset > -SUB_OFFSET_MAX_MS) onShift(layer, -SUB_OFFSET_STEP_MS) },
+                enabled = true,
                 modifier = if (index == 0) Modifier.focusRequester(focus) else Modifier,
             )
             MenuButton(
                 label = "+0,5 с",
-                onClick = { onShift(layer, SUB_OFFSET_STEP_MS) },
-                enabled = offset < SUB_OFFSET_MAX_MS,
+                onClick = { if (offset < SUB_OFFSET_MAX_MS) onShift(layer, SUB_OFFSET_STEP_MS) },
+                enabled = true,
             )
         }
     }

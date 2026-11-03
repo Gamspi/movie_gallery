@@ -13,7 +13,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.unit.dp
-import androidx.tv.material3.Button
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import dev.gamspi.videogallery.catalog.CatalogException
@@ -65,8 +64,8 @@ fun ErrorView(
         Text(message, style = MaterialTheme.typography.headlineMedium)
         // Settings stay reachable for every error (e.g. offline at launch).
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Button(onClick = onRetry, modifier = Modifier.focusRequester(retryFocus)) { Text("Повторить") }
-            Button(onClick = onOpenSettings, modifier = Modifier.focusRequester(settingsFocus)) { Text("Настройки") }
+            AccentButton(onClick = onRetry, modifier = Modifier.focusRequester(retryFocus)) { Text("Повторить") }
+            AccentButton(onClick = onOpenSettings, modifier = Modifier.focusRequester(settingsFocus)) { Text("Настройки") }
         }
     }
 }

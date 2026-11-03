@@ -14,8 +14,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.tv.material3.Button
-import androidx.tv.material3.ButtonDefaults
+import dev.gamspi.videogallery.ui.components.AccentButton
 import androidx.tv.material3.Text
 
 /** A recoverable warning: neither opening nor dismissing it stops playback. */
@@ -48,14 +47,5 @@ fun StreamStallNotice(
 
 @Composable
 private fun StallButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Button(
-        onClick = onClick,
-        modifier = modifier,
-        colors = ButtonDefaults.colors(
-            containerColor = Color(0xFF34343C),
-            contentColor = Color.White,
-            focusedContainerColor = Color(0xFF23598A),
-            focusedContentColor = Color.White,
-        ),
-    ) { Text(label, color = Color.White) }
+    AccentButton(onClick = onClick, modifier = modifier) { Text(label) }
 }

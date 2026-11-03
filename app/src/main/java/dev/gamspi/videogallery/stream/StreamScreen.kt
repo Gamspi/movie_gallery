@@ -26,13 +26,13 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.tv.material3.Button
 import androidx.tv.material3.ListItem
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import dev.gamspi.videogallery.torrents.formatSize
 import dev.gamspi.videogallery.ui.components.FullScreenLoader
 import kotlinx.coroutines.flow.first
+import dev.gamspi.videogallery.ui.components.AccentButton
 
 @Composable
 fun StreamScreen(
@@ -131,6 +131,6 @@ private fun FailedContent(message: String, onBack: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(message, style = MaterialTheme.typography.titleMedium)
-        Button(onClick = onBack, modifier = Modifier.focusRequester(focus)) { Text("Назад") }
+        AccentButton(onClick = onBack, modifier = Modifier.focusRequester(focus)) { Text("Назад") }
     }
 }
