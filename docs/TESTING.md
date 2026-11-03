@@ -21,6 +21,17 @@
 
 Проверенная база `d1ea23e` от 2026-10-31: свежий полный прогон — 242 теста в 32 наборах, ошибок/падений/пропусков нет. Эта цифра — снимок состояния, не неизменяемое требование к будущим тестам.
 
+## Release-сборка для ручных проверок на ТВ
+
+Unit-тесты и debug-only Activity используют debug. Ручные проверки UI и плавности на ТВ выполняйте на release: debuggable-сборка заметно медленнее рисует кадры (замеры — [протокол UI polish](verification/2026-11-03-ui-polish.md)).
+
+```powershell
+./scripts/gradle-docker.ps1 ./gradlew assembleRelease
+adb -s <device> install -r app/build/outputs/apk/release/app-release.apk
+```
+
+Release минифицируется R8 (`app/proguard-rules.pro`), включает профиль `profileinstaller` и подписан тем же debug-ключом из Docker-тома `videogallery-android-home`, поэтому ставится поверх debug без удаления данных. Debug-only probe-Activity (`app/src/debug`) в release отсутствуют. После установки проверьте `adb -s <device> logcat -d -b crash`: падение из-за R8 обычно выглядит как `ClassNotFoundException`, `NoSuchMethodError` или ошибка JNI.
+
 ## Правки документации
 
 - `git diff --check` не должен сообщать об ошибках пробелов.

@@ -28,6 +28,17 @@ android {
         ndk { abiFilters += "armeabi-v7a" }
     }
 
+    buildTypes {
+        // Fast non-debuggable build for manual TV checks; debug stays for unit tests
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // Same key as debug, so release installs over debug without losing data
+            signingConfig = signingConfigs.getByName("debug")
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -72,6 +83,7 @@ dependencies {
     implementation(libs.mlkit.translate)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
+    implementation(libs.androidx.profileinstaller)
     ksp(libs.androidx.room.compiler)
     ksp(libs.hilt.compiler)
     debugImplementation(libs.androidx.compose.ui.tooling)
