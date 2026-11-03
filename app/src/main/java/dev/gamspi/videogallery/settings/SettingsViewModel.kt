@@ -109,8 +109,9 @@ class SettingsViewModel @Inject constructor(
     val openSubtitlesUser: String? get() = repository.openSubtitlesUser
     val openSubtitlesPassword: String? get() = repository.openSubtitlesPassword
 
-    fun setOpenSubtitles(key: String, user: String, password: String) =
-        repository.setOpenSubtitles(key, user, password)
+    /** Writes OpenSubtitles credentials; false when the store write fails (values are never logged). */
+    fun saveOpenSubtitles(key: String, user: String, password: String): Boolean =
+        runSave { repository.setOpenSubtitles(key, user, password) }
 
     fun cycleLanguage(layer: SubLayer) {
         val p = subtitlePrefs.value
@@ -141,15 +142,23 @@ class SettingsViewModel @Inject constructor(
 
     fun tracker(id: ProviderId): StateFlow<TrackerConfig> = repository.tracker(id)
 
-    fun save(
+    fun saveCatalog(
         source: CatalogSource,
         poiskkinoKey: String,
         kinopoiskKey: String,
         tmdbKey: String,
-        trackers: Map<ProviderId, TrackerConfig> = emptyMap(),
-    ) {
-        repository.update(source, poiskkinoKey, kinopoiskKey, tmdbKey)
-        repository.setTrackers(trackers)
+    ): Boolean = runSave { repository.update(source, poiskkinoKey, kinopoiskKey, tmdbKey) }
+
+    fun saveTrackers(trackers: Map<ProviderId, TrackerConfig>): Boolean =
+        runSave { repository.setTrackers(trackers) }
+
+    private inline fun runSave(block: () -> Unit): Boolean = try {
+        block()
+        true
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (_: Exception) {
+        false
     }
 }
 

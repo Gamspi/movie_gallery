@@ -18,7 +18,7 @@ class SettingsProbeActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             VideoGalleryTheme {
-                SettingsScreen(onBack = { finish() })
+                SettingsSectionScreen(SettingsSection.Catalog, onBack = { finish() })
             }
         }
     }

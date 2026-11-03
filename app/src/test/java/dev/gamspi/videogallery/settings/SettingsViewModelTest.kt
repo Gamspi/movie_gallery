@@ -125,11 +125,11 @@ class SettingsViewModelTest {
     }
 
     @Test
-    fun save_persistsSourceAndThreeKeys() {
+    fun saveCatalog_persistsSourceAndThreeKeys() {
         val store = FakeSecretStore()
         val repo = SettingsRepository(store)
         val vm = SettingsViewModel(repo)
-        vm.save(CatalogSource.PoiskKino, " pk-key ", "kp-key", "tm-key")
+        assertEquals(true, vm.saveCatalog(CatalogSource.PoiskKino, " pk-key ", "kp-key", "tm-key"))
         assertEquals(CatalogSource.PoiskKino, vm.catalogSource.value)
         assertEquals("pk-key", vm.poiskkinoApiKey.value)
         assertEquals("kp-key", vm.kinopoiskApiKey.value)
@@ -141,15 +141,49 @@ class SettingsViewModelTest {
     }
 
     @Test
-    fun save_persistsTrackers() {
-        val store = FakeSecretStore()
+    fun saveCatalogPersistsOnlyCatalog() {
+        val store = FakeSecretStore(mapOf("tracker_Yts_url" to "https://old.example/", "opensubtitles_key" to "os"))
         val vm = SettingsViewModel(SettingsRepository(store))
-        vm.save(
-            CatalogSource.Kinopoisk, "", "", "",
-            mapOf(ProviderId.Yts to TrackerConfig(true, "yts.example")),
-        )
+        assertEquals(true, vm.saveCatalog(CatalogSource.Tmdb, "pk", "kp", "tm"))
+        assertEquals("pk", store.get("poiskkino_api_key"))
+        assertEquals("tm", store.get("tmdb_api_key"))
+        assertEquals("Tmdb", store.get("catalog_source"))
+        assertEquals("https://old.example/", store.get("tracker_Yts_url"))
+        assertEquals("os", store.get("opensubtitles_key"))
+    }
+
+    @Test
+    fun saveTrackersPersistsOnlyTrackers() {
+        val store = FakeSecretStore(mapOf("poiskkino_api_key" to "pk"))
+        val vm = SettingsViewModel(SettingsRepository(store))
+        assertEquals(true, vm.saveTrackers(mapOf(ProviderId.Yts to TrackerConfig(true, "yts.example"))))
         assertEquals(TrackerConfig(true, "https://yts.example/"), vm.tracker(ProviderId.Yts).value)
         assertEquals("https://yts.example/", store.get("tracker_Yts_url"))
+        assertEquals("pk", store.get("poiskkino_api_key"))
+        assertEquals(null, store.get("catalog_source"))
+    }
+
+    @Test
+    fun saveOpenSubtitlesPersists() {
+        val store = FakeSecretStore()
+        val vm = SettingsViewModel(SettingsRepository(store))
+        assertEquals(true, vm.saveOpenSubtitles(" k ", " u ", "p w"))
+        assertEquals("k", store.get("opensubtitles_key"))
+        assertEquals("u", store.get("opensubtitles_user"))
+        assertEquals("p w", store.get("opensubtitles_password"))
+        assertEquals(null, store.get("catalog_source"))
+    }
+
+    @Test
+    fun saveCatalogFailureReturnsFalse() {
+        val store = object : SecretStore {
+            override fun get(key: String): String? = null
+            override fun put(key: String, value: String?) = throw IllegalStateException("boom")
+        }
+        val vm = SettingsViewModel(SettingsRepository(store))
+        assertEquals(false, vm.saveCatalog(CatalogSource.PoiskKino, "a", "b", "c"))
+        assertEquals(false, vm.saveTrackers(mapOf(ProviderId.Yts to TrackerConfig(true, "x"))))
+        assertEquals(false, vm.saveOpenSubtitles("a", "b", "c"))
     }
 
     @Test

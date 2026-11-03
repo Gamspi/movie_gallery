@@ -2,6 +2,7 @@ package dev.gamspi.videogallery.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
@@ -52,7 +53,9 @@ fun ErrorView(
 ) {
     val message = catalogErrorMessage(kind, LocalCatalogSource.current)
     val needsSettings = kind == ErrorKind.MissingKey || kind == ErrorKind.BadKey
-    val focus = remember { FocusRequester() }
+    val retryFocus = remember { FocusRequester() }
+    val settingsFocus = remember { FocusRequester() }
+    val focus = if (needsSettings) settingsFocus else retryFocus
     if (autoFocus) LaunchedEffect(kind) { runCatching { focus.requestFocus() } }
     Column(
         modifier = Modifier.fillMaxSize().padding(48.dp),
@@ -60,11 +63,10 @@ fun ErrorView(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(message, style = MaterialTheme.typography.headlineMedium)
-        Button(
-            onClick = if (needsSettings) onOpenSettings else onRetry,
-            modifier = Modifier.focusRequester(focus),
-        ) {
-            Text(if (needsSettings) "Настройки" else "Повторить")
+        // Settings stay reachable for every error (e.g. offline at launch).
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Button(onClick = onRetry, modifier = Modifier.focusRequester(retryFocus)) { Text("Повторить") }
+            Button(onClick = onOpenSettings, modifier = Modifier.focusRequester(settingsFocus)) { Text("Настройки") }
         }
     }
 }

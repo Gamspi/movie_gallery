@@ -3,6 +3,7 @@ package dev.gamspi.videogallery.ui.nav
 import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -20,7 +21,13 @@ import dev.gamspi.videogallery.gallery.GalleryScreen
 import dev.gamspi.videogallery.player.PlayerScreen
 import dev.gamspi.videogallery.releases.ReleasesScreen
 import dev.gamspi.videogallery.search.SearchScreen
-import dev.gamspi.videogallery.settings.SettingsScreen
+import dev.gamspi.videogallery.settings.SETTINGS_HOME_ROUTE
+import dev.gamspi.videogallery.settings.SETTINGS_SECTION_ROUTE
+import dev.gamspi.videogallery.settings.SettingsHomeScreen
+import dev.gamspi.videogallery.settings.SettingsSection
+import dev.gamspi.videogallery.settings.SettingsSectionScreen
+import dev.gamspi.videogallery.settings.sectionOf
+import dev.gamspi.videogallery.settings.settingsRoute
 import dev.gamspi.videogallery.settings.SettingsViewModel
 import dev.gamspi.videogallery.stream.StreamScreen
 import dev.gamspi.videogallery.ui.components.LocalCatalogSource
@@ -35,16 +42,31 @@ fun AppNavHost() {
             GalleryScreen(
                 onOpenMovie = { nav.navigateOnce(entry, "movie/$it") },
                 onOpenSearch = { nav.navigateOnce(entry, "search") },
-                onOpenSettings = { nav.navigateOnce(entry, "settings") },
+                onOpenSettings = { nav.navigateOnce(entry, SETTINGS_HOME_ROUTE) },
+                onOpenCatalogSettings = { nav.navigateOnce(entry, settingsRoute(SettingsSection.Catalog)) },
             )
         }
-        composable("settings") { entry ->
-            SettingsScreen(
-                onBack = { nav.popBackStack() },
-                onPlayTest = { url ->
-                    nav.navigateOnce(entry, "player?url=${Uri.encode(url)}&title=${Uri.encode("Тест")}")
-                },
+        composable(SETTINGS_HOME_ROUTE) { entry ->
+            SettingsHomeScreen(
+                onOpenSection = { nav.navigateOnce(entry, settingsRoute(it)) },
             )
+        }
+        composable(
+            SETTINGS_SECTION_ROUTE,
+            arguments = listOf(navArgument("section") { type = NavType.StringType }),
+        ) { entry ->
+            val section = sectionOf(entry.arguments?.getString("section"))
+            if (section == null) {
+                LaunchedEffect(Unit) { nav.popBackStack() }
+            } else {
+                SettingsSectionScreen(
+                    section = section,
+                    onBack = { nav.popBackStack() },
+                    onPlayTest = { url ->
+                        nav.navigateOnce(entry, "player?url=${Uri.encode(url)}&title=${Uri.encode("Тест")}")
+                    },
+                )
+            }
         }
         composable(
             "player?url={url}&title={title}&key={key}&imdb={imdb}",
@@ -55,18 +77,18 @@ fun AppNavHost() {
         composable("search") { entry ->
             SearchScreen(
                 onOpenMovie = { nav.navigateOnce(entry, "movie/$it") },
-                onOpenSettings = { nav.navigateOnce(entry, "settings") },
+                onOpenSettings = { nav.navigateOnce(entry, settingsRoute(SettingsSection.Catalog)) },
             )
         }
         composable("movie/{id}", arguments = listOf(navArgument("id") { type = NavType.IntType })) { entry ->
             DetailsScreen(
-                onOpenSettings = { nav.navigateOnce(entry, "settings") },
+                onOpenSettings = { nav.navigateOnce(entry, settingsRoute(SettingsSection.Catalog)) },
                 onWatch = { nav.navigateOnce(entry, "releases/${entry.arguments?.getInt("id")}") },
             )
         }
         composable("releases/{id}", arguments = listOf(navArgument("id") { type = NavType.IntType })) { entry ->
             ReleasesScreen(
-                onOpenSettings = { nav.navigateOnce(entry, "settings") },
+                onOpenSettings = { nav.navigateOnce(entry, settingsRoute(SettingsSection.Catalog)) },
                 onPlay = { r, imdb ->
                     nav.navigateOnce(
                         entry,
