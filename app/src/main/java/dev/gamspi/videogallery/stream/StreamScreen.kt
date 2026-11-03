@@ -31,6 +31,7 @@ import androidx.tv.material3.ListItem
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import dev.gamspi.videogallery.torrents.formatSize
+import dev.gamspi.videogallery.ui.components.FullScreenLoader
 import kotlinx.coroutines.flow.first
 
 @Composable
@@ -65,19 +66,22 @@ fun StreamScreen(
     Box(Modifier.fillMaxSize().padding(48.dp), contentAlignment = Alignment.Center) {
         when (val s = state) {
             StreamState.Idle, StreamState.FetchingMetadata, is StreamState.Ready ->
-                Text("Получаем данные раздачи…", style = MaterialTheme.typography.titleMedium)
-            is StreamState.Buffering -> Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text("Буферизация ${s.percent} %", style = MaterialTheme.typography.titleMedium)
-                if (s.status.isNotBlank()) Text(s.status, style = MaterialTheme.typography.bodyMedium)
+                FullScreenLoader("Получаем данные раздачи…")
+            is StreamState.Buffering -> Box(Modifier.fillMaxSize()) {
+                FullScreenLoader(
+                    buildString {
+                        append("Буферизация ${s.percent} %")
+                        if (s.status.isNotBlank()) append("\n").append(s.status)
+                    },
+                )
                 if (stallWarning != null && !stallDismissed) {
-                    StreamStallNotice(
-                        status = null,
-                        onContinue = { stallDismissed = true },
-                        onChooseAnother = ::back,
-                    )
+                    Box(Modifier.align(Alignment.BottomCenter)) {
+                        StreamStallNotice(
+                            status = null,
+                            onContinue = { stallDismissed = true },
+                            onChooseAnother = ::back,
+                        )
+                    }
                 }
             }
             is StreamState.ChooseFile -> ChooseFileList(s.files, viewModel::chooseFile)

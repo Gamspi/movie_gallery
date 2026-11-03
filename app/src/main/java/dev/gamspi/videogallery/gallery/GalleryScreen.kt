@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -32,7 +33,11 @@ import androidx.tv.material3.Button
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import dev.gamspi.videogallery.ui.components.ErrorView
+import dev.gamspi.videogallery.ui.components.FullScreenLoader
 import dev.gamspi.videogallery.ui.components.MovieCard
+import dev.gamspi.videogallery.ui.components.ShimmerHost
+import dev.gamspi.videogallery.ui.components.SkeletonBar
+import dev.gamspi.videogallery.ui.components.SkeletonRow
 
 @Composable
 fun GalleryScreen(
@@ -43,10 +48,29 @@ fun GalleryScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     when (val s = state) {
-        GalleryUiState.Loading -> Box(Modifier.fillMaxSize(), Alignment.Center) { Text("Загрузка…") }
+        is GalleryUiState.Loading ->
+            if (s.initial) FullScreenLoader() else GallerySkeleton()
         is GalleryUiState.Error ->
             ErrorView(s.kind, onRetry = viewModel::retry, onOpenSettings = onOpenSettings)
         is GalleryUiState.Content -> GalleryContent(s, onOpenMovie, onOpenSearch, onOpenSettings)
+    }
+}
+
+// Reload placeholder: row titles and card skeletons.
+@Composable
+private fun GallerySkeleton() {
+    ShimmerHost {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 48.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+        ) {
+            repeat(3) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(Modifier.width(220.dp)) { SkeletonBar(widthFraction = 1f, height = 24.dp) }
+                    SkeletonRow()
+                }
+            }
+        }
     }
 }
 
@@ -65,6 +89,7 @@ private fun GalleryContent(
     var restoreHandled by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
 
+    ShimmerHost {
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize(),
@@ -120,5 +145,6 @@ private fun GalleryContent(
                 }
             }
         }
+    }
     }
 }

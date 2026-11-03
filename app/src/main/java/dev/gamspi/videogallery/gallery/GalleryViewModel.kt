@@ -23,7 +23,7 @@ import kotlinx.coroutines.launch
 data class MovieRow(val title: String, val movies: List<Movie>)
 
 sealed interface GalleryUiState {
-    data object Loading : GalleryUiState
+    data class Loading(val initial: Boolean) : GalleryUiState
     data class Content(val rows: List<MovieRow>) : GalleryUiState
     data class Error(val kind: ErrorKind) : GalleryUiState
 }
@@ -33,9 +33,10 @@ class GalleryViewModel @Inject constructor(
     private val catalog: CatalogRepository,
     settings: SettingsRepository,
 ) : ViewModel() {
-    private val _state = MutableStateFlow<GalleryUiState>(GalleryUiState.Loading)
+    private val _state = MutableStateFlow<GalleryUiState>(GalleryUiState.Loading(initial = true))
     val state: StateFlow<GalleryUiState> = _state.asStateFlow()
     private val retryTick = MutableStateFlow(0)
+    private var firstLoad = true
 
     init {
         viewModelScope.launch {
@@ -49,7 +50,8 @@ class GalleryViewModel @Inject constructor(
     }
 
     private suspend fun load() {
-        _state.value = GalleryUiState.Loading
+        _state.value = GalleryUiState.Loading(initial = firstLoad)
+        firstLoad = false
         _state.value = try {
             GalleryUiState.Content(fetchRows())
         } catch (e: CancellationException) {

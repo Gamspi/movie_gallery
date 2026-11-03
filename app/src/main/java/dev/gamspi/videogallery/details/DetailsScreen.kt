@@ -30,6 +30,7 @@ import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
 import dev.gamspi.videogallery.catalog.model.MovieDetails
 import dev.gamspi.videogallery.ui.components.ErrorView
+import dev.gamspi.videogallery.ui.components.FullScreenLoader
 
 @Composable
 fun DetailsScreen(
@@ -39,7 +40,7 @@ fun DetailsScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     when (val s = state) {
-        DetailsUiState.Loading -> Box(Modifier.fillMaxSize(), Alignment.Center) { Text("Загрузка…") }
+        DetailsUiState.Loading -> FullScreenLoader()
         is DetailsUiState.Error -> ErrorView(s.kind, onRetry = viewModel::retry, onOpenSettings = onOpenSettings)
         is DetailsUiState.Content -> DetailsContent(s.details, onWatch)
     }

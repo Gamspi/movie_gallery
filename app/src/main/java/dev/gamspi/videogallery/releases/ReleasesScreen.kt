@@ -36,6 +36,7 @@ import dev.gamspi.videogallery.torrents.Quality
 import dev.gamspi.videogallery.torrents.TorrentResult
 import dev.gamspi.videogallery.torrents.formatSize
 import dev.gamspi.videogallery.ui.components.ErrorView
+import dev.gamspi.videogallery.ui.components.FullScreenLoader
 
 fun releaseInfoLine(r: TorrentResult): String =
     listOfNotNull(
@@ -53,7 +54,7 @@ fun ReleasesScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     when (val s = state) {
-        ReleasesUiState.Loading -> Box(Modifier.fillMaxSize(), Alignment.Center) { Text("Ищем раздачи…") }
+        ReleasesUiState.Loading -> FullScreenLoader("Ищем раздачи…")
         is ReleasesUiState.Error -> ErrorView(s.kind, onRetry = viewModel::retry, onOpenSettings = onOpenSettings)
         is ReleasesUiState.Content -> ReleasesContent(s, viewModel::setFilter) { onPlay(it, s.imdbId) }
     }

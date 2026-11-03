@@ -44,7 +44,7 @@ class GalleryViewModelTest {
         happyRepo(10)
         val vm = GalleryViewModel(repo, settings())
         vm.state.test {
-            assertEquals(GalleryUiState.Loading, awaitItem())
+            assertEquals(GalleryUiState.Loading(initial = true), awaitItem())
             val content = awaitItem() as GalleryUiState.Content
             assertEquals("Популярное", content.rows[0].title)
             assertEquals(9, content.rows.size)
@@ -58,7 +58,7 @@ class GalleryViewModelTest {
         repo.byGenreResult = { if (it == 2) throw CatalogException.Network else listOf(movie(it)) }
         val vm = GalleryViewModel(repo, settings())
         vm.state.test {
-            assertEquals(GalleryUiState.Loading, awaitItem())
+            assertEquals(GalleryUiState.Loading(initial = true), awaitItem())
             val content = awaitItem() as GalleryUiState.Content
             assertEquals(listOf("Популярное", "G1", "G3"), content.rows.map { it.title })
         }
@@ -69,7 +69,7 @@ class GalleryViewModelTest {
         repo.popularResult = { throw CatalogException.MissingApiKey }
         val vm = GalleryViewModel(repo, settings(null))
         vm.state.test {
-            assertEquals(GalleryUiState.Loading, awaitItem())
+            assertEquals(GalleryUiState.Loading(initial = true), awaitItem())
             assertEquals(GalleryUiState.Error(ErrorKind.MissingKey), awaitItem())
         }
     }
@@ -81,11 +81,11 @@ class GalleryViewModelTest {
         repo.popularResult = { if (fail) throw CatalogException.Network else listOf(movie(1)) }
         val vm = GalleryViewModel(repo, settings())
         vm.state.test {
-            assertEquals(GalleryUiState.Loading, awaitItem())
+            assertEquals(GalleryUiState.Loading(initial = true), awaitItem())
             assertEquals(GalleryUiState.Error(ErrorKind.Network), awaitItem())
             fail = false
             vm.retry()
-            assertEquals(GalleryUiState.Loading, awaitItem())
+            assertEquals(GalleryUiState.Loading(initial = false), awaitItem())
             assertTrue(awaitItem() is GalleryUiState.Content)
         }
         assertEquals(2, repo.popularCalls)
@@ -98,7 +98,7 @@ class GalleryViewModelTest {
         repo.genresResult = { throw CatalogException.Unauthorized }
         val vm = GalleryViewModel(repo, settings())
         vm.state.test {
-            assertEquals(GalleryUiState.Loading, awaitItem())
+            assertEquals(GalleryUiState.Loading(initial = true), awaitItem())
             assertEquals(GalleryUiState.Error(ErrorKind.BadKey), awaitItem())
         }
     }
@@ -109,7 +109,7 @@ class GalleryViewModelTest {
         repo.byGenreResult = { if (it == 1) emptyList() else listOf(movie(it)) }
         val vm = GalleryViewModel(repo, settings())
         vm.state.test {
-            assertEquals(GalleryUiState.Loading, awaitItem())
+            assertEquals(GalleryUiState.Loading(initial = true), awaitItem())
             val content = awaitItem() as GalleryUiState.Content
             assertEquals(listOf("Популярное", "G2"), content.rows.map { it.title })
         }
@@ -122,11 +122,11 @@ class GalleryViewModelTest {
         val settings = settings(null)
         val vm = GalleryViewModel(repo, settings)
         vm.state.test {
-            assertEquals(GalleryUiState.Loading, awaitItem())
+            assertEquals(GalleryUiState.Loading(initial = true), awaitItem())
             assertEquals(GalleryUiState.Error(ErrorKind.MissingKey), awaitItem())
             repo.popularResult = { listOf(movie(1)) }
             settings.setTmdbApiKey("new")
-            assertEquals(GalleryUiState.Loading, awaitItem())
+            assertEquals(GalleryUiState.Loading(initial = false), awaitItem())
             assertTrue(awaitItem() is GalleryUiState.Content)
         }
     }
@@ -137,13 +137,36 @@ class GalleryViewModelTest {
         val settings = settings()
         val vm = GalleryViewModel(repo, settings)
         vm.state.test {
-            assertEquals(GalleryUiState.Loading, awaitItem())
+            assertEquals(GalleryUiState.Loading(initial = true), awaitItem())
             assertTrue(awaitItem() is GalleryUiState.Content)
             settings.setCatalogSource(CatalogSource.Kinopoisk)
-            assertEquals(GalleryUiState.Loading, awaitItem())
+            assertEquals(GalleryUiState.Loading(initial = false), awaitItem())
             assertTrue(awaitItem() is GalleryUiState.Content)
         }
         assertEquals(2, repo.popularCalls)
+    }
+
+    @Test
+    fun initialLoadIsMarkedInitial() = runTest {
+        happyRepo(1)
+        val vm = GalleryViewModel(repo, settings())
+        vm.state.test {
+            assertEquals(GalleryUiState.Loading(initial = true), awaitItem())
+            assertTrue(awaitItem() is GalleryUiState.Content)
+        }
+    }
+
+    @Test
+    fun retryLoadIsNotInitial() = runTest {
+        happyRepo(1)
+        val vm = GalleryViewModel(repo, settings())
+        vm.state.test {
+            assertEquals(GalleryUiState.Loading(initial = true), awaitItem())
+            assertTrue(awaitItem() is GalleryUiState.Content)
+            vm.retry()
+            assertEquals(GalleryUiState.Loading(initial = false), awaitItem())
+            assertTrue(awaitItem() is GalleryUiState.Content)
+        }
     }
 
     @Test

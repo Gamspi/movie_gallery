@@ -47,6 +47,7 @@ import androidx.media3.common.TrackSelectionOverride
 import dev.gamspi.videogallery.subs.Layer
 import dev.gamspi.videogallery.BuildConfig
 import dev.gamspi.videogallery.stream.StreamStallNotice
+import dev.gamspi.videogallery.ui.components.PopcornCatLoader
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
@@ -502,6 +503,12 @@ fun PlayerScreen(onBack: () -> Unit) {
                     liftDp = if (overlayVisible || menuOpen) 170.dp else 0.dp,
                     modifier = Modifier.align(Alignment.BottomCenter),
                 )
+                if (buffering) {
+                    PopcornCatLoader(
+                        size = 96.dp,
+                        modifier = Modifier.align(Alignment.TopEnd).padding(32.dp),
+                    )
+                }
                 if (overlayVisible || menuOpen) {
                     PlayerOverlay(
                         title = state.title,

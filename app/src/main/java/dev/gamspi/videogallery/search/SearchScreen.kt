@@ -42,6 +42,8 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import dev.gamspi.videogallery.ui.components.ErrorView
 import dev.gamspi.videogallery.ui.components.MovieCard
+import dev.gamspi.videogallery.ui.components.ShimmerHost
+import dev.gamspi.videogallery.ui.components.SkeletonGrid
 
 @Composable
 fun SearchScreen(
@@ -93,10 +95,11 @@ fun SearchScreen(
                 }
             },
         )
+        ShimmerHost {
         Box(Modifier.fillMaxSize(), Alignment.Center) {
             when (val s = state) {
                 SearchUiState.Idle -> Text("Введите название фильма")
-                SearchUiState.Loading -> Text("Загрузка…")
+                SearchUiState.Loading -> Box(Modifier.fillMaxSize(), Alignment.TopStart) { SkeletonGrid(5, 2) }
                 SearchUiState.Empty -> Text("Ничего не найдено", style = MaterialTheme.typography.headlineMedium)
                 is SearchUiState.Error ->
                     ErrorView(
@@ -133,6 +136,7 @@ fun SearchScreen(
                     }
                 }
             }
+        }
         }
     }
 }
