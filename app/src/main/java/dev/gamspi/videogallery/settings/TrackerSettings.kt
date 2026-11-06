@@ -8,6 +8,8 @@ fun defaultTracker(id: ProviderId): TrackerConfig = when (id) {
     ProviderId.Rutor -> TrackerConfig(true, "https://rutor.info/")
     ProviderId.Apibay -> TrackerConfig(true, "https://apibay.org/")
     ProviderId.Yts -> TrackerConfig(false, "https://yts.lt/")
+    // Enabled by default only when a login exists; see SettingsRepository.
+    ProviderId.Rutracker -> TrackerConfig(false, "https://rutracker.org/")
 }
 
 fun normalizeTrackerUrl(id: ProviderId, raw: String): String {

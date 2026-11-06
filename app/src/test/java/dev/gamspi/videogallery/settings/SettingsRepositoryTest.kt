@@ -219,6 +219,48 @@ class SettingsRepositoryTest {
     }
 
     @Test
+    fun rutracker_disabledByDefaultWithoutLogin() {
+        val repo = SettingsRepository(FakeSecretStore())
+        assertEquals(TrackerConfig(false, "https://rutracker.org/"), repo.tracker(ProviderId.Rutracker).value)
+        assertNull(repo.rutrackerUser)
+    }
+
+    @Test
+    fun rutracker_enabledByDefaultWhenLoginFromEnvDefaults() {
+        val store = DefaultingSecretStore(
+            FakeSecretStore(),
+            mapOf(SettingsRepository.KEY_RUTRACKER_USER to "fake_user"),
+        )
+        val repo = SettingsRepository(store)
+        assertEquals(TrackerConfig(true, "https://rutracker.org/"), repo.tracker(ProviderId.Rutracker).value)
+        assertEquals("fake_user", repo.rutrackerUser)
+    }
+
+    @Test
+    fun rutracker_storedToggleWinsOverLoginDefault() {
+        val store = FakeSecretStore(
+            mapOf(SettingsRepository.KEY_RUTRACKER_USER to "fake_user", "tracker_Rutracker_enabled" to "false"),
+        )
+        assertFalse(SettingsRepository(store).tracker(ProviderId.Rutracker).value.enabled)
+    }
+
+    @Test
+    fun setRutracker_trimsUser_blankFallsBackToDefault() {
+        val inner = FakeSecretStore()
+        val store = DefaultingSecretStore(inner, mapOf(SettingsRepository.KEY_RUTRACKER_USER to "env_user"))
+        val repo = SettingsRepository(store)
+        repo.setRutracker("  tv_user ", "fake pass ")
+        assertEquals("tv_user", inner.get(SettingsRepository.KEY_RUTRACKER_USER))
+        assertEquals("fake pass ", inner.get(SettingsRepository.KEY_RUTRACKER_PASSWORD))
+        assertEquals("tv_user", repo.rutrackerUser)
+        assertEquals("fake pass ", repo.rutrackerPassword)
+        repo.setRutracker(" ", "")
+        assertNull(inner.get(SettingsRepository.KEY_RUTRACKER_USER))
+        assertEquals("env_user", repo.rutrackerUser)
+        assertNull(repo.rutrackerPassword)
+    }
+
+    @Test
     fun setTrackers_normalizesUrl_blankFallsBack() {
         val repo = SettingsRepository(FakeSecretStore())
         repo.setTrackers(

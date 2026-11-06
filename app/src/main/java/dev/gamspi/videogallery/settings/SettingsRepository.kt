@@ -97,9 +97,11 @@ class SettingsRepository @Inject constructor(private val store: SecretStore) : S
     private val trackerFlows: Map<ProviderId, MutableStateFlow<TrackerConfig>> =
         ProviderId.entries.associateWith { id ->
             val def = defaultTracker(id)
+            val defEnabled = def.enabled ||
+                (id == ProviderId.Rutracker && !store.get(KEY_RUTRACKER_USER).isNullOrBlank())
             MutableStateFlow(
                 TrackerConfig(
-                    enabled = store.get(enabledKey(id))?.let { it == "true" } ?: def.enabled,
+                    enabled = store.get(enabledKey(id))?.let { it == "true" } ?: defEnabled,
                     baseUrl = store.get(urlKey(id))?.takeIf { it.isNotBlank() } ?: def.baseUrl,
                 ),
             )
@@ -165,6 +167,19 @@ class SettingsRepository @Inject constructor(private val store: SecretStore) : S
         _osKey.value = store.get(KEY_OS_KEY)
         _osUser.value = store.get(KEY_OS_USER)
         _osPassword.value = store.get(KEY_OS_PASSWORD)
+    }
+
+    private val _rutrackerUser = MutableStateFlow(store.get(KEY_RUTRACKER_USER))
+    private val _rutrackerPassword = MutableStateFlow(store.get(KEY_RUTRACKER_PASSWORD))
+    val rutrackerUser: String? get() = _rutrackerUser.value
+    val rutrackerPassword: String? get() = _rutrackerPassword.value
+
+    /** Stores rutracker credentials; blank values fall back to build-time defaults. */
+    fun setRutracker(user: String, password: String) {
+        store.put(KEY_RUTRACKER_USER, user.trim().ifEmpty { null })
+        store.put(KEY_RUTRACKER_PASSWORD, password.ifEmpty { null })
+        _rutrackerUser.value = store.get(KEY_RUTRACKER_USER)
+        _rutrackerPassword.value = store.get(KEY_RUTRACKER_PASSWORD)
     }
 
     private val _proxyEnabled = MutableStateFlow(store.get(KEY_PROXY_ENABLED)?.toBooleanStrictOrNull() ?: false)

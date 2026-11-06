@@ -13,6 +13,9 @@ import dev.gamspi.videogallery.torrents.ProviderId
 import dev.gamspi.videogallery.torrents.Quality
 import dev.gamspi.videogallery.torrents.TorrentResult
 import dev.gamspi.videogallery.torrents.TorrentSearch
+import dev.gamspi.videogallery.torrents.UnavailableReason
+import dev.gamspi.videogallery.torrents.key
+import dev.gamspi.videogallery.torrents.needsResolve
 import dev.gamspi.videogallery.ui.components.ErrorKind
 import dev.gamspi.videogallery.ui.components.toErrorKind
 import javax.inject.Inject
@@ -32,6 +35,10 @@ sealed interface ReleasesUiState {
         val noProviders: Boolean = false,
         val imdbId: String? = null,
         val movie: Movie? = null,
+        val reasons: Map<ProviderId, UnavailableReason> = emptyMap(),
+        /** Key of the release whose magnet is being fetched. */
+        val resolving: String? = null,
+        val message: String? = null,
     ) :ReleasesUiState {
         val visible: List<TorrentResult>
             get() = if (filter == null) all else all.filter { it.quality == filter }
@@ -52,6 +59,11 @@ sealed interface ReleasesUiState {
     data class Error(val kind: ErrorKind) : ReleasesUiState
 }
 
+/** Navigation request to the stream screen with a playable release. */
+data class PlayRequest(val release: TorrentResult, val meta: PlaybackMeta)
+
+const val RESOLVE_ERROR = "Не удалось открыть раздачу"
+
 @HiltViewModel
 class ReleasesViewModel @Inject constructor(
     private val catalog: CatalogRepository,
@@ -63,6 +75,10 @@ class ReleasesViewModel @Inject constructor(
     private val _state = MutableStateFlow<ReleasesUiState>(ReleasesUiState.Loading)
     val state: StateFlow<ReleasesUiState> = _state
     private var job: Job? = null
+    private var resolveJob: Job? = null
+    private val _play = MutableStateFlow<PlayRequest?>(null)
+    /** Set when a resolved release is ready; the screen navigates and calls [onPlayHandled]. */
+    val play: StateFlow<PlayRequest?> = _play
 
     init {
         load()
@@ -75,7 +91,43 @@ class ReleasesViewModel @Inject constructor(
 
     fun retry() = load()
 
+    /** Fetches the magnet of [r] from its topic page, then publishes a [PlayRequest]. */
+    fun resolve(r: TorrentResult) {
+        val s = _state.value as? ReleasesUiState.Content ?: return
+        if (!r.needsResolve) {
+            _play.value = PlayRequest(r, s.metaFor(r))
+            return
+        }
+        val key = r.key
+        if (s.resolving == key && resolveJob?.isActive == true) return
+        resolveJob?.cancel()
+        _state.value = s.copy(resolving = key, message = null)
+        resolveJob = viewModelScope.launch {
+            try {
+                val resolved = search.resolve(r)
+                val current = _state.value as? ReleasesUiState.Content ?: return@launch
+                _state.value = current.copy(resolving = null)
+                _play.value = PlayRequest(resolved, current.metaFor(resolved))
+            } catch (e: CancellationException) {
+                updateContent { if (it.resolving == key) it.copy(resolving = null) else it }
+                throw e
+            } catch (e: Exception) {
+                updateContent { it.copy(resolving = null, message = RESOLVE_ERROR) }
+            }
+        }
+    }
+
+    fun onPlayHandled() {
+        _play.value = null
+    }
+
+    private inline fun updateContent(f: (ReleasesUiState.Content) -> ReleasesUiState.Content) {
+        val s = _state.value
+        if (s is ReleasesUiState.Content) _state.value = f(s)
+    }
+
     private fun load() {
+        resolveJob?.cancel()
         job?.cancel()
         _state.value = ReleasesUiState.Loading
         job = viewModelScope.launch {
@@ -88,6 +140,7 @@ class ReleasesViewModel @Inject constructor(
                     all = outcome.results,
                     filter = null,
                     unavailable = outcome.unavailable,
+                    reasons = outcome.reasons,
                     noProviders = noProviders,
                     imdbId = details.imdbId,
                     movie = details.movie,

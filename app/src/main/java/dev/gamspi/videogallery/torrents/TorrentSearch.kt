@@ -8,30 +8,56 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withTimeout
 
-data class SearchOutcome(val results: List<TorrentResult>, val unavailable: List<ProviderId>)
+data class SearchOutcome(
+    val results: List<TorrentResult>,
+    val unavailable: List<ProviderId>,
+    /** Reason per unavailable provider. */
+    val reasons: Map<ProviderId, UnavailableReason> = emptyMap(),
+)
 
 class TorrentSearch(
     private val providers: () -> List<TorrentProvider>,
     private val timeoutMs: Long = 15_000,
+    /** Providers asked to resolve selected results; independent of the enabled set. */
+    private val resolvers: () -> List<TorrentProvider> = providers,
 ) {
     suspend fun search(movie: MovieDetails): SearchOutcome = coroutineScope {
         val answers = providers().map { p ->
             async {
                 try {
-                    p to withTimeout(timeoutMs) { p.search(movie) }
+                    Answer(p.id, withTimeout(timeoutMs) { p.search(movie) }, null)
                 } catch (e: TimeoutCancellationException) {
-                    p to null
+                    Answer(p.id, null, UnavailableReason.Unavailable)
                 } catch (e: CancellationException) {
                     throw e
+                } catch (e: ProviderUnavailableException) {
+                    Answer(p.id, null, e.reason)
                 } catch (e: Exception) {
-                    p to null
+                    Answer(p.id, null, UnavailableReason.Unavailable)
                 }
             }
         }.awaitAll()
-        val results = answers.flatMap { it.second.orEmpty() }
-            .groupBy { it.infoHash.lowercase() }
+        val results = answers.flatMap { it.results.orEmpty() }
+            .groupBy { it.key }
             .map { (_, v) -> v.maxBy { it.seeders } }
             .sortedByDescending { it.seeders }
-        SearchOutcome(results, answers.filter { it.second == null }.map { it.first.id })
+        val failed = answers.filter { it.results == null }
+        SearchOutcome(results, failed.map { it.id }, failed.associate { it.id to it.reason!! })
     }
+
+    /** Returns [result] with a magnet; throws [ProviderUnavailableException] on failure or timeout. */
+    suspend fun resolve(result: TorrentResult): TorrentResult {
+        if (!result.needsResolve) return result
+        val provider = resolvers().firstOrNull { it.id == result.provider }
+            ?: throw ProviderUnavailableException()
+        val resolved = try {
+            withTimeout(timeoutMs) { provider.resolve(result) }
+        } catch (e: TimeoutCancellationException) {
+            throw ProviderUnavailableException()
+        }
+        if (resolved.magnet.isBlank()) throw ProviderUnavailableException()
+        return resolved
+    }
+
+    private class Answer(val id: ProviderId, val results: List<TorrentResult>?, val reason: UnavailableReason?)
 }

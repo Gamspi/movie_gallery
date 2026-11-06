@@ -156,6 +156,9 @@ private fun TrackersSection(viewModel: SettingsViewModel, onBack: () -> Unit) {
     val trackerUrls = ProviderId.entries.associateWith { id ->
         rememberSaveable(id.name + "_url") { mutableStateOf(viewModel.tracker(id).value.baseUrl) }
     }
+    // Credentials persist only through SecretStore, never Activity saved state.
+    var rutrackerUser by remember { mutableStateOf(viewModel.rutrackerUser.orEmpty()) }
+    var rutrackerPassword by remember { mutableStateOf(viewModel.rutrackerPassword.orEmpty()) }
     var saveError by remember { mutableStateOf(false) }
     val firstFocus = remember { FocusRequester() }
     InitialFocus(firstFocus)
@@ -163,7 +166,8 @@ private fun TrackersSection(viewModel: SettingsViewModel, onBack: () -> Unit) {
         val trackers = ProviderId.entries.associateWith {
             TrackerConfig(trackerEnabled.getValue(it).value, trackerUrls.getValue(it).value)
         }
-        if (viewModel.saveTrackers(trackers)) onBack() else saveError = true
+        val saved = viewModel.saveRutracker(rutrackerUser, rutrackerPassword) && viewModel.saveTrackers(trackers)
+        if (saved) onBack() else saveError = true
     }
     SectionColumn(SettingsSection.Trackers.title, saveError) {
         ProviderId.entries.forEachIndexed { index, id ->
@@ -176,6 +180,19 @@ private fun TrackersSection(viewModel: SettingsViewModel, onBack: () -> Unit) {
                 onValueChange = { trackerUrls.getValue(id).value = it },
                 label = "Адрес ${id.label}",
             )
+            if (id == ProviderId.Rutracker) {
+                TvTextField(
+                    value = rutrackerUser,
+                    onValueChange = { rutrackerUser = it },
+                    label = "Логин rutracker",
+                )
+                TvTextField(
+                    value = rutrackerPassword,
+                    onValueChange = { rutrackerPassword = it },
+                    label = "Пароль rutracker",
+                    visualTransformation = PasswordVisualTransformation(),
+                )
+            }
         }
     }
 }

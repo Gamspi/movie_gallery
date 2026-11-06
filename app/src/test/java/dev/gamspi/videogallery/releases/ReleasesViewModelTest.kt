@@ -16,6 +16,11 @@ import dev.gamspi.videogallery.torrents.Quality
 import dev.gamspi.videogallery.torrents.TorrentProvider
 import dev.gamspi.videogallery.torrents.TorrentResult
 import dev.gamspi.videogallery.torrents.TorrentSearch
+import dev.gamspi.videogallery.torrents.UnavailableReason
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import dev.gamspi.videogallery.ui.components.ErrorKind
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -26,6 +31,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -41,10 +47,17 @@ class ReleasesViewModelTest {
 
     private class Fake(
         override val id: ProviderId,
+        val resolver: (suspend (TorrentResult) -> TorrentResult)? = null,
         val block: suspend () -> List<TorrentResult>,
     ) : TorrentProvider {
         override suspend fun search(movie: MovieDetails) = block()
+        override suspend fun resolve(result: TorrentResult): TorrentResult =
+            resolver?.invoke(result) ?: super.resolve(result)
     }
+
+    private fun topic(id: String) = TorrentResult(
+        "rt$id", ProviderId.Rutracker, 1L, 4, 0, null, "", "", topicUrl = "https://rt.test/forum/viewtopic.php?t=$id",
+    )
 
     private fun settings() = SettingsRepository(FakeSecretStore())
 
@@ -175,5 +188,89 @@ class ReleasesViewModelTest {
             assertTrue(c.noProviders)
             assertTrue(c.all.isEmpty())
         }
+    }
+
+    private fun TestScope.loaded(vm: ReleasesViewModel): ReleasesUiState.Content {
+        advanceUntilIdle()
+        return vm.state.value as ReleasesUiState.Content
+    }
+
+    @Test
+    fun resolve_fetchesMagnet_showsIndicator_thenPlays() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        val p = Fake(ProviderId.Rutracker, resolver = {
+            gate.await()
+            it.copy(infoHash = "h1", magnet = "magnet:?xt=urn:btih:h1")
+        }) { listOf(topic("1")) }
+        val vm = vm(settings(), p)
+        val c = loaded(vm)
+        vm.resolve(c.all.single())
+        // runCurrent: advancing time would trip the resolve timeout.
+        runCurrent()
+        assertEquals("https://rt.test/forum/viewtopic.php?t=1", (vm.state.value as ReleasesUiState.Content).resolving)
+        assertNull(vm.play.value)
+        gate.complete(Unit)
+        runCurrent()
+        val after = vm.state.value as ReleasesUiState.Content
+        assertNull(after.resolving)
+        assertNull(after.message)
+        val play = vm.play.value!!
+        assertEquals("magnet:?xt=urn:btih:h1", play.release.magnet)
+        assertEquals("magnet:?xt=urn:btih:h1", play.meta.magnet)
+        assertEquals("rt1", play.release.title)
+        vm.onPlayHandled()
+        assertNull(vm.play.value)
+    }
+
+    @Test
+    fun resolve_failure_showsMessage_staysOnContent() = runTest {
+        val p = Fake(ProviderId.Rutracker, resolver = { throw ProviderUnavailableException() }) { listOf(topic("1")) }
+        val vm = vm(settings(), p)
+        val c = loaded(vm)
+        vm.resolve(c.all.single())
+        advanceUntilIdle()
+        val after = vm.state.value as ReleasesUiState.Content
+        assertEquals(RESOLVE_ERROR, after.message)
+        assertEquals("Не удалось открыть раздачу", after.message)
+        assertNull(after.resolving)
+        assertEquals(1, after.all.size)
+        assertNull(vm.play.value)
+    }
+
+    @Test
+    fun releaseWithMagnet_playsWithoutResolving() = runTest {
+        var resolveCalls = 0
+        val p = Fake(ProviderId.Apibay, resolver = { resolveCalls++; it }) { listOf(r("a", 1, null)) }
+        val vm = vm(settings(), p)
+        val c = loaded(vm)
+        vm.resolve(c.all.single())
+        assertEquals("m", vm.play.value!!.meta.magnet)
+        assertEquals(0, resolveCalls)
+    }
+
+    @Test
+    fun retry_cancelsPendingResolve() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        val p = Fake(ProviderId.Rutracker, resolver = { gate.await(); it.copy(magnet = "magnet:x") }) {
+            listOf(topic("1"))
+        }
+        val vm = vm(settings(), p)
+        vm.resolve(loaded(vm).all.single())
+        runCurrent()
+        vm.retry()
+        advanceUntilIdle()
+        gate.complete(Unit)
+        advanceUntilIdle()
+        assertNull((vm.state.value as ReleasesUiState.Content).resolving)
+        assertNull(vm.play.value)
+    }
+
+    @Test
+    fun unavailableReasonsPassedThrough() = runTest {
+        val a = Fake(ProviderId.Rutracker) { throw ProviderUnavailableException(UnavailableReason.BadCredentials) }
+        val vm = vm(settings(), a)
+        val c = loaded(vm)
+        assertEquals(listOf(ProviderId.Rutracker), c.unavailable)
+        assertEquals(mapOf(ProviderId.Rutracker to UnavailableReason.BadCredentials), c.reasons)
     }
 }

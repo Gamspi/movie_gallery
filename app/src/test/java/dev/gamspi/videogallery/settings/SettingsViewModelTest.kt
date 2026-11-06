@@ -164,6 +164,16 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun saveRutrackerPersists() {
+        val store = FakeSecretStore()
+        val vm = SettingsViewModel(SettingsRepository(store))
+        assertEquals(true, vm.saveRutracker(" fake_user ", "fake_pass"))
+        assertEquals("fake_user", store.get("rutracker_username"))
+        assertEquals("fake_pass", store.get("rutracker_password"))
+        assertEquals("fake_user", vm.rutrackerUser)
+    }
+
+    @Test
     fun saveOpenSubtitlesPersists() {
         val store = FakeSecretStore()
         val vm = SettingsViewModel(SettingsRepository(store))

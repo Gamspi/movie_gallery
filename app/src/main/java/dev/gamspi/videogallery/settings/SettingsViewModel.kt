@@ -152,6 +152,13 @@ class SettingsViewModel @Inject constructor(
     fun saveTrackers(trackers: Map<ProviderId, TrackerConfig>): Boolean =
         runSave { repository.setTrackers(trackers) }
 
+    val rutrackerUser: String? get() = repository.rutrackerUser
+    val rutrackerPassword: String? get() = repository.rutrackerPassword
+
+    /** Writes rutracker credentials; false when the store write fails (values are never logged). */
+    fun saveRutracker(user: String, password: String): Boolean =
+        runSave { repository.setRutracker(user, password) }
+
     val proxyEnabled: StateFlow<Boolean> = repository.proxyEnabled
     val proxyUrl: StateFlow<String?> = repository.proxyUrl
     val proxyKey: StateFlow<String?> = repository.proxyKey

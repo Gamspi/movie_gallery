@@ -9,6 +9,9 @@ import dev.gamspi.videogallery.net.proxiedBy
 import dev.gamspi.videogallery.settings.SettingsRepository
 import dev.gamspi.videogallery.torrents.apibay.ApibayProvider
 import dev.gamspi.videogallery.torrents.rutor.RutorProvider
+import dev.gamspi.videogallery.torrents.rutracker.RutrackerCredentials
+import dev.gamspi.videogallery.torrents.rutracker.RutrackerProvider
+import dev.gamspi.videogallery.torrents.rutracker.RutrackerSession
 import dev.gamspi.videogallery.torrents.yts.YtsProvider
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
@@ -32,8 +35,18 @@ object TorrentsModule {
             RutorProvider(client, url(ProviderId.Rutor)),
             ApibayProvider(client, url(ProviderId.Apibay)),
             YtsProvider(client, url(ProviderId.Yts)),
+            RutrackerProvider(
+                client,
+                url(ProviderId.Rutracker),
+                RutrackerSession(client, url(ProviderId.Rutracker)) {
+                    RutrackerCredentials.of(settings.rutrackerUser, settings.rutrackerPassword)
+                },
+            ),
         )
         // Read settings at each search so changes apply without restart.
-        return TorrentSearch({ all.filter { settings.tracker(it.id).value.enabled } })
+        return TorrentSearch(
+            providers = { all.filter { settings.tracker(it.id).value.enabled } },
+            resolvers = { all },
+        )
     }
 }

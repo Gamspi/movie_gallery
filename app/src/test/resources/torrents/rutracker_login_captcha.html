@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="Windows-1251">
+<title>Вход :: RuTracker.org</title>
+</head>
+<body>
+<div id="main_content">
+  <h1 class="pagetitle">Вход</h1>
+  <h4 class="warnColor1 tCenter mrg_16">Вы ввели неверное/неактивное имя пользователя или неверный пароль</h4>
+  <form id="login-form-full" action="login.php" method="post">
+    <table class="forumline">
+      <tr><td>Имя:</td><td><input type="text" name="login_username" value="fictional_user"></td></tr>
+      <tr><td>Пароль:</td><td><input type="password" name="login_password"></td></tr>
+      <tr>
+        <td>Код:</td>
+        <td>
+          <div><img src="https://static.t-ru.org/captcha/0/123/fictional.jpg?0123" width="120" height="72" alt="pic"></div>
+          <input type="hidden" name="cap_sid" value="FicTionalCapSid0123">
+          <input type="text" name="cap_code_0123456789abcdef" value="" maxlength="10">
+        </td>
+      </tr>
+      <tr><td colspan="2"><input type="submit" name="login" value="Вход"></td></tr>
+    </table>
+  </form>
+</div>
+</body>
+</html>
