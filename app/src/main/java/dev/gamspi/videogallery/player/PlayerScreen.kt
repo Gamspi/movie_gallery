@@ -22,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,9 +59,12 @@ import androidx.media3.ui.PlayerView
 import androidx.tv.material3.Text
 import kotlinx.coroutines.delay
 import dev.gamspi.videogallery.ui.components.AccentButton
+import dev.gamspi.videogallery.ui.components.CatMascot
+import dev.gamspi.videogallery.ui.components.CatPose
 
 private const val OVERLAY_HIDE_MS = 3_000L
 private const val POLL_MS = 500L
+private const val END_EXIT_MS = 5_000L
 
 private fun remoteKeyOf(keyCode: Int): RemoteKey? = when (keyCode) {
     KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> RemoteKey.Center
@@ -143,13 +147,15 @@ fun PlayerScreen(onBack: () -> Unit) {
     var overlayVisible by remember { mutableStateOf(true) }
     var overlayTick by remember { mutableLongStateOf(0L) }
     var exited by remember { mutableStateOf(false) }
+    // Playback reached the end: the end screen owns focus until exit.
+    var ended by remember { mutableStateOf(false) }
     val rootFocus = remember { FocusRequester() }
     val errorFocus = remember { FocusRequester() }
     val recoveryOptions = if (state.failure?.canChooseAudio == true) {
         failedAudioSelection?.let { audioRecoveryOptions(audio, it) }.orEmpty()
     } else audioRecoveryOptions(audio, selected)
     val showStallNotice = stallWarning != null && !stallDismissed && !menuOpen &&
-        state.resumeOffer == null && playbackError == null
+        state.resumeOffer == null && playbackError == null && !ended
 
     fun durationOrZero(): Long = player.duration.takeIf { it > 0 } ?: 0L
 
@@ -241,7 +247,10 @@ fun PlayerScreen(onBack: () -> Unit) {
                 if (playbackState == Player.STATE_ENDED) {
                     val d = durationOrZero()
                     vm.onPauseOrExit(d, d)
-                    exit()
+                    playerFocus = PlayerFocus.None
+                    menuSection = null
+                    recoveryAudioOpen = false
+                    ended = true
                     return
                 }
                 if (playbackState != Player.STATE_READY || started) return
@@ -369,8 +378,10 @@ fun PlayerScreen(onBack: () -> Unit) {
     }
 
     // Return focus to the root when no dialog, button or menu owns it.
-    LaunchedEffect(playerFocus, showStallNotice, state.resumeOffer, playbackError) {
-        if (playerFocus == PlayerFocus.None && !showStallNotice && state.resumeOffer == null && playbackError == null) {
+    LaunchedEffect(playerFocus, showStallNotice, state.resumeOffer, playbackError, ended) {
+        if (playerFocus == PlayerFocus.None && !showStallNotice && state.resumeOffer == null && playbackError == null &&
+            !ended
+        ) {
             rootFocus.requestFocus()
         }
     }
@@ -413,6 +424,7 @@ fun PlayerScreen(onBack: () -> Unit) {
 
     fun onBackKey() {
         when {
+            ended -> exit()
             recoveryAudioOpen -> recoveryAudioOpen = false
             playbackError != null || state.resumeOffer != null -> exit()
             showStallNotice -> stallDismissed = true
@@ -433,7 +445,7 @@ fun PlayerScreen(onBack: () -> Unit) {
                 val keyCode = ev.nativeKeyEvent.keyCode
                 val isDown = ev.type == KeyEventType.KeyDown
                 if ((keyCode == KeyEvent.KEYCODE_MEDIA_PLAY || keyCode == KeyEvent.KEYCODE_MEDIA_PAUSE) &&
-                    state.resumeOffer == null && playbackError == null
+                    state.resumeOffer == null && playbackError == null && !ended
                 ) {
                     overlayVisible = true
                     overlayTick++
@@ -454,7 +466,7 @@ fun PlayerScreen(onBack: () -> Unit) {
                     return@onPreviewKeyEvent true
                 }
                 // Dialogs own every key except Back; buttons and menu get theirs via PassToFocus.
-                if (showStallNotice || state.resumeOffer != null || playbackError != null) {
+                if (ended || showStallNotice || state.resumeOffer != null || playbackError != null) {
                     return@onPreviewKeyEvent false
                 }
                 if (key == null) return@onPreviewKeyEvent false
@@ -486,6 +498,7 @@ fun PlayerScreen(onBack: () -> Unit) {
         val offer = state.resumeOffer
         val error = playbackError
         when {
+            ended -> EndContent(onExit = ::exit)
             error != null && recoveryAudioOpen && terminalStreamError == null -> AudioRecoveryContent(
                 tracks = recoveryOptions,
                 onSelect = { track ->
@@ -635,6 +648,23 @@ private fun ResumeContent(
 }
 
 @Composable
+private fun EndContent(onExit: () -> Unit) {
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { focus.requestFocus() }
+    val exitNow by rememberUpdatedState(onExit)
+    LaunchedEffect(Unit) {
+        delay(END_EXIT_MS)
+        exitNow()
+    }
+    Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
+        Column(verticalArrangement = Arrangement.spacedBy(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            CatMascot(CatPose.Wave, size = 160.dp, message = "Фильм закончился")
+            AccentButton(onClick = onExit, modifier = Modifier.focusRequester(focus)) { Text("Выйти") }
+        }
+    }
+}
+
+@Composable
 private fun ErrorContent(
     error: String,
     focus: FocusRequester,
@@ -645,7 +675,12 @@ private fun ErrorContent(
 ) {
     LaunchedEffect(onRetry == null, onChooseAudio == null) { focus.requestFocus() }
     Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            modifier = Modifier.padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            CatMascot(CatPose.Sad, size = 100.dp)
             Text("Не удалось воспроизвести", color = Color.White)
             Text(error, color = Color(0xFFBBBBBB))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {

@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
@@ -49,6 +50,7 @@ fun ErrorView(
     onRetry: () -> Unit,
     onOpenSettings: () -> Unit,
     autoFocus: Boolean = true,
+    catSize: Dp = 120.dp,
 ) {
     val message = catalogErrorMessage(kind, LocalCatalogSource.current)
     val needsSettings = kind == ErrorKind.MissingKey || kind == ErrorKind.BadKey
@@ -58,9 +60,10 @@ fun ErrorView(
     if (autoFocus) LaunchedEffect(kind) { runCatching { focus.requestFocus() } }
     Column(
         modifier = Modifier.fillMaxSize().padding(48.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterVertically),
+        verticalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        CatMascot(CatPose.Sad, size = catSize)
         Text(message, style = MaterialTheme.typography.headlineMedium)
         // Settings stay reachable for every error (e.g. offline at launch).
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {

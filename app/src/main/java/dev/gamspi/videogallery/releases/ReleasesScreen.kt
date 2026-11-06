@@ -35,6 +35,8 @@ import androidx.tv.material3.Text
 import dev.gamspi.videogallery.torrents.Quality
 import dev.gamspi.videogallery.torrents.TorrentResult
 import dev.gamspi.videogallery.torrents.formatSize
+import dev.gamspi.videogallery.ui.components.CatMascot
+import dev.gamspi.videogallery.ui.components.CatPose
 import dev.gamspi.videogallery.ui.components.ErrorView
 import dev.gamspi.videogallery.ui.components.FullScreenLoader
 
@@ -98,9 +100,10 @@ private fun ReleasesContent(
         }
         if (visible.isEmpty()) {
             Box(Modifier.fillMaxSize(), Alignment.Center) {
-                Text(
-                    if (content.noProviders) "Включите трекеры в настройках" else "Раздачи не найдены",
-                    style = MaterialTheme.typography.titleMedium,
+                CatMascot(
+                    CatPose.Shrug,
+                    size = 120.dp,
+                    message = if (content.noProviders) "Включите трекеры в настройках" else "Раздачи не найдены",
                 )
             }
         } else {

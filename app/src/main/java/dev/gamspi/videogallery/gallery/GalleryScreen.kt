@@ -33,6 +33,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import dev.gamspi.videogallery.ui.components.CatLogo
 import dev.gamspi.videogallery.ui.components.ErrorView
 import dev.gamspi.videogallery.ui.components.FullScreenLoader
 import dev.gamspi.videogallery.ui.components.IconPillButton
@@ -144,7 +145,7 @@ private fun GalleryContent(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    // Leading slot: logo is inserted here later.
+                    CatLogo()
                     Text(
                         "VideoGallery",
                         style = MaterialTheme.typography.headlineSmall,

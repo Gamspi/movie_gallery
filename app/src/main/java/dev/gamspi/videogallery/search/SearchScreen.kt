@@ -42,6 +42,8 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import dev.gamspi.videogallery.ui.components.CatMascot
+import dev.gamspi.videogallery.ui.components.CatPose
 import dev.gamspi.videogallery.ui.components.ErrorView
 import dev.gamspi.videogallery.ui.components.MovieCard
 import dev.gamspi.videogallery.ui.components.ShimmerHost
@@ -106,13 +108,14 @@ fun SearchScreen(
             when (val s = state) {
                 SearchUiState.Idle -> Text("Введите название фильма")
                 SearchUiState.Loading -> Box(Modifier.fillMaxSize().then(gutter), Alignment.TopStart) { SkeletonGrid(5, 2) }
-                SearchUiState.Empty -> Text("Ничего не найдено", style = MaterialTheme.typography.headlineMedium)
+                SearchUiState.Empty -> CatMascot(CatPose.Shrug, modifier = gutter, size = 120.dp, message = "Ничего не найдено")
                 is SearchUiState.Error -> Box(gutter) {
                     ErrorView(
                         s.kind,
                         onRetry = viewModel::retry,
                         onOpenSettings = onOpenSettings,
                         autoFocus = false, // do not steal focus from the text field while typing
+                        catSize = 88.dp,
                     )
                 }
                 is SearchUiState.Results -> LazyVerticalGrid(

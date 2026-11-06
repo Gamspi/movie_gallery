@@ -34,6 +34,8 @@ import dev.gamspi.videogallery.torrents.formatSize
 import dev.gamspi.videogallery.ui.components.FullScreenLoader
 import kotlinx.coroutines.flow.first
 import dev.gamspi.videogallery.ui.components.AccentButton
+import dev.gamspi.videogallery.ui.components.CatMascot
+import dev.gamspi.videogallery.ui.components.CatPose
 
 @Composable
 fun StreamScreen(
@@ -131,6 +133,7 @@ private fun FailedContent(message: String, onBack: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        CatMascot(CatPose.Sad, size = 120.dp)
         Text(message, style = MaterialTheme.typography.titleMedium)
         AccentButton(onClick = onBack, modifier = Modifier.focusRequester(focus)) { Text("Назад") }
     }
