@@ -6,6 +6,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.gamspi.videogallery.catalog.CatalogException
 import dev.gamspi.videogallery.catalog.CatalogRepository
 import dev.gamspi.videogallery.catalog.model.Movie
+import dev.gamspi.videogallery.history.WatchEntry
+import dev.gamspi.videogallery.history.WatchHistoryStore
 import dev.gamspi.videogallery.settings.SettingsRepository
 import dev.gamspi.videogallery.ui.components.ErrorKind
 import dev.gamspi.videogallery.ui.components.toErrorKind
@@ -32,7 +34,10 @@ sealed interface GalleryUiState {
 class GalleryViewModel @Inject constructor(
     private val catalog: CatalogRepository,
     settings: SettingsRepository,
+    history: WatchHistoryStore,
 ) : ViewModel() {
+    /** «Продолжить просмотр» entries; separate from [state] so history updates keep catalog rows. */
+    val history: StateFlow<List<WatchEntry>> = history.entries
     private val _state = MutableStateFlow<GalleryUiState>(GalleryUiState.Loading(initial = true))
     val state: StateFlow<GalleryUiState> = _state.asStateFlow()
     private val retryTick = MutableStateFlow(0)

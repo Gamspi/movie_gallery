@@ -562,13 +562,23 @@ fun PlayerScreen(onBack: () -> Unit) {
                     liftDp = if (overlayVisible || playerFocus != PlayerFocus.None) 200.dp else 0.dp,
                     modifier = Modifier.align(Alignment.BottomCenter),
                 )
+                val panelsShown = overlayVisible || playerFocus != PlayerFocus.None
                 if (buffering) {
                     PopcornCatLoader(
                         size = 96.dp,
-                        modifier = Modifier.align(Alignment.TopEnd).padding(32.dp),
+                        // Below the top bar while it is shown.
+                        modifier = Modifier.align(Alignment.TopEnd).padding(
+                            start = 32.dp, end = 32.dp, bottom = 32.dp, top = if (panelsShown) 112.dp else 32.dp,
+                        ),
                     )
                 }
-                if (overlayVisible || playerFocus != PlayerFocus.None) {
+                if (panelsShown) {
+                    PlayerTopBar(
+                        heading = playerHeading(vm.meta.movieTitle, vm.meta.movieYear, state.title),
+                        positionMs = { positionMs },
+                        durationMs = durationMs,
+                        modifier = Modifier.align(Alignment.TopCenter),
+                    )
                     PlayerOverlay(
                         title = state.title,
                         positionMs = positionMs,

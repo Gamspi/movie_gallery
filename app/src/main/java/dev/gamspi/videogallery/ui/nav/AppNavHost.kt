@@ -54,6 +54,7 @@ fun AppNavHost() {
         composable("gallery") { entry ->
             GalleryScreen(
                 onOpenMovie = { nav.navigateOnce(entry, "movie/$it") },
+                onContinue = { nav.navigateOnce(entry, it.streamRoute()) },
                 onOpenSearch = { nav.navigateOnce(entry, "search") },
                 onOpenSettings = { nav.navigateOnce(entry, SETTINGS_HOME_ROUTE) },
                 onOpenCatalogSettings = { nav.navigateOnce(entry, settingsRoute(SettingsSection.Catalog)) },

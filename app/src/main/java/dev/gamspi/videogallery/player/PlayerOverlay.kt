@@ -11,17 +11,27 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import dev.gamspi.videogallery.ui.components.IconPillButton
 import dev.gamspi.videogallery.ui.icons.AppIcons
 import dev.gamspi.videogallery.ui.theme.AppColors
+import kotlinx.coroutines.delay
 
 /**
  * Bottom panel: title, progress, then play/pause and settings buttons.
@@ -80,5 +90,53 @@ fun PlayerOverlay(
             Text(shown, color = Color.White)
         }
         statusLine?.let { Text(it, color = Color(0xFFBBBBBB)) }
+    }
+}
+
+/**
+ * Top scrim bar shown with the bottom panel: heading on the left, wall clock and the end time
+ * on the right. Times tick in an effect once per second, so only this bar's texts recompose.
+ * Not focusable: key handling stays with the player root.
+ */
+@Composable
+fun PlayerTopBar(
+    heading: String,
+    positionMs: () -> Long,
+    durationMs: Long,
+    modifier: Modifier = Modifier,
+) {
+    val duration by rememberUpdatedState(durationMs)
+    var clock by remember { mutableStateOf(formatClock(System.currentTimeMillis())) }
+    var endsAt by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            val now = System.currentTimeMillis()
+            clock = formatClock(now)
+            endsAt = playbackEndAt(now, positionMs(), duration)?.let(::formatClock)
+            delay(1_000L)
+        }
+    }
+    Row(
+        modifier
+            .fillMaxWidth()
+            .background(Brush.verticalGradient(listOf(Color(0xCC000000), Color.Transparent)))
+            .padding(start = 48.dp, end = 48.dp, top = 24.dp, bottom = 48.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            heading,
+            color = Color.White,
+            style = MaterialTheme.typography.titleLarge,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        Spacer(Modifier.width(24.dp))
+        Column(horizontalAlignment = Alignment.End) {
+            Text(clock, color = Color.White, style = MaterialTheme.typography.titleMedium)
+            endsAt?.let {
+                Text("закончится в $it", color = Color(0xFFBBBBBB), style = MaterialTheme.typography.bodySmall)
+            }
+        }
     }
 }

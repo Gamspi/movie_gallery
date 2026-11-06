@@ -5,6 +5,8 @@ import dev.gamspi.videogallery.catalog.CatalogException
 import dev.gamspi.videogallery.catalog.FakeCatalogRepository
 import dev.gamspi.videogallery.catalog.model.Genre
 import dev.gamspi.videogallery.catalog.model.Movie
+import dev.gamspi.videogallery.history.FakeWatchHistoryStore
+import dev.gamspi.videogallery.history.WatchEntry
 import dev.gamspi.videogallery.settings.CatalogSource
 import dev.gamspi.videogallery.settings.FakeSecretStore
 import dev.gamspi.videogallery.settings.SettingsRepository
@@ -42,7 +44,7 @@ class GalleryViewModelTest {
     @Test
     fun load_success_popularFirstThenGenres() = runTest {
         happyRepo(10)
-        val vm = GalleryViewModel(repo, settings())
+        val vm = GalleryViewModel(repo, settings(), FakeWatchHistoryStore())
         vm.state.test {
             assertEquals(GalleryUiState.Loading(initial = true), awaitItem())
             val content = awaitItem() as GalleryUiState.Content
@@ -56,7 +58,7 @@ class GalleryViewModelTest {
     fun load_genreRowFails_rowSkipped() = runTest {
         happyRepo(3)
         repo.byGenreResult = { if (it == 2) throw CatalogException.Network else listOf(movie(it)) }
-        val vm = GalleryViewModel(repo, settings())
+        val vm = GalleryViewModel(repo, settings(), FakeWatchHistoryStore())
         vm.state.test {
             assertEquals(GalleryUiState.Loading(initial = true), awaitItem())
             val content = awaitItem() as GalleryUiState.Content
@@ -67,7 +69,7 @@ class GalleryViewModelTest {
     @Test
     fun load_missingKey_errorMissingKey() = runTest {
         repo.popularResult = { throw CatalogException.MissingApiKey }
-        val vm = GalleryViewModel(repo, settings(null))
+        val vm = GalleryViewModel(repo, settings(null), FakeWatchHistoryStore())
         vm.state.test {
             assertEquals(GalleryUiState.Loading(initial = true), awaitItem())
             assertEquals(GalleryUiState.Error(ErrorKind.MissingKey), awaitItem())
@@ -79,7 +81,7 @@ class GalleryViewModelTest {
         happyRepo(1)
         var fail = true
         repo.popularResult = { if (fail) throw CatalogException.Network else listOf(movie(1)) }
-        val vm = GalleryViewModel(repo, settings())
+        val vm = GalleryViewModel(repo, settings(), FakeWatchHistoryStore())
         vm.state.test {
             assertEquals(GalleryUiState.Loading(initial = true), awaitItem())
             assertEquals(GalleryUiState.Error(ErrorKind.Network), awaitItem())
@@ -96,7 +98,7 @@ class GalleryViewModelTest {
     fun load_genresUnauthorized_errorBadKey() = runTest {
         repo.popularResult = { listOf(movie(1)) }
         repo.genresResult = { throw CatalogException.Unauthorized }
-        val vm = GalleryViewModel(repo, settings())
+        val vm = GalleryViewModel(repo, settings(), FakeWatchHistoryStore())
         vm.state.test {
             assertEquals(GalleryUiState.Loading(initial = true), awaitItem())
             assertEquals(GalleryUiState.Error(ErrorKind.BadKey), awaitItem())
@@ -107,7 +109,7 @@ class GalleryViewModelTest {
     fun load_emptyGenreRow_skipped() = runTest {
         happyRepo(2)
         repo.byGenreResult = { if (it == 1) emptyList() else listOf(movie(it)) }
-        val vm = GalleryViewModel(repo, settings())
+        val vm = GalleryViewModel(repo, settings(), FakeWatchHistoryStore())
         vm.state.test {
             assertEquals(GalleryUiState.Loading(initial = true), awaitItem())
             val content = awaitItem() as GalleryUiState.Content
@@ -120,7 +122,7 @@ class GalleryViewModelTest {
         happyRepo(1)
         repo.popularResult = { throw CatalogException.MissingApiKey }
         val settings = settings(null)
-        val vm = GalleryViewModel(repo, settings)
+        val vm = GalleryViewModel(repo, settings, FakeWatchHistoryStore())
         vm.state.test {
             assertEquals(GalleryUiState.Loading(initial = true), awaitItem())
             assertEquals(GalleryUiState.Error(ErrorKind.MissingKey), awaitItem())
@@ -135,7 +137,7 @@ class GalleryViewModelTest {
     fun sourceChanged_reloads() = runTest {
         happyRepo(1)
         val settings = settings()
-        val vm = GalleryViewModel(repo, settings)
+        val vm = GalleryViewModel(repo, settings, FakeWatchHistoryStore())
         vm.state.test {
             assertEquals(GalleryUiState.Loading(initial = true), awaitItem())
             assertTrue(awaitItem() is GalleryUiState.Content)
@@ -149,7 +151,7 @@ class GalleryViewModelTest {
     @Test
     fun initialLoadIsMarkedInitial() = runTest {
         happyRepo(1)
-        val vm = GalleryViewModel(repo, settings())
+        val vm = GalleryViewModel(repo, settings(), FakeWatchHistoryStore())
         vm.state.test {
             assertEquals(GalleryUiState.Loading(initial = true), awaitItem())
             assertTrue(awaitItem() is GalleryUiState.Content)
@@ -159,13 +161,28 @@ class GalleryViewModelTest {
     @Test
     fun retryLoadIsNotInitial() = runTest {
         happyRepo(1)
-        val vm = GalleryViewModel(repo, settings())
+        val vm = GalleryViewModel(repo, settings(), FakeWatchHistoryStore())
         vm.state.test {
             assertEquals(GalleryUiState.Loading(initial = true), awaitItem())
             assertTrue(awaitItem() is GalleryUiState.Content)
             vm.retry()
             assertEquals(GalleryUiState.Loading(initial = false), awaitItem())
             assertTrue(awaitItem() is GalleryUiState.Content)
+        }
+    }
+
+    @Test
+    fun history_exposedSeparately_updatesWithoutReloadingRows() = runTest {
+        happyRepo(1)
+        val history = FakeWatchHistoryStore()
+        val vm = GalleryViewModel(repo, settings(), history)
+        vm.state.test {
+            awaitItem()
+            val content = awaitItem() as GalleryUiState.Content
+            history.upsert(WatchEntry(7, "M7", positionKey = "k", positionMs = 10, durationMs = 100, updatedAt = 1))
+            assertEquals(listOf(7), vm.history.value.map { it.movieId })
+            expectNoEvents()
+            assertEquals(content, vm.state.value)
         }
     }
 

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -33,6 +34,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import dev.gamspi.videogallery.catalog.model.Movie
+import dev.gamspi.videogallery.history.WatchEntry
 import dev.gamspi.videogallery.ui.components.CatLogo
 import dev.gamspi.videogallery.ui.components.ErrorView
 import dev.gamspi.videogallery.ui.components.FullScreenLoader
@@ -46,18 +49,20 @@ import dev.gamspi.videogallery.ui.icons.AppIcons
 @Composable
 fun GalleryScreen(
     onOpenMovie: (Int) -> Unit,
+    onContinue: (WatchEntry) -> Unit,
     onOpenSearch: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenCatalogSettings: () -> Unit,
     viewModel: GalleryViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val history by viewModel.history.collectAsStateWithLifecycle()
     when (val s = state) {
         is GalleryUiState.Loading ->
             if (s.initial) FullScreenLoader() else GallerySkeleton()
         is GalleryUiState.Error ->
             ErrorView(s.kind, onRetry = viewModel::retry, onOpenSettings = onOpenCatalogSettings)
-        is GalleryUiState.Content -> GalleryContent(s, onOpenMovie, onOpenSearch, onOpenSettings)
+        is GalleryUiState.Content -> GalleryContent(s, history, onOpenMovie, onContinue, onOpenSearch, onOpenSettings)
     }
 }
 
@@ -84,48 +89,79 @@ private fun GallerySkeleton() {
  * press, and a snapshot read in card composition would recompose every visible card.
  */
 private class GalleryFocusMemory(
-    var row: Int = -1,
+    var rowKey: String = "",
     var movieId: Int = -1,
     var initialFocusDone: Boolean = false,
 ) {
     // Per appearance (not saved): header DPAD_DOWN target.
     var lastFocused: FocusRequester? = null
     var firstCardAttached = false
+    // A card, not the header, holds focus.
+    var cardFocused = false
 
     companion object {
-        val Saver = listSaver<GalleryFocusMemory, Int>(
-            save = { listOf(it.row, it.movieId, if (it.initialFocusDone) 1 else 0) },
-            restore = { GalleryFocusMemory(it[0], it[1], it[2] == 1) },
+        val Saver = listSaver<GalleryFocusMemory, Any>(
+            save = { listOf(it.rowKey, it.movieId, it.initialFocusDone) },
+            restore = { GalleryFocusMemory(it[0] as String, it[1] as Int, it[2] as Boolean) },
         )
     }
 }
 
-/** Card to focus once per appearance, captured when the content enters composition. */
-private class RestoreTarget(private val row: Int, private val movieId: Int, private val firstCard: Boolean) {
-    var handled = false
+/**
+ * Card to focus once per appearance, or again when the focused continue card leaves the history.
+ * [target] is re-resolved on each composition while [active], with fallback to the row's first card.
+ */
+private class RestoreTarget(var wanted: CardKey?, var active: Boolean) {
+    var target: CardKey? = null
 
-    fun matches(rowIndex: Int, index: Int, id: Int): Boolean =
-        if (movieId != -1) rowIndex == row && id == movieId else firstCard && rowIndex == 0 && index == 0
+    fun matches(rowKey: String, id: Int): Boolean =
+        active && target.let { it != null && it.row == rowKey && it.movieId == id }
 }
+
+/** One displayed row: the continue row or a catalog row. */
+private class DisplayRow(val key: String, val title: String, val movies: List<Movie>)
 
 @Composable
 private fun GalleryContent(
     content: GalleryUiState.Content,
+    history: List<WatchEntry>,
     onOpenMovie: (Int) -> Unit,
+    onContinue: (WatchEntry) -> Unit,
     onOpenSearch: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     // Survives navigation (saved with the back stack entry).
     val memory = rememberSaveable(saver = GalleryFocusMemory.Saver) { GalleryFocusMemory() }
-    val restore = remember { RestoreTarget(memory.row, memory.movieId, !memory.initialFocusDone) }
+    val restore = remember {
+        val saved = if (memory.movieId != -1) CardKey(memory.rowKey, memory.movieId) else null
+        RestoreTarget(saved, active = saved != null || !memory.initialFocusDone)
+    }
     val firstCard = remember { FocusRequester() }
     val openMovie by rememberUpdatedState(onOpenMovie)
+    val continueWatch by rememberUpdatedState(onContinue)
     val listState = rememberLazyListState()
+    // Built once per history change, not per card.
+    val entriesById = remember(history) { history.associateBy { it.movieId } }
+    val progress = remember(history) { progressByMovie(history) }
+    val rows = remember(history, content) {
+        buildList {
+            if (history.isNotEmpty()) add(DisplayRow(CONTINUE_ROW_KEY, "Продолжить просмотр", history.map { it.toMovie() }))
+            content.rows.forEachIndexed { i, row -> add(DisplayRow(catalogRowKey(i), row.title, row.movies)) }
+        }
+    }
+    // The focused continue card vanished (watched to the end): refocus a neighbour.
+    if (!restore.active && memory.cardFocused && memory.rowKey == CONTINUE_ROW_KEY && memory.movieId !in entriesById) {
+        restore.wanted = CardKey(memory.rowKey, memory.movieId)
+        restore.active = true
+    }
+    if (restore.active) restore.target = resolveFocusTarget(rows.map { r -> r.key to r.movies.map { it.id } }, restore.wanted)
     // Down from the header: previously focused card, else the first card, else default search.
     val headerFocus = remember {
-        Modifier.focusProperties {
-            down = memory.lastFocused ?: if (memory.firstCardAttached) firstCard else FocusRequester.Default
-        }
+        Modifier
+            .focusProperties {
+                down = memory.lastFocused ?: if (memory.firstCardAttached) firstCard else FocusRequester.Default
+            }
+            .onFocusChanged { if (it.hasFocus) memory.cardFocused = false }
     }
 
     ShimmerHost {
@@ -161,9 +197,11 @@ private fun GalleryContent(
                 }
             }
         }
-        itemsIndexed(content.rows, key = { index, _ -> "row-$index" }) { rowIndex, row ->
+        itemsIndexed(rows, key = { _, row -> row.key }) { rowIndex, row ->
             // Saved per row (inside the lazy item), so horizontal scroll position is restored too.
             val rowState = rememberLazyListState()
+            val isContinue = row.key == CONTINUE_ROW_KEY
+            if (isContinue) KeepFocusedContinueCardVisible(row.movies, memory, rowState)
             Column {
                 Text(
                     row.title,
@@ -179,11 +217,11 @@ private fun GalleryContent(
                         val isFirst = rowIndex == 0 && index == 0
                         val ownRequester = remember { FocusRequester() }
                         val requester = if (isFirst) firstCard else ownRequester
-                        if (!restore.handled && restore.matches(rowIndex, index, movie.id)) {
+                        if (restore.matches(row.key, movie.id)) {
                             // The card is composed and attached by the time this runs (after first frame).
                             LaunchedEffect(Unit) {
                                 withFrameNanos { }
-                                restore.handled = true
+                                restore.active = false
                                 memory.initialFocusDone = true
                                 requester.requestFocus()
                             }
@@ -195,23 +233,43 @@ private fun GalleryContent(
                                 if (memory.lastFocused === requester) memory.lastFocused = null
                             }
                         }
-                        val cardModifier = remember(requester, rowIndex, movie.id) {
+                        val cardModifier = remember(requester, row.key, movie.id) {
                             Modifier
                                 .focusRequester(requester)
                                 .onFocusChanged {
                                     if (it.hasFocus) {
-                                        memory.row = rowIndex
+                                        memory.rowKey = row.key
                                         memory.movieId = movie.id
                                         memory.lastFocused = requester
+                                        memory.cardFocused = true
                                     }
                                 }
                         }
-                        val onClick = remember(movie.id) { { openMovie(movie.id) } }
-                        MovieCard(movie = movie, onClick = onClick, modifier = cardModifier)
+                        val entry = if (isContinue) entriesById[movie.id] else null
+                        val onClick = remember(movie.id, entry) {
+                            if (entry != null) { { continueWatch(entry) } } else { { openMovie(movie.id) } }
+                        }
+                        MovieCard(movie = movie, onClick = onClick, modifier = cardModifier, progress = progress[movie.id])
                     }
                 }
             }
         }
     }
+    }
+}
+
+/** History reordered under a focused continue card: scroll the row so the card stays on screen. */
+@Composable
+private fun KeepFocusedContinueCardVisible(movies: List<Movie>, memory: GalleryFocusMemory, rowState: LazyListState) {
+    val ids = remember(movies) { movies.map { it.id } }
+    val previous = remember { arrayOf(ids) }
+    LaunchedEffect(ids) {
+        if (ids == previous[0]) return@LaunchedEffect
+        previous[0] = ids
+        val index = ids.indexOf(memory.movieId)
+        if (memory.cardFocused && memory.rowKey == CONTINUE_ROW_KEY && index >= 0) {
+            val visible = rowState.layoutInfo.visibleItemsInfo.any { it.index == index }
+            if (!visible) rowState.scrollToItem(index)
+        }
     }
 }
