@@ -95,18 +95,21 @@ fun AppNavHost() {
         composable("search") { entry ->
             SearchScreen(
                 onOpenMovie = { nav.navigateOnce(entry, "movie/$it") },
-                onOpenSettings = { nav.navigateOnce(entry, settingsRoute(SettingsSection.Catalog)) },
+                onOpenCatalogSettings = { nav.navigateOnce(entry, settingsRoute(SettingsSection.Catalog)) },
+                onOpenSettings = { nav.navigateOnce(entry, SETTINGS_HOME_ROUTE) },
             )
         }
         composable("movie/{id}", arguments = listOf(navArgument("id") { type = NavType.IntType })) { entry ->
             DetailsScreen(
-                onOpenSettings = { nav.navigateOnce(entry, settingsRoute(SettingsSection.Catalog)) },
+                onOpenCatalogSettings = { nav.navigateOnce(entry, settingsRoute(SettingsSection.Catalog)) },
+                onOpenSettings = { nav.navigateOnce(entry, SETTINGS_HOME_ROUTE) },
                 onWatch = { nav.navigateOnce(entry, "releases/${entry.arguments?.getInt("id")}") },
             )
         }
         composable("releases/{id}", arguments = listOf(navArgument("id") { type = NavType.IntType })) { entry ->
             ReleasesScreen(
-                onOpenSettings = { nav.navigateOnce(entry, settingsRoute(SettingsSection.Catalog)) },
+                onOpenCatalogSettings = { nav.navigateOnce(entry, settingsRoute(SettingsSection.Catalog)) },
+                onOpenSettings = { nav.navigateOnce(entry, SETTINGS_HOME_ROUTE) },
                 onPlay = { r, meta -> nav.navigateOnce(entry, streamRoute(r.title, meta)) },
             )
         }

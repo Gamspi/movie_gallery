@@ -13,4 +13,12 @@ class ErrorViewTest {
         assertEquals("Нужен ключ TMDB", catalogErrorMessage(ErrorKind.MissingKey, CatalogSource.Tmdb))
         assertEquals("Ключ TMDB неверный", catalogErrorMessage(ErrorKind.BadKey, CatalogSource.Tmdb))
     }
+
+    @Test fun settingsTarget_byErrorKind() {
+        assertEquals(true, ErrorKind.MissingKey.opensCatalogSettings())
+        assertEquals(true, ErrorKind.BadKey.opensCatalogSettings())
+        assertEquals(true, ErrorKind.QuotaExceeded.opensCatalogSettings())
+        assertEquals(false, ErrorKind.Network.opensCatalogSettings())
+        assertEquals(false, ErrorKind.Other.opensCatalogSettings())
+    }
 }

@@ -50,6 +50,7 @@ fun releaseInfoLine(r: TorrentResult): String =
 
 @Composable
 fun ReleasesScreen(
+    onOpenCatalogSettings: () -> Unit,
     onOpenSettings: () -> Unit,
     onPlay: (TorrentResult, PlaybackMeta) -> Unit,
     viewModel: ReleasesViewModel = hiltViewModel(),
@@ -57,7 +58,7 @@ fun ReleasesScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     when (val s = state) {
         ReleasesUiState.Loading -> FullScreenLoader("Ищем раздачи…")
-        is ReleasesUiState.Error -> ErrorView(s.kind, onRetry = viewModel::retry, onOpenSettings = onOpenSettings)
+        is ReleasesUiState.Error -> ErrorView(s.kind, onRetry = viewModel::retry, onOpenCatalogSettings = onOpenCatalogSettings, onOpenSettings = onOpenSettings)
         is ReleasesUiState.Content -> ReleasesContent(s, viewModel::setFilter) { onPlay(it, s.metaFor(it)) }
     }
 }

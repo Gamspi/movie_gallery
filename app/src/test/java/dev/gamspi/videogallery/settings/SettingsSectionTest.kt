@@ -2,6 +2,7 @@ package dev.gamspi.videogallery.settings
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SettingsSectionTest {
@@ -13,5 +14,11 @@ class SettingsSectionTest {
         assertEquals("settings/catalog", settingsRoute(SettingsSection.Catalog))
         assertNull(sectionOf("nope"))
         assertNull(sectionOf(null))
+    }
+
+    @Test
+    fun networkSectionAutosaves() {
+        assertEquals("settings/network", settingsRoute(SettingsSection.Network))
+        assertTrue(SettingsSection.Network.autosaves)
     }
 }

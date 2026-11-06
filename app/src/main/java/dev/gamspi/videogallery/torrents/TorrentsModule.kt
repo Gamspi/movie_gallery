@@ -4,6 +4,8 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import dev.gamspi.videogallery.net.ProxyInterceptor
+import dev.gamspi.videogallery.net.proxiedBy
 import dev.gamspi.videogallery.settings.SettingsRepository
 import dev.gamspi.videogallery.torrents.apibay.ApibayProvider
 import dev.gamspi.videogallery.torrents.rutor.RutorProvider
@@ -17,12 +19,13 @@ import okhttp3.OkHttpClient
 object TorrentsModule {
     @Provides
     @Singleton
-    fun provideTorrentSearch(settings: SettingsRepository): TorrentSearch {
+    fun provideTorrentSearch(settings: SettingsRepository, proxy: ProxyInterceptor): TorrentSearch {
         val client = OkHttpClient.Builder()
             .callTimeout(15, TimeUnit.SECONDS)
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(15, TimeUnit.SECONDS)
             .writeTimeout(15, TimeUnit.SECONDS)
+            .proxiedBy(proxy)
             .build()
         fun url(id: ProviderId): () -> String = { settings.tracker(id).value.baseUrl }
         val all = listOf<TorrentProvider>(

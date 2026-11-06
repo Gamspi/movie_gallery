@@ -12,6 +12,47 @@ room {
     schemaDirectory("$projectDir/schemas")
 }
 
+// Local secrets from the root .env, baked into BuildConfig as fallback defaults.
+// Read at configuration time via a tracked provider, so edits to .env trigger regeneration.
+val envKeys = listOf(
+    "KINOPOISK_API_KEY", "TMDB_API_KEY", "POISKKINO_API_KEY",
+    "OPENSUBTITLES_API_KEY", "OPENSUBTITLES_USERNAME", "OPENSUBTITLES_PASSWORD",
+    "PROXY_URL", "PROXY_KEY", "RUTRACKER_USERNAME", "RUTRACKER_PASSWORD",
+)
+
+val envValues: Map<String, String> = providers
+    .fileContents(rootProject.layout.projectDirectory.file(".env"))
+    .asText.orNull.orEmpty()
+    .removePrefix("﻿")
+    .lineSequence()
+    .map { it.trim() }
+    .filter { it.isNotEmpty() && !it.startsWith("#") && it.contains('=') }
+    .associate { line ->
+        val key = line.substringBefore('=').trim()
+        var value = line.substringAfter('=').trim()
+        if (value.length >= 2 && (value.first() == '"' || value.first() == '\'') && value.last() == value.first()) {
+            value = value.substring(1, value.length - 1)
+        }
+        key to value
+    }
+
+// Java string literal; non-ASCII and control chars as unicode escapes.
+fun javaLiteral(value: String): String = buildString {
+    append('"')
+    for (c in value) {
+        when {
+            c == '\\' -> append("\\\\")
+            c == '"' -> append("\\\"")
+            c == '\n' -> append("\\n")
+            c == '\r' -> append("\\r")
+            c == '\t' -> append("\\t")
+            c.code < 0x20 || c.code > 0x7e -> append("\\u%04x".format(c.code))
+            else -> append(c)
+        }
+    }
+    append('"')
+}
+
 android {
     namespace = "dev.gamspi.videogallery"
     ndkVersion = "26.1.10909125"
@@ -26,6 +67,9 @@ android {
         versionCode = 1
         versionName = "1.0"
         ndk { abiFilters += "armeabi-v7a" }
+        envKeys.forEach { key ->
+            buildConfigField("String", "ENV_$key", javaLiteral(envValues[key].orEmpty()))
+        }
     }
 
     buildTypes {

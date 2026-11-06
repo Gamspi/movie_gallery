@@ -34,6 +34,7 @@ import dev.gamspi.videogallery.ui.components.AccentButton
 
 @Composable
 fun DetailsScreen(
+    onOpenCatalogSettings: () -> Unit,
     onOpenSettings: () -> Unit,
     onWatch: () -> Unit,
     viewModel: DetailsViewModel = hiltViewModel(),
@@ -41,7 +42,7 @@ fun DetailsScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     when (val s = state) {
         DetailsUiState.Loading -> FullScreenLoader()
-        is DetailsUiState.Error -> ErrorView(s.kind, onRetry = viewModel::retry, onOpenSettings = onOpenSettings)
+        is DetailsUiState.Error -> ErrorView(s.kind, onRetry = viewModel::retry, onOpenCatalogSettings = onOpenCatalogSettings, onOpenSettings = onOpenSettings)
         is DetailsUiState.Content -> DetailsContent(s.details, onWatch)
     }
 }

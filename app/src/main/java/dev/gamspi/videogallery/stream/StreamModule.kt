@@ -2,6 +2,8 @@ package dev.gamspi.videogallery.stream
 
 import android.content.Context
 import java.io.File
+import dev.gamspi.videogallery.net.ProxyInterceptor
+import dev.gamspi.videogallery.net.proxiedBy
 import dev.gamspi.videogallery.settings.SettingsRepository
 import dagger.Module
 import dagger.Provides
@@ -28,8 +30,8 @@ object StreamModule {
 
     @Provides
     @Singleton
-    fun provideTorrentFileSource(): TorrentFileSource =
-        TorrentFileFetcher(OkHttpClient.Builder().build())
+    fun provideTorrentFileSource(proxy: ProxyInterceptor): TorrentFileSource =
+        TorrentFileFetcher(OkHttpClient.Builder().proxiedBy(proxy).build())
 
     @Provides
     @Singleton

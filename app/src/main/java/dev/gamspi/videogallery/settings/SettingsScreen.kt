@@ -58,6 +58,7 @@ fun SettingsSectionScreen(
         SettingsSection.Subtitles -> SubtitlesSection(viewModel)
         SettingsSection.Translation -> TranslationSection(viewModel)
         SettingsSection.OpenSubtitles -> OpenSubtitlesSection(viewModel, onBack)
+        SettingsSection.Network -> NetworkSection(viewModel, onBack)
         SettingsSection.Debug -> DebugSection(viewModel, onPlayTest)
     }
 }
@@ -292,6 +293,38 @@ private fun OpenSubtitlesSection(viewModel: SettingsViewModel, onBack: () -> Uni
 }
 
 @Composable
+private fun NetworkSection(viewModel: SettingsViewModel, onBack: () -> Unit) {
+    val enabled by viewModel.proxyEnabled.collectAsState()
+    // Credentials persist only through SecretStore, never Activity saved state.
+    var proxyUrl by remember { mutableStateOf(viewModel.proxyUrl.value.orEmpty()) }
+    var proxyKey by remember { mutableStateOf(viewModel.proxyKey.value.orEmpty()) }
+    var saveError by remember { mutableStateOf(false) }
+    val firstFocus = remember { FocusRequester() }
+    InitialFocus(firstFocus)
+    BackHandler {
+        if (viewModel.saveNetwork(proxyUrl, proxyKey)) onBack() else saveError = true
+    }
+    SectionColumn(SettingsSection.Network.title, saveError) {
+        SourceButton("Прокси через Cloudflare", enabled, firstFocus) {
+            if (!viewModel.toggleProxy()) saveError = true
+        }
+        TvTextField(
+            value = proxyUrl,
+            onValueChange = { proxyUrl = it },
+            label = "Адрес прокси",
+            placeholder = "https://имя.workers.dev",
+        )
+        TvTextField(
+            value = proxyKey,
+            onValueChange = { proxyKey = it },
+            label = "Ключ прокси",
+            visualTransformation = PasswordVisualTransformation(),
+        )
+        Text("Через прокси идут TMDB, постеры TMDB, rutor и rutracker. Торренты — напрямую.")
+    }
+}
+
+@Composable
 private fun DebugSection(viewModel: SettingsViewModel, onPlayTest: (String) -> Unit) {
     var testUrl by rememberSaveable { mutableStateOf(viewModel.testUrl.value.orEmpty()) }
     var returnToPlay by rememberSaveable { mutableStateOf(false) }
@@ -332,6 +365,7 @@ private fun TvTextField(
     label: String,
     modifier: Modifier = Modifier,
     visualTransformation: VisualTransformation = VisualTransformation.None,
+    placeholder: String? = null,
 ) {
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
@@ -340,6 +374,7 @@ private fun TvTextField(
         value = value,
         onValueChange = onValueChange,
         label = { Text(label) },
+        placeholder = placeholder?.let { { Text(it) } },
         singleLine = true,
         visualTransformation = visualTransformation,
         readOnly = !editing,

@@ -2,8 +2,10 @@ package dev.gamspi.videogallery.settings
 
 import app.cash.turbine.test
 import kotlinx.coroutines.runBlocking
+import dev.gamspi.videogallery.net.ProxyConfig
 import dev.gamspi.videogallery.torrents.ProviderId
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -261,5 +263,69 @@ class SettingsRepositoryTest {
         repo.setTestUrl("  ")
         assertNull(repo.testUrl.value)
         assertNull(store.get("test_url"))
+    }
+
+    @Test
+    fun proxy_disabledByDefault_andNeedsUrl() {
+        val repo = SettingsRepository(FakeSecretStore(mapOf("proxy_url" to "https://w.dev", "proxy_key" to "k")))
+        assertFalse(repo.proxyEnabled.value)
+        assertNull(repo.proxyConfig())
+        repo.setProxyEnabled(true)
+        assertEquals(ProxyConfig("https://w.dev", "k"), repo.proxyConfig())
+        repo.setProxyUrl("   ")
+        assertNull(repo.proxyConfig())
+    }
+
+    @Test
+    fun proxy_persistsAndNormalizes() {
+        val store = FakeSecretStore()
+        val repo = SettingsRepository(store)
+        repo.setProxyEnabled(true)
+        repo.setProxyUrl("  w.workers.dev/ ")
+        repo.setProxyKey(" k ")
+        assertEquals(ProxyConfig("https://w.workers.dev", "k"), repo.proxyConfig())
+        assertEquals("true", store.get("proxy_enabled"))
+        val reopened = SettingsRepository(store)
+        assertEquals(true, reopened.proxyEnabled.value)
+        assertEquals(ProxyConfig("https://w.workers.dev", "k"), reopened.proxyConfig())
+        repo.setProxyKey("")
+        assertEquals(ProxyConfig("https://w.workers.dev", null), repo.proxyConfig())
+        repo.setProxyEnabled(false)
+        assertNull(repo.proxyConfig())
+    }
+
+    @Test
+    fun proxy_invalidUrlGivesNoConfig() {
+        val repo = SettingsRepository(FakeSecretStore(mapOf("proxy_enabled" to "true")))
+        repo.setProxyUrl("ftp://w.dev")
+        assertNull(repo.proxyConfig())
+        repo.setProxyUrl("http://")
+        assertNull(repo.proxyConfig())
+    }
+
+    @Test
+    fun clearedFields_showBuildDefaults() {
+        val defaults = mapOf(
+            "tmdb_api_key" to "env-tm", "kinopoisk_api_key" to "env-kp", "poiskkino_api_key" to "env-pk",
+            "opensubtitles_key" to "env-os", "proxy_url" to "https://env.dev", "proxy_key" to "env-key",
+        )
+        val repo = SettingsRepository(DefaultingSecretStore(FakeSecretStore(), defaults))
+        repo.setTmdbApiKey("mine")
+        assertEquals("mine", repo.tmdbApiKey.value)
+        repo.setTmdbApiKey("")
+        assertEquals("env-tm", repo.tmdbApiKey.value)
+        repo.setKinopoiskApiKey(" ")
+        assertEquals("env-kp", repo.kinopoiskApiKey.value)
+        repo.update(CatalogSource.PoiskKino, "", "", "")
+        assertEquals(ActiveCatalog(CatalogSource.PoiskKino, "env-pk"), repo.activeCatalog.value)
+        repo.setOpenSubtitles("", "", "")
+        assertEquals("env-os", repo.openSubtitlesKey)
+        repo.setProxyEnabled(true)
+        repo.setProxyUrl("https://mine.dev")
+        repo.setProxyKey("")
+        assertEquals(ProxyConfig("https://mine.dev", "env-key"), repo.proxyConfig())
+        repo.setProxyUrl("")
+        assertEquals("https://env.dev", repo.proxyUrl.value)
+        assertEquals(ProxyConfig("https://env.dev", "env-key"), repo.proxyConfig())
     }
 }

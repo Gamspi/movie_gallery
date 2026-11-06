@@ -61,7 +61,7 @@ fun GalleryScreen(
         is GalleryUiState.Loading ->
             if (s.initial) FullScreenLoader() else GallerySkeleton()
         is GalleryUiState.Error ->
-            ErrorView(s.kind, onRetry = viewModel::retry, onOpenSettings = onOpenCatalogSettings)
+            ErrorView(s.kind, onRetry = viewModel::retry, onOpenCatalogSettings = onOpenCatalogSettings, onOpenSettings = onOpenSettings)
         is GalleryUiState.Content -> GalleryContent(s, history, onOpenMovie, onContinue, onOpenSearch, onOpenSettings)
     }
 }

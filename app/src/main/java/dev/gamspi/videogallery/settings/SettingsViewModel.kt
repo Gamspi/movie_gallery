@@ -152,6 +152,19 @@ class SettingsViewModel @Inject constructor(
     fun saveTrackers(trackers: Map<ProviderId, TrackerConfig>): Boolean =
         runSave { repository.setTrackers(trackers) }
 
+    val proxyEnabled: StateFlow<Boolean> = repository.proxyEnabled
+    val proxyUrl: StateFlow<String?> = repository.proxyUrl
+    val proxyKey: StateFlow<String?> = repository.proxyKey
+
+    /** Applies immediately; false when the store write fails. */
+    fun toggleProxy(): Boolean = runSave { repository.setProxyEnabled(!proxyEnabled.value) }
+
+    /** Writes proxy address and key; false when the store write fails (values are never logged). */
+    fun saveNetwork(url: String, key: String): Boolean = runSave {
+        repository.setProxyUrl(url)
+        repository.setProxyKey(key)
+    }
+
     private inline fun runSave(block: () -> Unit): Boolean = try {
         block()
         true

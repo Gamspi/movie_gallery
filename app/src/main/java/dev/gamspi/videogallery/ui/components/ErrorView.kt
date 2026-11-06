@@ -29,6 +29,10 @@ fun CatalogException.toErrorKind(): ErrorKind = when (this) {
     CatalogException.Parse, is CatalogException.Http -> ErrorKind.Other
 }
 
+// Key/quota errors are fixed in catalog settings; network/other go to settings home.
+fun ErrorKind.opensCatalogSettings(): Boolean =
+    this == ErrorKind.MissingKey || this == ErrorKind.BadKey || this == ErrorKind.QuotaExceeded
+
 fun catalogErrorMessage(kind: ErrorKind, source: CatalogSource): String {
     val provider = when (source) {
         CatalogSource.PoiskKino -> "PoiskKino"
@@ -48,12 +52,13 @@ fun catalogErrorMessage(kind: ErrorKind, source: CatalogSource): String {
 fun ErrorView(
     kind: ErrorKind,
     onRetry: () -> Unit,
+    onOpenCatalogSettings: () -> Unit,
     onOpenSettings: () -> Unit,
     autoFocus: Boolean = true,
     catSize: Dp = 120.dp,
 ) {
     val message = catalogErrorMessage(kind, LocalCatalogSource.current)
-    val needsSettings = kind == ErrorKind.MissingKey || kind == ErrorKind.BadKey
+    val needsSettings = kind.opensCatalogSettings()
     val retryFocus = remember { FocusRequester() }
     val settingsFocus = remember { FocusRequester() }
     val focus = if (needsSettings) settingsFocus else retryFocus
@@ -68,7 +73,7 @@ fun ErrorView(
         // Settings stay reachable for every error (e.g. offline at launch).
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             AccentButton(onClick = onRetry, modifier = Modifier.focusRequester(retryFocus)) { Text("Повторить") }
-            AccentButton(onClick = onOpenSettings, modifier = Modifier.focusRequester(settingsFocus)) { Text("Настройки") }
+            AccentButton(onClick = if (needsSettings) onOpenCatalogSettings else onOpenSettings, modifier = Modifier.focusRequester(settingsFocus)) { Text("Настройки") }
         }
     }
 }

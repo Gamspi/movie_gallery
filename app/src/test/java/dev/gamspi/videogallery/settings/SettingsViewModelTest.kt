@@ -175,6 +175,19 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun networkSaveAndToggle() {
+        val store = FakeSecretStore()
+        val vm = SettingsViewModel(SettingsRepository(store))
+        assertEquals(true, vm.toggleProxy())
+        assertEquals(true, vm.proxyEnabled.value)
+        assertEquals(true, vm.saveNetwork(" https://w.dev ", " k "))
+        assertEquals("https://w.dev", store.get("proxy_url"))
+        assertEquals("k", store.get("proxy_key"))
+        assertEquals(true, vm.toggleProxy())
+        assertEquals("false", store.get("proxy_enabled"))
+    }
+
+    @Test
     fun saveCatalogFailureReturnsFalse() {
         val store = object : SecretStore {
             override fun get(key: String): String? = null
@@ -184,6 +197,8 @@ class SettingsViewModelTest {
         assertEquals(false, vm.saveCatalog(CatalogSource.PoiskKino, "a", "b", "c"))
         assertEquals(false, vm.saveTrackers(mapOf(ProviderId.Yts to TrackerConfig(true, "x"))))
         assertEquals(false, vm.saveOpenSubtitles("a", "b", "c"))
+        assertEquals(false, vm.saveNetwork("a", "b"))
+        assertEquals(false, vm.toggleProxy())
     }
 
     @Test

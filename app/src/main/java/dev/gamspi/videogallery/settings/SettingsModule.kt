@@ -14,5 +14,5 @@ object SettingsModule {
     @Provides
     @Singleton
     fun provideSecretStore(@ApplicationContext context: Context): SecretStore =
-        EncryptedSecretStore(context)
+        DefaultingSecretStore(EncryptedSecretStore(context), envDefaults())
 }
