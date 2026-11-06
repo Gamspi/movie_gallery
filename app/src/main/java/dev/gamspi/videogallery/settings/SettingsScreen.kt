@@ -237,8 +237,17 @@ private fun SubtitlesSection(viewModel: SettingsViewModel) {
                     onClick = { viewModel.cycleLanguage(layer) },
                     modifier = if (isA) Modifier.focusRequester(firstFocus) else Modifier,
                 ) { Text("Язык $name: $lang") }
-                AccentButton(onClick = { viewModel.cycleSize(layer) }) { Text("Размер $name: ${style.size.label}") }
                 AccentButton(onClick = { viewModel.cycleColor(layer) }) { Text("Цвет $name: ${style.color.label}") }
+            }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Размер $name")
+                // Stays enabled at the limits so focus is never lost; the step clamps.
+                AccentButton(onClick = { viewModel.changeScale(layer, -1) }) { Text("−10 %") }
+                Text(formatSubScale(style.scalePercent))
+                AccentButton(onClick = { viewModel.changeScale(layer, 1) }) { Text("+10 %") }
             }
             Row(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),

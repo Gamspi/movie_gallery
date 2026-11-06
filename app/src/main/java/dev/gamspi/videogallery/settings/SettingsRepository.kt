@@ -127,7 +127,8 @@ class SettingsRepository @Inject constructor(private val store: SecretStore) : S
     private fun loadSubtitlePrefs(): SubtitlePrefs {
         val def = SubtitlePrefs()
         fun style(layer: String, d: LayerStyle) = LayerStyle(
-            size = SubSize.entries.firstOrNull { it.name == store.get("sub_size_$layer") } ?: d.size,
+            // Legacy size names map to percents; the next save rewrites the key as a number.
+            scalePercent = parseSubScale(store.get("sub_size_$layer")) ?: d.scalePercent,
             color = SubColor.entries.firstOrNull { it.name == store.get("sub_color_$layer") } ?: d.color,
             offsetMs = store.get("sub_offset_$layer")?.toLongOrNull() ?: d.offsetMs,
         )
@@ -143,11 +144,14 @@ class SettingsRepository @Inject constructor(private val store: SecretStore) : S
         store.put("sub_lang_a", p.languageA)
         store.put("sub_lang_b", p.languageB)
         for ((layer, s) in listOf("a" to p.styleA, "b" to p.styleB)) {
-            store.put("sub_size_$layer", s.size.name)
+            store.put("sub_size_$layer", normalizeSubScale(s.scalePercent).toString())
             store.put("sub_color_$layer", s.color.name)
             store.put("sub_offset_$layer", s.offsetMs.toString())
         }
-        _subtitlePrefs.value = p
+        _subtitlePrefs.value = p.copy(
+            styleA = p.styleA.copy(scalePercent = normalizeSubScale(p.styleA.scalePercent)),
+            styleB = p.styleB.copy(scalePercent = normalizeSubScale(p.styleB.scalePercent)),
+        )
     }
 
     private val _osKey = MutableStateFlow(store.get(KEY_OS_KEY))

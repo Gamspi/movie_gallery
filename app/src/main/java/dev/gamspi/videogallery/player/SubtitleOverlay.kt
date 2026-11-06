@@ -47,8 +47,8 @@ private fun SubtitleLayer(text: String?, style: LayerStyle) {
     Text(
         text = text,
         color = Color(style.color.argb),
-        fontSize = style.size.sp.sp,
-        lineHeight = (style.size.sp * 1.2f).sp,
+        fontSize = style.fontSp.sp,
+        lineHeight = (style.fontSp * 1.2f).sp,
         textAlign = TextAlign.Center,
         maxLines = 3,
         // Pinned to the system font so subtitles ignore the theme typeface.

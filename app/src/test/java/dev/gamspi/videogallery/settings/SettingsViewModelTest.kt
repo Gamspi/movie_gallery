@@ -232,6 +232,20 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun changeScale_stepsClampsAndPersists() {
+        val store = FakeSecretStore()
+        val vm = SettingsViewModel(SettingsRepository(store))
+        vm.changeScale(SubLayer.A, 1)
+        assertEquals(110, vm.subtitlePrefs.value.styleA.scalePercent)
+        assertEquals(100, vm.subtitlePrefs.value.styleB.scalePercent)
+        assertEquals(110, SettingsRepository(store).subtitlePrefs.value.styleA.scalePercent)
+        repeat(20) { vm.changeScale(SubLayer.B, -1) }
+        assertEquals(50, vm.subtitlePrefs.value.styleB.scalePercent)
+        repeat(30) { vm.changeScale(SubLayer.B, 1) }
+        assertEquals(200, vm.subtitlePrefs.value.styleB.scalePercent)
+    }
+
+    @Test
     fun changeOffset_clampsToTenSeconds() {
         val vm = SettingsViewModel(SettingsRepository(FakeSecretStore()))
         repeat(30) { vm.changeOffset(SubLayer.A, 500) }

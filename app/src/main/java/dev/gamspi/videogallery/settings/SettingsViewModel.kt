@@ -121,8 +121,9 @@ class SettingsViewModel @Inject constructor(
         )
     }
 
-    fun cycleSize(layer: SubLayer) = updateStyle(layer) {
-        it.copy(size = SubSize.entries[(it.size.ordinal + 1) % SubSize.entries.size])
+    /** Changes the layer's subtitle scale by [steps] steps of [SUB_SCALE_STEP] percent. */
+    fun changeScale(layer: SubLayer, steps: Int) = updateStyle(layer) {
+        it.copy(scalePercent = stepSubScale(it.scalePercent, steps))
     }
 
     fun cycleColor(layer: SubLayer) = updateStyle(layer) {

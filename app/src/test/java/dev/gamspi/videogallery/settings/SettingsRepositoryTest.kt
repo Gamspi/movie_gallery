@@ -63,11 +63,53 @@ class SettingsRepositoryTest {
         val prefs = SubtitlePrefs(
             languageA = "de",
             languageB = "ja",
-            styleA = LayerStyle(SubSize.Large, SubColor.Cyan, -1500),
-            styleB = LayerStyle(SubSize.Small, SubColor.White, 2000),
+            styleA = LayerStyle(130, SubColor.Cyan, -1500),
+            styleB = LayerStyle(70, SubColor.White, 2000),
         )
         SettingsRepository(store).setSubtitlePrefs(prefs)
         assertEquals(prefs, SettingsRepository(store).subtitlePrefs.value)
+        assertEquals("130", store.get("sub_size_a"))
+    }
+
+    @Test
+    fun subtitleScale_defaultsTo100() {
+        val p = SettingsRepository(FakeSecretStore()).subtitlePrefs.value
+        assertEquals(100, p.styleA.scalePercent)
+        assertEquals(100, p.styleB.scalePercent)
+    }
+
+    @Test
+    fun subtitleScale_migratesLegacySizeNames() {
+        val store = FakeSecretStore(mapOf("sub_size_a" to "Small", "sub_size_b" to "Large"))
+        val repo = SettingsRepository(store)
+        assertEquals(80, repo.subtitlePrefs.value.styleA.scalePercent)
+        assertEquals(130, repo.subtitlePrefs.value.styleB.scalePercent)
+        assertEquals(100, SettingsRepository(FakeSecretStore(mapOf("sub_size_a" to "Medium")))
+            .subtitlePrefs.value.styleA.scalePercent)
+        // The next save rewrites the legacy names as percents.
+        repo.setSubtitlePrefs(repo.subtitlePrefs.value)
+        assertEquals("80", store.get("sub_size_a"))
+        assertEquals("130", store.get("sub_size_b"))
+    }
+
+    @Test
+    fun subtitleScale_corruptOrOutOfRangeValues() {
+        fun scaleOf(raw: String) =
+            SettingsRepository(FakeSecretStore(mapOf("sub_size_a" to raw))).subtitlePrefs.value.styleA.scalePercent
+        assertEquals(100, scaleOf("Huge"))
+        assertEquals(100, scaleOf(""))
+        assertEquals(50, scaleOf("10"))
+        assertEquals(200, scaleOf("900"))
+        assertEquals(120, scaleOf("117"))
+    }
+
+    @Test
+    fun subtitleScale_saveNormalizes() {
+        val store = FakeSecretStore()
+        val repo = SettingsRepository(store)
+        repo.setSubtitlePrefs(SubtitlePrefs(styleA = LayerStyle(scalePercent = 333)))
+        assertEquals(200, repo.subtitlePrefs.value.styleA.scalePercent)
+        assertEquals("200", store.get("sub_size_a"))
     }
 
     @Test

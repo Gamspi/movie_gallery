@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import dev.gamspi.videogallery.settings.SettingsRepository
 import dev.gamspi.videogallery.settings.SubtitlePrefs
+import dev.gamspi.videogallery.settings.stepSubScale
 import dev.gamspi.videogallery.subs.*
 import dev.gamspi.videogallery.translate.CacheKey
 import dev.gamspi.videogallery.translate.EmbeddedTranslation
@@ -80,6 +81,7 @@ class PlayerViewModel internal constructor(
     private val cache: TranslationCache? = null,
     private val translationDispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val history: WatchHistoryStore? = null,
+    private val saveSubtitlePrefs: (SubtitlePrefs) -> Unit = {},
     private val wallClock: () -> Long = System::currentTimeMillis,
     private val clock: () -> Long,
 ) : ViewModel() {
@@ -91,7 +93,7 @@ class PlayerViewModel internal constructor(
         history: WatchHistoryStore,
     ) : this(savedState, store, manager, client, settings.subtitlePrefs, { url ->
         fetchHashOverHttp(subtitleHashHttp, url)
-    }, models, translator, cache, Dispatchers.Default, history, System::currentTimeMillis,
+    }, models, translator, cache, Dispatchers.Default, history, settings::setSubtitlePrefs, System::currentTimeMillis,
         SystemClock::elapsedRealtime)
 
     companion object {
@@ -102,6 +104,17 @@ class PlayerViewModel internal constructor(
     }
 
     val subtitlePrefs: StateFlow<SubtitlePrefs> = prefs
+
+    /** Changes a layer's subtitle scale by [steps] steps and persists it; the overlay follows the prefs. */
+    fun changeSubtitleScale(layer: Layer, steps: Int) {
+        val p = subtitlePrefs.value
+        val updated = if (layer == Layer.A) {
+            p.copy(styleA = p.styleA.copy(scalePercent = stepSubScale(p.styleA.scalePercent, steps)))
+        } else {
+            p.copy(styleB = p.styleB.copy(scalePercent = stepSubScale(p.styleB.scalePercent, steps)))
+        }
+        if (updated != p) saveSubtitlePrefs(updated)
+    }
     private val initialSubtitlePrefs = prefs.value
     private val _layers = MutableStateFlow(mapOf(
         Layer.A to LayerState(style = initialSubtitlePrefs.styleA, offsetMs = initialSubtitlePrefs.styleA.offsetMs),

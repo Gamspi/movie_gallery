@@ -230,4 +230,27 @@ class PlayerSubtitleViewModelTest {
             assertEquals(null to (1 to 0), vm.embeddedSlots.value)
         } finally { vm.clearViaStore() }
     }
+
+    @Test fun changeSubtitleScale_updatesLayerAndPersists() = runTest {
+        val prefs = MutableStateFlow(SubtitlePrefs())
+        val saved = mutableListOf<SubtitlePrefs>()
+        val vm = PlayerViewModel(
+            SavedStateHandle(mapOf("url" to "http://test/movie.mkv")),
+            FakePlaybackStore(),
+            StreamManager(FakeTorrentEngine(), StreamServer(CoroutineScope(Dispatchers.Unconfined)),
+                File("unused"), CoroutineScope(Dispatchers.Unconfined)),
+            prefs = prefs,
+            saveSubtitlePrefs = { saved += it; prefs.value = it },
+            clock = { 0 },
+        )
+        try {
+            vm.changeSubtitleScale(Layer.B, 1)
+            assertEquals(110, vm.subtitlePrefs.value.styleB.scalePercent)
+            assertEquals(100, vm.subtitlePrefs.value.styleA.scalePercent)
+            repeat(10) { vm.changeSubtitleScale(Layer.A, -1) }
+            assertEquals(50, vm.subtitlePrefs.value.styleA.scalePercent)
+            // Steps past the limit do not write again.
+            assertEquals(1 + 5, saved.size)
+        } finally { vm.clearViaStore() }
+    }
 }

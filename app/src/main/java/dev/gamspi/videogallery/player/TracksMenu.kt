@@ -1,5 +1,6 @@
 package dev.gamspi.videogallery.player
 
+import android.view.KeyEvent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,6 +24,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Button
 import androidx.tv.material3.ButtonDefaults
@@ -30,6 +34,7 @@ import androidx.tv.material3.Icon
 import androidx.tv.material3.Text
 import dev.gamspi.videogallery.settings.SUB_OFFSET_MAX_MS
 import dev.gamspi.videogallery.settings.SUB_OFFSET_STEP_MS
+import dev.gamspi.videogallery.settings.formatSubScale
 import dev.gamspi.videogallery.subs.Layer
 import dev.gamspi.videogallery.subs.LayerSource
 import dev.gamspi.videogallery.subs.LayerState
@@ -105,6 +110,9 @@ fun TracksMenu(
     translations: Map<Layer, List<LayerSource.Translated>>,
     onSelect: (Layer, LayerSource) -> Unit,
     onShift: (Layer, Long) -> Unit,
+    scaleA: Int,
+    scaleB: Int,
+    onScale: (Layer, Int) -> Unit,
     section: PlayerMenuSection?,
     onOpenSection: (PlayerMenuSection) -> Unit,
     modifier: Modifier = Modifier,
@@ -138,7 +146,8 @@ fun TracksMenu(
                 }
             }
             PlayerMenuSection.Subtitles -> SubtitlesSection(
-                embedded, remoteOptions, layers, languageA, languageB, translations, onSelect, contentFocus,
+                embedded, remoteOptions, layers, languageA, languageB, translations, onSelect,
+                scaleA, scaleB, onScale, contentFocus,
             )
             PlayerMenuSection.Audio -> AudioSection(audioTracks, selectedAudio, onAudioSelect, contentFocus)
             PlayerMenuSection.Other -> OtherSection(layers, onShift, contentFocus)
@@ -155,6 +164,9 @@ private fun SubtitlesSection(
     languageB: String,
     translations: Map<Layer, List<LayerSource.Translated>>,
     onSelect: (Layer, LayerSource) -> Unit,
+    scaleA: Int,
+    scaleB: Int,
+    onScale: (Layer, Int) -> Unit,
     focus: FocusRequester,
 ) {
     Text(PlayerMenuSection.Subtitles.title, color = Color.White)
@@ -166,6 +178,7 @@ private fun SubtitlesSection(
         val target = if (layer != Layer.A) null else
             options.firstOrNull { it.source != null && it.enabled && it.source == state.source } ?: options.first()
         Text("Слой ${layer.name} ($language)", color = Color.LightGray)
+        ScaleItem(layer, if (layer == Layer.A) scaleA else scaleB, onScale)
         options.forEach { option ->
             val source = option.source
             if (source == null) {
@@ -250,6 +263,26 @@ private fun OtherSection(
             )
         }
     }
+}
+
+/** Left/Right change the layer's subtitle scale in place; the menu keeps Up/Down/Back. */
+@Composable
+private fun ScaleItem(layer: Layer, percent: Int, onScale: (Layer, Int) -> Unit) {
+    MenuButton(
+        label = "Размер ${layer.name}: ‹ ${formatSubScale(percent)} ›",
+        onClick = {},
+        enabled = true,
+        modifier = Modifier.fillMaxWidth().onPreviewKeyEvent { ev ->
+            val steps = when (ev.nativeKeyEvent.keyCode) {
+                KeyEvent.KEYCODE_DPAD_LEFT -> -1
+                KeyEvent.KEYCODE_DPAD_RIGHT -> 1
+                else -> return@onPreviewKeyEvent false
+            }
+            // Consume both down and up so focus does not leave the menu sideways.
+            if (ev.type == KeyEventType.KeyDown) onScale(layer, steps)
+            true
+        },
+    )
 }
 
 /** Focusable plain text, so a section without options still holds remote focus. */

@@ -141,6 +141,7 @@ fun PlayerScreen(onBack: () -> Unit) {
     val menuOpen = playerFocus == PlayerFocus.MenuSections || playerFocus == PlayerFocus.MenuSection
     // Focus requests wait for the composition that makes their target focusable.
     var pendingFocus by remember { mutableStateOf<FocusRequester?>(null) }
+    val trackFocus = remember { FocusRequester() }
     val playButtonFocus = remember { FocusRequester() }
     val settingsButtonFocus = remember { FocusRequester() }
     var recoveryAudioOpen by remember { mutableStateOf(false) }
@@ -156,6 +157,8 @@ fun PlayerScreen(onBack: () -> Unit) {
     } else audioRecoveryOptions(audio, selected)
     val showStallNotice = stallWarning != null && !stallDismissed && !menuOpen &&
         state.resumeOffer == null && playbackError == null && !ended
+    val dialogOpen = showStallNotice || state.resumeOffer != null || playbackError != null || ended ||
+        recoveryAudioOpen
 
     fun durationOrZero(): Long = player.duration.takeIf { it > 0 } ?: 0L
 
@@ -177,9 +180,11 @@ fun PlayerScreen(onBack: () -> Unit) {
         recoveryAudioOpen = false
     }
 
-    // The stall notice takes focus from the buttons; the menu hides the notice instead.
+    // The stall notice takes focus from the panel; the menu hides the notice instead.
     LaunchedEffect(showStallNotice) {
-        if (showStallNotice && playerFocus == PlayerFocus.Buttons) playerFocus = PlayerFocus.None
+        if (showStallNotice && (playerFocus == PlayerFocus.Buttons || playerFocus == PlayerFocus.Track)) {
+            playerFocus = PlayerFocus.None
+        }
     }
 
     LaunchedEffect(pendingFocus) {
@@ -362,13 +367,19 @@ fun PlayerScreen(onBack: () -> Unit) {
         }
     }
 
-    // The panel stays while buttons or the menu hold focus.
-    LaunchedEffect(overlayTick, playWhenReady, playerFocus) {
-        if (playWhenReady && playerFocus == PlayerFocus.None) {
+    // Pausing shows the panel; an explicit hide while paused (Back) still sticks.
+    LaunchedEffect(playWhenReady) {
+        if (!playWhenReady) overlayVisible = true
+    }
+
+    // While playing, the panel hides after idle even with focus on the track or buttons.
+    LaunchedEffect(overlayTick, playWhenReady, playerFocus, dialogOpen) {
+        if (shouldAutoHidePanel(playWhenReady, playerFocus, dialogOpen)) {
             delay(OVERLAY_HIDE_MS)
             overlayVisible = false
-        } else {
-            overlayVisible = true
+            if (playerFocus == PlayerFocus.Track || playerFocus == PlayerFocus.Buttons) {
+                playerFocus = PlayerFocus.None
+            }
         }
     }
 
@@ -395,12 +406,18 @@ fun PlayerScreen(onBack: () -> Unit) {
                 player.play()
             }
             is PlayerCommand.SeekTo -> seekTo(cmd.ms)
+            PlayerCommand.FocusTrack -> {
+                overlayVisible = true
+                playerFocus = PlayerFocus.Track
+                pendingFocus = trackFocus
+            }
             PlayerCommand.FocusButtons -> {
                 overlayVisible = true
                 playerFocus = PlayerFocus.Buttons
                 pendingFocus = playButtonFocus
             }
-            PlayerCommand.ReleaseButtons -> {
+            PlayerCommand.HidePanel -> {
+                overlayVisible = false
                 playerFocus = PlayerFocus.None
                 rootFocus.requestFocus()
             }
@@ -428,7 +445,9 @@ fun PlayerScreen(onBack: () -> Unit) {
             recoveryAudioOpen -> recoveryAudioOpen = false
             playbackError != null || state.resumeOffer != null -> exit()
             showStallNotice -> stallDismissed = true
-            else -> execute(handleKey(RemoteKey.Back, player.currentPosition, durationOrZero(), currentFocus()))
+            else -> execute(
+                handleKey(RemoteKey.Back, player.currentPosition, durationOrZero(), currentFocus(), overlayVisible),
+            )
         }
     }
 
@@ -470,11 +489,12 @@ fun PlayerScreen(onBack: () -> Unit) {
                     return@onPreviewKeyEvent false
                 }
                 if (key == null) return@onPreviewKeyEvent false
-                val cmd = handleKey(key, player.currentPosition, durationOrZero(), currentFocus())
+                val cmd = handleKey(key, player.currentPosition, durationOrZero(), currentFocus(), overlayVisible)
+                // Any press restarts the idle timer, including keys the buttons handle.
+                if (isDown) overlayTick++
                 if (cmd == PlayerCommand.PassToFocus) return@onPreviewKeyEvent false
-                overlayVisible = true
-                overlayTick++
                 if (!isDown) return@onPreviewKeyEvent true
+                if (cmd != PlayerCommand.HidePanel) overlayVisible = true
                 val repeats = ev.nativeKeyEvent.repeatCount > 0
                 val seeks = key == RemoteKey.Left || key == RemoteKey.Right
                 if (repeats && !seeks) return@onPreviewKeyEvent true
@@ -581,16 +601,18 @@ fun PlayerScreen(onBack: () -> Unit) {
                     )
                     PlayerOverlay(
                         title = state.title,
-                        positionMs = positionMs,
+                        positionMs = { positionMs },
                         durationMs = durationMs,
                         playWhenReady = playWhenReady,
                         buffering = buffering,
+                        trackFocused = playerFocus == PlayerFocus.Track,
                         buttonsFocused = playerFocus == PlayerFocus.Buttons,
                         onTogglePlay = { execute(PlayerCommand.TogglePlay) },
                         onOpenMenu = {
                             menuSection = null
                             playerFocus = PlayerFocus.MenuSections
                         },
+                        trackFocus = trackFocus,
                         playButtonFocus = playButtonFocus,
                         settingsButtonFocus = settingsButtonFocus,
                         statusLine = statusLine,
@@ -614,6 +636,9 @@ fun PlayerScreen(onBack: () -> Unit) {
                         translations = remember(layers) { Layer.entries.associateWith(vm::translationOptions) },
                         onSelect = vm::select,
                         onShift = vm::shiftOffset,
+                        scaleA = subtitlePrefs.styleA.scalePercent,
+                        scaleB = subtitlePrefs.styleB.scalePercent,
+                        onScale = vm::changeSubtitleScale,
                         section = menuSection,
                         onOpenSection = {
                             menuSection = it

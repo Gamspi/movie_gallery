@@ -1,6 +1,7 @@
 package dev.gamspi.videogallery.player
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +23,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
@@ -34,19 +39,23 @@ import dev.gamspi.videogallery.ui.theme.AppColors
 import kotlinx.coroutines.delay
 
 /**
- * Bottom panel: title, progress, then play/pause and settings buttons.
- * The buttons take focus only while [buttonsFocused], so menu and root keep their keys otherwise.
+ * Bottom panel: title, progress track, then play/pause and settings buttons.
+ * The track and buttons take focus only while [trackFocused] / [buttonsFocused], so menu and root
+ * keep their keys otherwise. Position is read lazily: the track redraws and the time label
+ * recomposes without recomposing the panel.
  */
 @Composable
 fun PlayerOverlay(
     title: String,
-    positionMs: Long,
+    positionMs: () -> Long,
     durationMs: Long,
     playWhenReady: Boolean,
     buffering: Boolean,
+    trackFocused: Boolean,
     buttonsFocused: Boolean,
     onTogglePlay: () -> Unit,
     onOpenMenu: () -> Unit,
+    trackFocus: FocusRequester,
     playButtonFocus: FocusRequester,
     settingsButtonFocus: FocusRequester,
     statusLine: String? = null,
@@ -60,10 +69,16 @@ fun PlayerOverlay(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(title, color = Color.White)
-        val fraction = if (durationMs > 0) (positionMs.toFloat() / durationMs).coerceIn(0f, 1f) else 0f
-        Box(Modifier.fillMaxWidth().height(4.dp).background(Color(0x66FFFFFF))) {
-            Box(Modifier.fillMaxWidth(fraction).height(4.dp).background(AppColors.Accent))
-        }
+        ProgressTrack(
+            positionMs = positionMs,
+            durationMs = durationMs,
+            focused = trackFocused,
+            modifier = Modifier
+                .fillMaxWidth()
+                .focusRequester(trackFocus)
+                .focusProperties { canFocus = trackFocused }
+                .focusable(),
+        )
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             val canFocus = Modifier.focusProperties { this.canFocus = buttonsFocused }
             IconPillButton(
@@ -80,17 +95,69 @@ fun PlayerOverlay(
                 modifier = Modifier.focusRequester(settingsButtonFocus).then(canFocus),
             )
             Spacer(Modifier.weight(1f))
-            val time = formatTime(positionMs, durationMs) +
-                if (durationMs > 0) " / " + formatTime(durationMs, durationMs) else ""
-            val shown = when {
-                !playWhenReady -> "Пауза · $time"
-                buffering -> "Загрузка… · $time"
-                else -> time
-            }
-            Text(shown, color = Color.White)
+            PlaybackTime(positionMs, durationMs, playWhenReady, buffering)
         }
         statusLine?.let { Text(it, color = Color(0xFFBBBBBB)) }
     }
+}
+
+/** Progress bar drawn from [positionMs] in the draw phase; thicker with a thumb while focused. */
+@Composable
+private fun ProgressTrack(
+    positionMs: () -> Long,
+    durationMs: Long,
+    focused: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val duration by rememberUpdatedState(durationMs)
+    Box(
+        modifier
+            .height(16.dp)
+            .drawBehind {
+                val d = duration
+                val fraction = if (d > 0) (positionMs().toFloat() / d).coerceIn(0f, 1f) else 0f
+                val barHeight = (if (focused) 8.dp else 4.dp).toPx()
+                val top = (size.height - barHeight) / 2f
+                val corner = CornerRadius(barHeight / 2f)
+                drawRoundRect(
+                    color = if (focused) Color(0x99FFFFFF) else Color(0x66FFFFFF),
+                    topLeft = Offset(0f, top),
+                    size = Size(size.width, barHeight),
+                    cornerRadius = corner,
+                )
+                drawRoundRect(
+                    color = AppColors.Accent,
+                    topLeft = Offset(0f, top),
+                    size = Size(size.width * fraction, barHeight),
+                    cornerRadius = corner,
+                )
+                if (focused) {
+                    drawCircle(
+                        color = Color.White,
+                        radius = size.height / 2f,
+                        center = Offset(size.width * fraction, size.height / 2f),
+                    )
+                    drawCircle(
+                        color = AppColors.Accent,
+                        radius = size.height / 2f - 3.dp.toPx(),
+                        center = Offset(size.width * fraction, size.height / 2f),
+                    )
+                }
+            },
+    )
+}
+
+/** Own restart scope so position ticks recompose only this label. */
+@Composable
+private fun PlaybackTime(positionMs: () -> Long, durationMs: Long, playWhenReady: Boolean, buffering: Boolean) {
+    val time = formatTime(positionMs(), durationMs) +
+        if (durationMs > 0) " / " + formatTime(durationMs, durationMs) else ""
+    val shown = when {
+        !playWhenReady -> "Пауза · $time"
+        buffering -> "Загрузка… · $time"
+        else -> time
+    }
+    Text(shown, color = Color.White)
 }
 
 /**
