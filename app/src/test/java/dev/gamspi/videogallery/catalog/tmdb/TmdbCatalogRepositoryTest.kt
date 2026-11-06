@@ -40,6 +40,7 @@ class TmdbCatalogRepositoryTest {
         assertEquals("Fight Club", m.originalTitle)
         assertEquals(1999, m.year)
         assertEquals("https://image.tmdb.org/t/p/w342/abc.jpg", m.posterUrl)
+        assertEquals(8.438, m.rating!!, 1e-9)
         val url = server.takeRequest().url
         assertEquals("/3/movie/popular", url.encodedPath)
         assertEquals("KEY", url.queryParameter("api_key"))
@@ -54,6 +55,8 @@ class TmdbCatalogRepositoryTest {
         assertNull(list[1].year)
         assertEquals("Без постера", list[1].originalTitle) // empty original_title
         assertEquals("Матрица", list[2].originalTitle) // original_title absent
+        assertNull(list[1].rating) // zero vote_average
+        assertNull(list[2].rating) // vote_average absent
     }
 
     @Test
@@ -62,6 +65,7 @@ class TmdbCatalogRepositoryTest {
         val d = repo().details(550)
         assertEquals("tt0137523", d.imdbId)
         assertEquals(139, d.runtimeMin)
+        assertEquals(8.4, d.movie.rating!!, 1e-9)
         assertEquals(listOf("драма", "триллер"), d.genres)
         assertEquals("https://image.tmdb.org/t/p/w1280/bg.jpg", d.backdropUrl)
         val url = server.takeRequest().url

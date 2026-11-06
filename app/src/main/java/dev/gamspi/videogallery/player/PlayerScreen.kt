@@ -248,7 +248,7 @@ fun PlayerScreen(onBack: () -> Unit) {
                 started = true
                 val d = durationOrZero()
                 durationMs = d
-                if (d > 0) vm.onDuration(d)
+                if (d > 0) vm.onDuration(d)?.let { seekTo(it) }
                 if (vm.state.value.resumeOffer == null &&
                     lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
                 ) {

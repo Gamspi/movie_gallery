@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.gamspi.videogallery.catalog.CatalogException
 import dev.gamspi.videogallery.catalog.CatalogRepository
+import dev.gamspi.videogallery.catalog.model.Movie
+import dev.gamspi.videogallery.history.PlaybackMeta
 import dev.gamspi.videogallery.settings.SettingsRepository
 import dev.gamspi.videogallery.torrents.ProviderId
 import dev.gamspi.videogallery.torrents.Quality
@@ -29,9 +31,22 @@ sealed interface ReleasesUiState {
         val unavailable: List<ProviderId>,
         val noProviders: Boolean = false,
         val imdbId: String? = null,
+        val movie: Movie? = null,
     ) :ReleasesUiState {
         val visible: List<TorrentResult>
             get() = if (filter == null) all else all.filter { it.quality == filter }
+
+        /** Movie and release data forwarded to the stream and player screens. */
+        fun metaFor(r: TorrentResult): PlaybackMeta = PlaybackMeta(
+            movieId = movie?.id ?: 0,
+            movieTitle = movie?.title ?: movieTitle,
+            movieYear = movie?.year,
+            poster = movie?.posterUrl,
+            rating = movie?.rating,
+            magnet = r.magnet,
+            torrent = r.torrentUrl.orEmpty(),
+            imdb = imdbId.orEmpty(),
+        )
     }
 
     data class Error(val kind: ErrorKind) : ReleasesUiState
@@ -75,6 +90,7 @@ class ReleasesViewModel @Inject constructor(
                     unavailable = outcome.unavailable,
                     noProviders = noProviders,
                     imdbId = details.imdbId,
+                    movie = details.movie,
                 )
             } catch (e: CancellationException) {
                 throw e

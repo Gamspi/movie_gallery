@@ -1,6 +1,8 @@
 package dev.gamspi.videogallery.player
 
 import androidx.lifecycle.SavedStateHandle
+import dev.gamspi.videogallery.history.WatchEntry
+import dev.gamspi.videogallery.history.WatchHistoryStore
 import dev.gamspi.videogallery.stream.FakeTorrentEngine
 import dev.gamspi.videogallery.stream.StreamManager
 import dev.gamspi.videogallery.stream.clearViaStore
@@ -14,6 +16,7 @@ import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -117,6 +120,74 @@ class PlayerViewModelTest {
         assertNull(vm.state.value.resumeOffer)
         vm.onDuration(3_600_000)
         assertNull(vm.state.value.resumeOffer)
+    }
+
+    private class FakeHistory : WatchHistoryStore {
+        val upserts = mutableListOf<WatchEntry>()
+        override val entries = MutableStateFlow<List<WatchEntry>>(emptyList())
+        override fun upsert(entry: WatchEntry) { upserts += entry }
+        override fun remove(movieId: Int) = Unit
+    }
+
+    private fun metaVm(history: WatchHistoryStore, args: Map<String, String>) = PlayerViewModel(
+        SavedStateHandle(mapOf("url" to "http://x/a.mp4", "title" to "Release", "key" to "k") + args),
+        store,
+        StreamManager(
+            FakeTorrentEngine(),
+            StreamServer(CoroutineScope(Dispatchers.Unconfined)),
+            File("unused"),
+            CoroutineScope(Dispatchers.Unconfined),
+        ),
+        history = history, wallClock = { 42L }, clock = { now },
+    )
+
+    @Test
+    fun autoResume_seeksSilentlyFromStore() {
+        store.positions["k"] = 30_000
+        val vm = metaVm(FakeHistory(), mapOf("autoResume" to "true"))
+        assertEquals(30_000L, vm.onDuration(3_600_000))
+        assertNull(vm.state.value.resumeOffer)
+        assertNull(vm.onDuration(3_600_000))
+    }
+
+    @Test
+    fun autoResume_noSavedOrFinished_startsFromBeginning() {
+        assertNull(metaVm(FakeHistory(), mapOf("autoResume" to "true")).onDuration(3_600_000))
+        store.positions["k"] = 3_500_000
+        val vm = metaVm(FakeHistory(), mapOf("autoResume" to "true"))
+        assertNull(vm.onDuration(3_600_000))
+        assertNull(vm.state.value.resumeOffer)
+    }
+
+    @Test
+    fun withoutAutoResume_offerStaysAndNoSilentSeek() {
+        store.positions["k"] = 120_000
+        val vm = metaVm(FakeHistory(), emptyMap())
+        assertNull(vm.onDuration(3_600_000))
+        assertEquals(120_000L, vm.state.value.resumeOffer)
+    }
+
+    @Test
+    fun pauseOrExit_writesHistoryEntry() {
+        val history = FakeHistory()
+        val vm = metaVm(history, mapOf("movieId" to "301", "movieTitle" to "Матрица", "movieYear" to "1999",
+            "poster" to "p", "rating" to "8.5", "magnet" to "magnet:x", "imdb" to "tt1"))
+        vm.onPauseOrExit(500_000, 3_600_000)
+        assertEquals(listOf(WatchEntry(301, "Матрица", 1999, "p", 8.5, "magnet:x", "", "tt1", "k",
+            500_000, 3_600_000, 42L)), history.upserts)
+        vm.onPauseOrExit(3_500_000, 3_600_000) // finished: still upserted, the store drops it
+        assertEquals(2, history.upserts.size)
+    }
+
+    @Test
+    fun pauseOrExit_withoutMovieOrRelease_skipsHistory() {
+        val history = FakeHistory()
+        metaVm(history, mapOf("magnet" to "magnet:x")).onPauseOrExit(500_000, 3_600_000)
+        metaVm(history, mapOf("movieId" to "301")).onPauseOrExit(500_000, 3_600_000)
+        metaVm(history, mapOf("movieId" to "301", "torrent" to "https://t")).onPauseOrExit(0, 3_600_000)
+        assertTrue(history.upserts.isEmpty())
+        metaVm(history, mapOf("movieId" to "301", "torrent" to "https://t")).onPauseOrExit(1_000, 3_600_000)
+        assertEquals("Release", history.upserts.single().title) // falls back to the release title
     }
 
     @Test

@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.gamspi.videogallery.history.PlaybackMeta
 import dev.gamspi.videogallery.ui.components.AccentButton
 import androidx.tv.material3.ListItem
 import androidx.tv.material3.MaterialTheme
@@ -48,14 +49,14 @@ fun releaseInfoLine(r: TorrentResult): String =
 @Composable
 fun ReleasesScreen(
     onOpenSettings: () -> Unit,
-    onPlay: (TorrentResult, String?) -> Unit,
+    onPlay: (TorrentResult, PlaybackMeta) -> Unit,
     viewModel: ReleasesViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     when (val s = state) {
         ReleasesUiState.Loading -> FullScreenLoader("Ищем раздачи…")
         is ReleasesUiState.Error -> ErrorView(s.kind, onRetry = viewModel::retry, onOpenSettings = onOpenSettings)
-        is ReleasesUiState.Content -> ReleasesContent(s, viewModel::setFilter) { onPlay(it, s.imdbId) }
+        is ReleasesUiState.Content -> ReleasesContent(s, viewModel::setFilter) { onPlay(it, s.metaFor(it)) }
     }
 }
 

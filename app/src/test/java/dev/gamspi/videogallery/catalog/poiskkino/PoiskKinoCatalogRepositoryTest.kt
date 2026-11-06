@@ -51,6 +51,7 @@ class PoiskKinoCatalogRepositoryTest {
         assertEquals(1999, movie.year)
         assertEquals("https://images.example/matrix-small.jpg", movie.posterUrl)
         assertEquals("Полное описание", movie.overview)
+        assertEquals(8.5, movie.rating!!, 1e-9)
         val request = server.takeRequest()
         assertEquals("KEY", request.headers["X-API-KEY"])
         assertEquals("/v1.5/movie", request.url.encodedPath)
@@ -73,6 +74,9 @@ class PoiskKinoCatalogRepositoryTest {
         assertEquals("https://images.example/700.jpg", movies[2].posterUrl)
         assertEquals("Краткое описание", movies[2].overview)
         assertNull(movies[3].year)
+        assertNull(movies[1].rating) // zero rating
+        assertEquals(7.2, movies[2].rating!!, 1e-9) // string rating
+        assertNull(movies[3].rating) // absent rating
     }
 
     @Test fun genres_use_official_ids_filter_and_sort_without_positional_renumbering() = runBlocking {
@@ -125,6 +129,7 @@ class PoiskKinoCatalogRepositoryTest {
         val details = repo().details(301)
         assertEquals("tt0133093", details.imdbId)
         assertEquals(136, details.runtimeMin)
+        assertEquals(8.49, details.movie.rating!!, 1e-9)
         assertEquals("https://images.example/matrix-backdrop.jpg", details.backdropUrl)
         assertEquals(listOf("Фантастика", "Боевик"), details.genres)
         assertEquals("Полное описание", details.movie.overview)

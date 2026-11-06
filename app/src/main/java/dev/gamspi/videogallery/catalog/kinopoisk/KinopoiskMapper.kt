@@ -3,6 +3,7 @@ package dev.gamspi.videogallery.catalog.kinopoisk
 import dev.gamspi.videogallery.catalog.model.Genre
 import dev.gamspi.videogallery.catalog.model.Movie
 import dev.gamspi.videogallery.catalog.model.MovieDetails
+import dev.gamspi.videogallery.catalog.model.positiveRating
 
 private val EXCLUDED_GENRES = setOf(
     "для взрослых", "новости", "реальное тв", "ток-шоу", "церемония", "концерт", "игра",
@@ -21,6 +22,7 @@ private fun movie(
     posterUrl: String?,
     posterUrlPreview: String?,
     overview: String?,
+    rating: Double?,
 ): Movie {
     val title = nameRu.nonBlank() ?: nameOriginal.nonBlank() ?: nameEn.nonBlank() ?: ""
     return Movie(
@@ -30,6 +32,7 @@ private fun movie(
         year = year,
         posterUrl = posterUrlPreview.nonBlank() ?: posterUrl.nonBlank(),
         overview = overview.orEmpty(),
+        rating = rating.positiveRating(),
     )
 }
 
@@ -37,7 +40,7 @@ private fun movie(
 fun FilmDto.isFilm(): Boolean = type == null || type == "FILM"
 
 fun FilmDto.toMovie(): Movie =
-    movie(kinopoiskId, nameRu, nameEn, nameOriginal, year, posterUrl, posterUrlPreview, null)
+    movie(kinopoiskId, nameRu, nameEn, nameOriginal, year, posterUrl, posterUrlPreview, null, ratingKinopoisk)
 
 fun GenreDto.toGenreOrNull(): Genre? {
     val name = genre.nonBlank() ?: return null
@@ -47,7 +50,8 @@ fun GenreDto.toGenreOrNull(): Genre? {
 }
 
 fun FilmDetailsDto.toDetails(): MovieDetails = MovieDetails(
-    movie = movie(kinopoiskId, nameRu, nameEn, nameOriginal, year, posterUrl, posterUrlPreview, description),
+    movie = movie(kinopoiskId, nameRu, nameEn, nameOriginal, year, posterUrl, posterUrlPreview, description,
+        ratingKinopoisk),
     imdbId = imdbId.nonBlank(),
     runtimeMin = filmLength?.takeIf { it > 0 },
     genres = genres.orEmpty().mapNotNull { it.genre.nonBlank()?.capitalized() },

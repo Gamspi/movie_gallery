@@ -14,6 +14,7 @@ data class MovieDto(
     @SerialName("release_date") val releaseDate: String? = null,
     @SerialName("poster_path") val posterPath: String? = null,
     val overview: String? = null,
+    @SerialName("vote_average") val voteAverage: Double? = null,
 )
 
 @Serializable
@@ -34,6 +35,7 @@ data class MovieDetailsDto(
     val runtime: Int? = null,
     val genres: List<GenreDto>? = null,
     @SerialName("external_ids") val externalIds: ExternalIdsDto? = null,
+    @SerialName("vote_average") val voteAverage: Double? = null,
 )
 
 @Serializable

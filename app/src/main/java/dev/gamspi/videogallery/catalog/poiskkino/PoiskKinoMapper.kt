@@ -3,6 +3,7 @@ package dev.gamspi.videogallery.catalog.poiskkino
 import dev.gamspi.videogallery.catalog.model.Genre
 import dev.gamspi.videogallery.catalog.model.Movie
 import dev.gamspi.videogallery.catalog.model.MovieDetails
+import dev.gamspi.videogallery.catalog.model.positiveRating
 import java.util.Locale
 
 private fun String?.nonBlank(): String? = this?.trim()?.takeIf { it.isNotEmpty() }
@@ -14,7 +15,7 @@ internal fun MovieDto.toMovieOrNull(): Movie? {
     val title = name.nonBlank() ?: alternativeName.nonBlank() ?: enName.nonBlank().orEmpty()
     return Movie(movieId, title, alternativeName.nonBlank() ?: enName.nonBlank() ?: title,
         year, poster?.previewUrl.nonBlank() ?: poster?.url.nonBlank(),
-        description.nonBlank() ?: shortDescription.nonBlank().orEmpty())
+        description.nonBlank() ?: shortDescription.nonBlank().orEmpty(), rating?.kp.positiveRating())
 }
 
 internal fun MovieDto.toDetailsOrNull(): MovieDetails? = toMovieOrNull()?.let { movie ->

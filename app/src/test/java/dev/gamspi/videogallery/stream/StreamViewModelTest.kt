@@ -111,6 +111,19 @@ class StreamViewModelTest {
     }
 
     @Test
+    fun meta_readFromSavedState() = runTest {
+        val sm = manager()
+        val v = StreamViewModel(
+            SavedStateHandle(mapOf("magnet" to "magnet:abc", "title" to "Film", "movieId" to "301",
+                "movieTitle" to "Матрица", "movieYear" to "1999", "rating" to "8.5", "autoResume" to "true")),
+            sm,
+        )
+        assertEquals(dev.gamspi.videogallery.history.PlaybackMeta(301, "Матрица", 1999, null, 8.5, "magnet:abc",
+            autoResume = true), v.meta)
+        sm.stop()
+    }
+
+    @Test
     fun cancel_stops() = runTest {
         val sm = manager()
         val vm = vm(sm)

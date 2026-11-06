@@ -6,6 +6,7 @@ import dev.gamspi.videogallery.catalog.CatalogException
 import dev.gamspi.videogallery.catalog.FakeCatalogRepository
 import dev.gamspi.videogallery.catalog.model.Movie
 import dev.gamspi.videogallery.catalog.model.MovieDetails
+import dev.gamspi.videogallery.history.PlaybackMeta
 import dev.gamspi.videogallery.settings.FakeSecretStore
 import dev.gamspi.videogallery.settings.SettingsRepository
 import dev.gamspi.videogallery.settings.TrackerConfig
@@ -86,6 +87,22 @@ class ReleasesViewModelTest {
         vm.state.test {
             assertEquals(ReleasesUiState.Loading, awaitItem())
             assertEquals("tt0133093", (awaitItem() as ReleasesUiState.Content).imdbId)
+        }
+    }
+
+    @Test
+    fun content_buildsPlaybackMetaForRelease() = runTest {
+        repo.detailsResult = {
+            details.copy(movie = movie.copy(posterUrl = "p", rating = 8.5), imdbId = "tt0133093")
+        }
+        val vm = vm(settings(), Fake(ProviderId.Apibay) { emptyList() })
+        vm.state.test {
+            assertEquals(ReleasesUiState.Loading, awaitItem())
+            val c = awaitItem() as ReleasesUiState.Content
+            val meta = c.metaFor(r("a", 1, null).copy(magnet = "magnet:a", torrentUrl = "https://t/a.torrent"))
+            assertEquals(PlaybackMeta(5, "Матрица", 1999, "p", 8.5, "magnet:a", "https://t/a.torrent",
+                "tt0133093"), meta)
+            assertFalse(meta.autoResume)
         }
     }
 

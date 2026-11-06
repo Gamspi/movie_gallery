@@ -6,6 +6,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import dev.gamspi.videogallery.history.PlaybackMeta
+import dev.gamspi.videogallery.history.WatchEntry
+import dev.gamspi.videogallery.history.WatchHistoryStore
 import dev.gamspi.videogallery.stream.StreamManager
 import dev.gamspi.videogallery.stream.StreamState
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -76,6 +79,8 @@ class PlayerViewModel internal constructor(
     private val translator: SubtitleTranslator? = null,
     private val cache: TranslationCache? = null,
     private val translationDispatcher: CoroutineDispatcher = Dispatchers.Default,
+    private val history: WatchHistoryStore? = null,
+    private val wallClock: () -> Long = System::currentTimeMillis,
     private val clock: () -> Long,
 ) : ViewModel() {
     @Inject
@@ -83,9 +88,11 @@ class PlayerViewModel internal constructor(
         savedState: SavedStateHandle, store: PlaybackStore, manager: StreamManager,
         client: OpenSubtitlesClient, settings: SettingsRepository,
         models: TranslationModels, translator: SubtitleTranslator, cache: TranslationCache,
+        history: WatchHistoryStore,
     ) : this(savedState, store, manager, client, settings.subtitlePrefs, { url ->
         fetchHashOverHttp(subtitleHashHttp, url)
-    }, models, translator, cache, Dispatchers.Default, SystemClock::elapsedRealtime)
+    }, models, translator, cache, Dispatchers.Default, history, System::currentTimeMillis,
+        SystemClock::elapsedRealtime)
 
     companion object {
         private val subtitleHashHttp by lazy {
@@ -421,6 +428,9 @@ class PlayerViewModel internal constructor(
     private val url: String = savedState.get<String>("url").orEmpty()
     private val key: String = savedState.get<String>("key").orEmpty().ifEmpty { "url:$url" }
     internal val imdbId: String? = savedState.get<String>("imdb")?.ifBlank { null }
+
+    /** Movie and release data from the route; movieId 0 when opened without a movie. */
+    val meta: PlaybackMeta = PlaybackMeta.from { savedState.get<String>(it) }
     private val _state = MutableStateFlow(
         PlayerUiState(title = savedState.get<String>("title").orEmpty(), url = url),
     )
@@ -469,10 +479,17 @@ class PlayerViewModel internal constructor(
     private var resumeComputed = false
     private var lastSaveAt: Long? = null
 
-    fun onDuration(durationMs: Long) {
-        if (resumeComputed || durationMs <= 0) return
+    /**
+     * Computes the resume point once. With autoResume returns the position to seek to silently;
+     * otherwise may raise the resume offer and returns null.
+     */
+    fun onDuration(durationMs: Long): Long? {
+        if (resumeComputed || durationMs <= 0) return null
         resumeComputed = true
-        _state.value = _state.value.copy(resumeOffer = resumeFrom(store.position(key), durationMs))
+        val saved = store.position(key)
+        if (meta.autoResume) return saved?.takeIf { it > 0 && !isFinished(it, durationMs) }
+        _state.value = _state.value.copy(resumeOffer = resumeFrom(saved, durationMs))
+        return null
     }
 
     fun dismissResume() {
@@ -494,6 +511,27 @@ class PlayerViewModel internal constructor(
         if (positionMs <= 0) return
         lastSaveAt = clock()
         if (isFinished(positionMs, durationMs)) store.clearPosition(key) else store.savePosition(key, positionMs)
+        recordHistory(positionMs, durationMs)
+    }
+
+    /** Keeps «continue watching» in sync; the store drops watched and duration-less entries. */
+    private fun recordHistory(positionMs: Long, durationMs: Long) {
+        val history = history ?: return
+        if (meta.movieId <= 0 || (meta.magnet.isBlank() && meta.torrent.isBlank())) return
+        history.upsert(WatchEntry(
+            movieId = meta.movieId,
+            title = meta.movieTitle.ifBlank { _state.value.title },
+            year = meta.movieYear,
+            posterUrl = meta.poster,
+            rating = meta.rating,
+            magnet = meta.magnet,
+            torrentUrl = meta.torrent,
+            imdb = meta.imdb,
+            positionKey = key,
+            positionMs = positionMs,
+            durationMs = durationMs,
+            updatedAt = wallClock(),
+        ))
     }
 
     fun chooseInitialAudio(tracks: List<AudioTrack>): AudioTrack? =

@@ -1,5 +1,6 @@
 package dev.gamspi.videogallery.catalog.poiskkino
 
+import dev.gamspi.videogallery.catalog.kinopoisk.LenientDoubleSerializer
 import dev.gamspi.videogallery.catalog.kinopoisk.LenientIntSerializer
 import kotlinx.serialization.Serializable
 
@@ -23,6 +24,9 @@ data class DictionaryItemDto(val id: Int? = null, val name: String? = null)
 data class ImageDto(val url: String? = null, val previewUrl: String? = null)
 
 @Serializable
+data class RatingDto(@Serializable(with = LenientDoubleSerializer::class) val kp: Double? = null)
+
+@Serializable
 data class ExternalIdDto(val imdb: String? = null)
 
 @Serializable
@@ -40,4 +44,5 @@ data class MovieDto(
     val externalId: ExternalIdDto? = null,
     val movieLength: Int? = null,
     val genres: List<DictionaryItemDto>? = null,
+    val rating: RatingDto? = null,
 )

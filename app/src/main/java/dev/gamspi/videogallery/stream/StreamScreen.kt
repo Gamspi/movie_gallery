@@ -29,6 +29,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.ListItem
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import dev.gamspi.videogallery.history.PlaybackMeta
 import dev.gamspi.videogallery.torrents.formatSize
 import dev.gamspi.videogallery.ui.components.FullScreenLoader
 import kotlinx.coroutines.flow.first
@@ -36,7 +37,7 @@ import dev.gamspi.videogallery.ui.components.AccentButton
 
 @Composable
 fun StreamScreen(
-    onReady: (url: String, key: String, title: String, imdb: String) -> Unit,
+    onReady: (url: String, key: String, title: String, meta: PlaybackMeta) -> Unit,
     onBack: () -> Unit,
     viewModel: StreamViewModel = hiltViewModel(),
 ) {
@@ -59,7 +60,7 @@ fun StreamScreen(
         // Waits for RESUMED: navigateOnce drops the call otherwise (enter transition, back from Home).
         LaunchedEffect(ready) {
             lifecycleOwner.lifecycle.currentStateFlow.first { it.isAtLeast(Lifecycle.State.RESUMED) }
-            onReady(ready.url, ready.key, ready.title, viewModel.imdb)
+            onReady(ready.url, ready.key, ready.title, viewModel.meta)
         }
     }
 

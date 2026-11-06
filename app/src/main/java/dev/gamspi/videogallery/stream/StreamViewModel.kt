@@ -3,6 +3,7 @@ package dev.gamspi.videogallery.stream
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.gamspi.videogallery.history.PlaybackMeta
 import javax.inject.Inject
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
@@ -15,8 +16,11 @@ class StreamViewModel @Inject constructor(
     val state: StateFlow<StreamState> = manager.state
     private val sessionId: Long
 
-    /** Movie imdb id (blank when unknown), forwarded to the player route. */
-    val imdb: String = savedState.get<String>("imdb").orEmpty()
+    /** Movie and release data, forwarded to the player route. */
+    val meta: PlaybackMeta = PlaybackMeta.from { savedState.get<String>(it) }
+
+    /** Movie imdb id (blank when unknown). */
+    val imdb: String get() = meta.imdb
 
     init {
         manager.start(

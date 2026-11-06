@@ -49,6 +49,7 @@ class KinopoiskCatalogRepositoryTest {
         assertEquals("The Matrix", m.originalTitle)
         assertEquals(1999, m.year)
         assertEquals("https://kinopoiskapiunofficial.tech/images/posters/kp_small/301.jpg", m.posterUrl)
+        assertEquals(8.5, m.rating!!, 1e-9)
         val req = server.takeRequest()
         assertEquals("KEY", req.headers["X-API-KEY"])
         assertEquals("/api/v2.2/films/collections", req.url.encodedPath)
@@ -74,15 +75,18 @@ class KinopoiskCatalogRepositoryTest {
         assertNull(m.posterUrl)
         assertNull(m.year)
         assertEquals("", m.overview)
+        assertNull(m.rating) // null rating
         // year as numeric string is tolerated; posterUrlPreview null -> posterUrl
         val s = list.first { it.id == 700 }
         assertEquals(2001, s.year)
         assertEquals("https://kinopoiskapiunofficial.tech/images/posters/kp/700.jpg", s.posterUrl)
+        assertEquals(7.1, s.rating!!, 1e-9) // rating as string
         // empty names -> nameEn; garbage year -> null; empty poster -> null
         val e = list.first { it.id == 800 }
         assertEquals("English Only", e.title)
         assertNull(e.year)
         assertNull(e.posterUrl)
+        assertNull(e.rating) // absent rating
     }
 
     @Test
@@ -126,6 +130,7 @@ class KinopoiskCatalogRepositoryTest {
         assertEquals("Матрица", d.movie.title)
         assertEquals("tt0133093", d.imdbId)
         assertEquals(136, d.runtimeMin)
+        assertEquals(8.5, d.movie.rating!!, 1e-9)
         assertEquals(listOf("Фантастика", "Боевик"), d.genres)
         assertEquals("https://avatars.mds.yandex.net/get-ott/1648503/2a0000016b6c1a2f/orig", d.backdropUrl)
         assertTrue(d.movie.overview.startsWith("Хакер"))

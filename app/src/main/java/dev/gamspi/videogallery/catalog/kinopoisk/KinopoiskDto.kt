@@ -11,6 +11,7 @@ import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.JsonDecoder
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
 
 /** Year arrives as a number, a numeric string or null; anything unparsable becomes null. */
@@ -28,6 +29,21 @@ object LenientIntSerializer : KSerializer<Int?> {
     }
 }
 
+/** Rating arrives as a number, a numeric string, null or junk; anything unparsable becomes null. */
+object LenientDoubleSerializer : KSerializer<Double?> {
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("LenientDouble", PrimitiveKind.DOUBLE)
+
+    override fun deserialize(decoder: Decoder): Double? {
+        val element = (decoder as JsonDecoder).decodeJsonElement()
+        return if (element is JsonNull || element !is JsonPrimitive) null else element.doubleOrNull
+    }
+
+    @OptIn(ExperimentalSerializationApi::class)
+    override fun serialize(encoder: Encoder, value: Double?) {
+        if (value == null) encoder.encodeNull() else encoder.encodeDouble(value)
+    }
+}
+
 @Serializable
 data class FilmListDto(val items: List<FilmDto>? = null)
 
@@ -41,6 +57,7 @@ data class FilmDto(
     val type: String? = null,
     val posterUrl: String? = null,
     val posterUrlPreview: String? = null,
+    @Serializable(with = LenientDoubleSerializer::class) val ratingKinopoisk: Double? = null,
 )
 
 @Serializable
@@ -64,4 +81,5 @@ data class FilmDetailsDto(
     val description: String? = null,
     val type: String? = null,
     val genres: List<GenreDto>? = null,
+    @Serializable(with = LenientDoubleSerializer::class) val ratingKinopoisk: Double? = null,
 )

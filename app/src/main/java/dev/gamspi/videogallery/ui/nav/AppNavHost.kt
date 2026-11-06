@@ -1,6 +1,12 @@
 package dev.gamspi.videogallery.ui.nav
 
 import android.net.Uri
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -37,7 +43,14 @@ fun AppNavHost() {
     val nav = rememberNavController()
     val source by hiltViewModel<SettingsViewModel>().catalogSource.collectAsState()
     CompositionLocalProvider(LocalCatalogSource provides source) {
-    NavHost(navController = nav, startDestination = "gallery") {
+    NavHost(
+        navController = nav,
+        startDestination = "gallery",
+        enterTransition = { if (touchesPlayer()) EnterTransition.None else fadeIn(tween(200)) },
+        exitTransition = { if (touchesPlayer()) ExitTransition.None else fadeOut(tween(200)) },
+        popEnterTransition = { if (touchesPlayer()) EnterTransition.None else fadeIn(tween(200)) },
+        popExitTransition = { if (touchesPlayer()) ExitTransition.None else fadeOut(tween(200)) },
+    ) {
         composable("gallery") { entry ->
             GalleryScreen(
                 onOpenMovie = { nav.navigateOnce(entry, "movie/$it") },
@@ -69,10 +82,14 @@ fun AppNavHost() {
             }
         }
         composable(
-            "player?url={url}&title={title}&key={key}&imdb={imdb}",
-            arguments = listOf("url", "title", "key", "imdb").map {
+            PLAYER_ROUTE,
+            arguments = PLAYER_ARGS.map {
                 navArgument(it) { type = NavType.StringType; defaultValue = "" }
             },
+            enterTransition = { EnterTransition.None },
+            exitTransition = { ExitTransition.None },
+            popEnterTransition = { EnterTransition.None },
+            popExitTransition = { ExitTransition.None },
         ) { PlayerScreen(onBack = { nav.popBackStack() }) }
         composable("search") { entry ->
             SearchScreen(
@@ -89,28 +106,20 @@ fun AppNavHost() {
         composable("releases/{id}", arguments = listOf(navArgument("id") { type = NavType.IntType })) { entry ->
             ReleasesScreen(
                 onOpenSettings = { nav.navigateOnce(entry, settingsRoute(SettingsSection.Catalog)) },
-                onPlay = { r, imdb ->
-                    nav.navigateOnce(
-                        entry,
-                        "stream?magnet=${Uri.encode(r.magnet)}&title=${Uri.encode(r.title)}" +
-                            "&imdb=${Uri.encode(imdb.orEmpty())}&torrent=${Uri.encode(r.torrentUrl.orEmpty())}",
-                    )
-                },
+                onPlay = { r, meta -> nav.navigateOnce(entry, streamRoute(r.title, meta)) },
             )
         }
         composable(
             STREAM_ROUTE,
-            arguments = listOf("magnet", "title", "imdb", "torrent").map {
+            arguments = STREAM_ARGS.map {
                 navArgument(it) { type = NavType.StringType; defaultValue = "" }
             },
         ) { entry ->
             StreamScreen(
-                onReady = { url, key, title, imdb ->
-                    nav.navigateOnce(
-                        entry,
-                        "player?url=${Uri.encode(url)}&title=${Uri.encode(title)}&key=${Uri.encode(key)}" +
-                            "&imdb=${Uri.encode(imdb)}",
-                    ) { popUpTo(STREAM_ROUTE) { inclusive = true } }
+                onReady = { url, key, title, meta ->
+                    nav.navigateOnce(entry, playerRoute(url, title, key, meta)) {
+                        popUpTo(STREAM_ROUTE) { inclusive = true }
+                    }
                 },
                 onBack = { nav.popBackStack() },
             )
@@ -118,6 +127,11 @@ fun AppNavHost() {
     }
     }
 }
+
+// Player transitions are instant: either side of the transition is the player.
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.touchesPlayer(): Boolean =
+    initialState.destination.route?.startsWith("player") == true ||
+        targetState.destination.route?.startsWith("player") == true
 
 /** Ignore repeated clicks (double OK) once the source screen is no longer resumed. */
 private fun NavController.navigateOnce(
@@ -127,5 +141,3 @@ private fun NavController.navigateOnce(
 ) {
     if (from.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) navigate(route, builder)
 }
-
-private const val STREAM_ROUTE = "stream?magnet={magnet}&title={title}&imdb={imdb}&torrent={torrent}"
