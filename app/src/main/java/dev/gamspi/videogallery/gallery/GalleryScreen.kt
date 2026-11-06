@@ -139,17 +139,24 @@ private fun GalleryContent(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 48.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    "VideoGallery",
-                    style = MaterialTheme.typography.headlineSmall,
+                Row(
                     modifier = Modifier.weight(1f),
-                )
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    // Leading slot: logo is inserted here later.
+                    Text(
+                        "VideoGallery",
+                        style = MaterialTheme.typography.headlineSmall,
+                    )
+                }
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.End),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     IconPillButton(AppIcons.Search, "Поиск", onOpenSearch, headerFocus)
                     IconPillButton(AppIcons.Settings, "Настройки", onOpenSettings, headerFocus)
+                    HeaderClock()
                 }
             }
         }

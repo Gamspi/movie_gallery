@@ -12,6 +12,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -50,6 +51,7 @@ private fun SubtitleLayer(text: String?, style: LayerStyle) {
         lineHeight = (style.size.sp * 1.2f).sp,
         textAlign = TextAlign.Center,
         maxLines = 3,
-        style = TextStyle(shadow = Shadow(Color.Black, Offset(1f, 1f), 4f)),
+        // Pinned to the system font so subtitles ignore the theme typeface.
+        style = TextStyle(fontFamily = FontFamily.Default, shadow = Shadow(Color.Black, Offset(1f, 1f), 4f)),
     )
 }
