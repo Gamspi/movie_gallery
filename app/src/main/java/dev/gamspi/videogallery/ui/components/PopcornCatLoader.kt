@@ -42,6 +42,10 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import dev.gamspi.videogallery.ui.theme.AppColors
 
+private val BucketWhite = Color(0xFFFFFFFF)
+private val BucketRed = Color(0xFFE53935)
+private val BucketBlue = Color(0xFF1E5BD8)
+
 @Composable
 fun PopcornCatLoader(modifier: Modifier = Modifier, size: Dp = 160.dp, status: String? = null) {
     val shapes = remember { PopcornCatShapes() }
@@ -105,12 +109,13 @@ fun PopcornCatLoader(modifier: Modifier = Modifier, size: Dp = 160.dp, status: S
                     drawPath(shapes.whiskers, AppColors.OnAccent, style = outline)
                 }
                 drawPath(shapes.nose, AppColors.OnAccent)
-                drawPath(shapes.bucket, AppColors.Accent)
-                drawPath(shapes.stripes, cream)
+                drawPath(shapes.bucket, BucketWhite)
+                drawPath(shapes.stripesRed, BucketRed)
+                drawPath(shapes.stripeBlue, BucketBlue)
                 drawPath(shapes.bucket, AppColors.OnAccent, style = outline)
                 drawPath(shapes.popcornHeap, cream)
                 drawPath(shapes.popcornHeap, AppColors.OnAccent, style = outline)
-                drawPath(shapes.rim, cream)
+                drawPath(shapes.rim, BucketWhite)
                 drawPath(shapes.rim, AppColors.OnAccent, style = outline)
                 drawPath(shapes.paws, AppColors.Accent)
                 drawPath(shapes.paws, AppColors.OnAccent, style = outline)
@@ -238,7 +243,7 @@ private class PopcornCatShapes {
         quadraticTo(81f, 147f, 62f, 141f)
         close()
     }
-    val stripes = Path().apply {
+    val stripesRed = Path().apply {
         moveTo(63f, 108f)
         lineTo(71f, 108f)
         lineTo(74f, 143.5f)
@@ -248,6 +253,13 @@ private class PopcornCatShapes {
         lineTo(99f, 108f)
         lineTo(95f, 142.5f)
         lineTo(88f, 143.5f)
+        close()
+    }
+    val stripeBlue = Path().apply {
+        moveTo(76.5f, 108f)
+        lineTo(85.5f, 108f)
+        lineTo(84.5f, 144.5f)
+        lineTo(77.5f, 144.5f)
         close()
     }
     val popcornHeap = Path().apply {

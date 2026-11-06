@@ -1,6 +1,23 @@
 # Иконка и баннер VideoGallery
 
-## Версия 2
+## Версия 3 (актуальная)
+
+Иконка и баннер теперь векторные и строятся из геометрии кота `PopcornCatLoader` (те же координаты путей, система 160×160): один талисман на весь продукт. Фон `#1C1B1F`, за котом большой Play-треугольник с оранжевым градиентом (`#FF9800` → `#F4511E`), кот отделён от него тёмным ореолом (силуэт кота, обведённый тёмным контуром), ведро попкорна красно-бело-синее (красные полосы по краям, синяя по центру).
+
+Мастера SVG:
+
+- [videogallery-icon-v3.svg](videogallery-icon-v3.svg), viewBox 108×108 (геометрия adaptive-иконки, безопасная зона 66×66);
+- [videogallery-banner-v3.svg](videogallery-banner-v3.svg), viewBox 320×180, эмблема по центру, без текста.
+
+Ресурсы Android (VectorDrawable, та же геометрия):
+
+- [ic_launcher_background.xml](../../app/src/main/res/drawable/ic_launcher_background.xml), [ic_launcher_foreground.xml](../../app/src/main/res/drawable/ic_launcher_foreground.xml);
+- [ic_launcher.xml](../../app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml), `<adaptive-icon>`;
+- [banner.xml](../../app/src/main/res/drawable/banner.xml), 320×180 dp.
+
+Старые `mipmap-*dpi/ic_launcher.png` и `drawable-xhdpi/banner.png` удалены, чтобы не перекрывать векторные ресурсы. PNG v1 и v2 оставлены как история. Вид в лаунчере ТВ и сборка APK не проверялись.
+
+## История: версия 2
 
 Исходник: [videogallery-icon-v2.png](videogallery-icon-v2.png), 1254×1254 px, сгенерирован встроенным `imagegen` 2026-11-03 с v1 как визуальным референсом. Киноплёнка в форме Play, довольный кот с попкорном, янтарный акцент `AppColors.Accent` (`#FFB300`), тёмные детали `AppColors.OnAccent` (`#1A1200`) и фон в гамме `AppColors.Background` (`#1C1B1F`). Светлые тёплые детали и мягкие оттенки — часть сгенерированного изображения.
 
@@ -14,7 +31,7 @@ Use case: logo-brand. Create a production square 1024x1024 or larger Android TV 
 
 ### Баннер
 
-[Ресурс баннера](../../app/src/main/res/drawable-xhdpi/banner.png) создан отдельным вызовом встроенного `imagegen` с v2 как референсом; исходный результат 1672×941 px уменьшен до 640×360 px. Это xhdpi-ресурс для 320×180 dp, с тем же знаком и свободным тёмным пространством по бокам, без текста.
+Ресурс баннера (`drawable-xhdpi/banner.png`, удалён в v3) создан отдельным вызовом встроенного `imagegen` с v2 как референсом; исходный результат 1672×941 px уменьшен до 640×360 px. Это xhdpi-ресурс для 320×180 dp, с тем же знаком и свободным тёмным пространством по бокам, без текста.
 
 Промпт баннера (полный):
 
@@ -24,14 +41,16 @@ Use case: logo-brand. Create a wide 16:9 Android TV launcher banner, 1536x864 or
 
 ### Размеры и подключение
 
-| Ресурс | Размер PNG |
+Историческая справка: ресурсы ниже удалены из приложения в версии 3, ссылки на них не действуют.
+
+| Ресурс (удалён) | Размер PNG |
 |---|---|
-| [mipmap-mdpi/ic_launcher.png](../../app/src/main/res/mipmap-mdpi/ic_launcher.png) | 48×48 px |
-| [mipmap-hdpi/ic_launcher.png](../../app/src/main/res/mipmap-hdpi/ic_launcher.png) | 72×72 px |
-| [mipmap-xhdpi/ic_launcher.png](../../app/src/main/res/mipmap-xhdpi/ic_launcher.png) | 96×96 px |
-| [mipmap-xxhdpi/ic_launcher.png](../../app/src/main/res/mipmap-xxhdpi/ic_launcher.png) | 144×144 px |
-| [mipmap-xxxhdpi/ic_launcher.png](../../app/src/main/res/mipmap-xxxhdpi/ic_launcher.png) | 192×192 px |
-| [drawable-xhdpi/banner.png](../../app/src/main/res/drawable-xhdpi/banner.png) | 640×360 px |
+| `mipmap-mdpi/ic_launcher.png` | 48×48 px |
+| `mipmap-hdpi/ic_launcher.png` | 72×72 px |
+| `mipmap-xhdpi/ic_launcher.png` | 96×96 px |
+| `mipmap-xxhdpi/ic_launcher.png` | 144×144 px |
+| `mipmap-xxxhdpi/ic_launcher.png` | 192×192 px |
+| `drawable-xhdpi/banner.png` | 640×360 px |
 
 PNG уменьшены с `System.Drawing`, `HighQualityBicubic`, `HighQuality` pixel offset и `TileFlipXY` по краям. Все пять иконок получены непосредственно из исходника v2. Это квадратная непрозрачная иконка; отдельных adaptive/monochrome слоёв нет.
 
