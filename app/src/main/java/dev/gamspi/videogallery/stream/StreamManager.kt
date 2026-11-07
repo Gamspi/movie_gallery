@@ -180,6 +180,10 @@ class StreamManager(
                         val found = dev.gamspi.videogallery.stream.episodeFiles(all, episode.season)
                         s.episodeFiles = found
                         val match = found.firstOrNull { it.ref == episode }
+                        torrentOrNull {
+                            log("episode want=$episode all=${all.size} videos=${videos.size} found=${found.map { it.ref }} " +
+                                "sample=${videos.take(2).map { it.path + ":" + it.size }}")
+                        }
                         if (match != null) {
                             buffer(s, hash, match.fileIndex)
                         } else {
