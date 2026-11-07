@@ -178,6 +178,26 @@ class SettingsViewModel @Inject constructor(
         repository.setProxyKey(key)
     }
 
+    /** Writes one catalog key only; false for non-catalog services or a failed store write. */
+    fun saveCatalogKey(service: KeyService, key: String): Boolean = when (service) {
+        KeyService.PoiskKino -> runSave { repository.setPoiskkinoApiKey(key) }
+        KeyService.Kinopoisk -> runSave { repository.setKinopoiskApiKey(key) }
+        KeyService.Tmdb -> runSave { repository.setTmdbApiKey(key) }
+        else -> false
+    }
+
+    /** Whether the service's main value is filled; the value itself is never exposed here. */
+    fun isKeySet(service: KeyService): Boolean = when (service) {
+        KeyService.PoiskKino -> !poiskkinoApiKey.value.isNullOrBlank()
+        KeyService.Kinopoisk -> !kinopoiskApiKey.value.isNullOrBlank()
+        KeyService.Tmdb -> !tmdbApiKey.value.isNullOrBlank()
+        KeyService.Rutracker -> !rutrackerUser.isNullOrBlank()
+        KeyService.OpenSubtitles -> !openSubtitlesKey.isNullOrBlank()
+        KeyService.Proxy -> !proxyUrl.value.isNullOrBlank() && !proxyKey.value.isNullOrBlank()
+        KeyService.Rutor, KeyService.Apibay, KeyService.Yts ->
+            tracker(requireNotNull(service.tracker)).value.baseUrl.isNotBlank()
+    }
+
     private inline fun runSave(block: () -> Unit): Boolean = try {
         block()
         true

@@ -1,5 +1,7 @@
 package dev.gamspi.videogallery.settings
 
+import dev.gamspi.videogallery.torrents.ProviderId
+
 enum class SettingsSection(val route: String, val title: String) {
     Catalog("catalog", "Каталог"),
     Trackers("trackers", "Трекеры"),
@@ -20,4 +22,23 @@ fun sectionOf(route: String?): SettingsSection? = SettingsSection.entries.firstO
 
 /** Sections whose edits are written when the user leaves with Back. */
 val SettingsSection.autosaves: Boolean
-    get() = this == SettingsSection.Catalog || this == SettingsSection.Trackers || this == SettingsSection.Keys
+    get() = this == SettingsSection.Catalog || this == SettingsSection.Trackers
+
+/** Services listed in «Ключи»; each opens its own screen. Tracker titles follow [ProviderId.label]. */
+enum class KeyService(val route: String, val title: String, val tracker: ProviderId? = null) {
+    PoiskKino("poiskkino", "PoiskKino"),
+    Kinopoisk("kinopoisk", "Кинопоиск"),
+    Tmdb("tmdb", "TMDB"),
+    Rutor("rutor", ProviderId.Rutor.label, ProviderId.Rutor),
+    Apibay("apibay", ProviderId.Apibay.label, ProviderId.Apibay),
+    Yts("yts", ProviderId.Yts.label, ProviderId.Yts),
+    Rutracker("rutracker", ProviderId.Rutracker.label, ProviderId.Rutracker),
+    OpenSubtitles("opensubtitles", "OpenSubtitles"),
+    Proxy("proxy", "Прокси"),
+}
+
+const val KEY_SERVICE_ROUTE = "settings/keys/{service}"
+
+fun keyServiceRoute(service: KeyService): String = "settings/keys/${service.route}"
+
+fun keyServiceOf(route: String?): KeyService? = KeyService.entries.firstOrNull { it.route == route }

@@ -3,6 +3,9 @@ package dev.gamspi.videogallery.settings
 import android.view.KeyEvent
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -49,6 +52,7 @@ fun SettingsSectionScreen(
     section: SettingsSection,
     onBack: () -> Unit,
     onPlayTest: (String) -> Unit = {},
+    onOpenKeyService: (KeyService) -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     when (section) {
@@ -58,15 +62,15 @@ fun SettingsSectionScreen(
         SettingsSection.Subtitles -> SubtitlesSection(viewModel)
         SettingsSection.Translation -> TranslationSection(viewModel)
         SettingsSection.Network -> NetworkSection(viewModel)
-        SettingsSection.Keys -> KeysSection(viewModel, onBack)
+        SettingsSection.Keys -> KeysListSection(viewModel, onOpenKeyService)
         SettingsSection.Debug -> DebugSection(viewModel, onPlayTest)
     }
 }
 
-private const val SAVE_ERROR = "Не удалось сохранить"
+internal const val SAVE_ERROR = "Не удалось сохранить"
 
 @Composable
-private fun SectionColumn(
+internal fun SectionColumn(
     title: String,
     saveError: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
@@ -83,7 +87,7 @@ private fun SectionColumn(
 
 /** Requests focus on [requester] once when the section opens. */
 @Composable
-private fun InitialFocus(requester: FocusRequester) {
+internal fun InitialFocus(requester: FocusRequester) {
     LaunchedEffect(Unit) { runCatching { requester.requestFocus() } }
 }
 
@@ -253,120 +257,6 @@ private fun NetworkSection(viewModel: SettingsViewModel) {
     }
 }
 
-/** All keys, logins, passwords and addresses; written together on Back. */
-@Composable
-private fun KeysSection(viewModel: SettingsViewModel, onBack: () -> Unit) {
-    // Credentials persist only through SecretStore, never Activity saved state.
-    var poiskkinoKey by remember { mutableStateOf(viewModel.poiskkinoApiKey.value.orEmpty()) }
-    var kinopoiskKey by remember { mutableStateOf(viewModel.kinopoiskApiKey.value.orEmpty()) }
-    var tmdbKey by remember { mutableStateOf(viewModel.tmdbApiKey.value.orEmpty()) }
-    val trackerUrls = ProviderId.entries.associateWith { id ->
-        remember(id.name) { mutableStateOf(viewModel.tracker(id).value.baseUrl) }
-    }
-    var rutrackerUser by remember { mutableStateOf(viewModel.rutrackerUser.orEmpty()) }
-    var rutrackerPassword by remember { mutableStateOf(viewModel.rutrackerPassword.orEmpty()) }
-    var osKey by remember { mutableStateOf(viewModel.openSubtitlesKey.orEmpty()) }
-    var osUser by remember { mutableStateOf(viewModel.openSubtitlesUser.orEmpty()) }
-    var osPassword by remember { mutableStateOf(viewModel.openSubtitlesPassword.orEmpty()) }
-    var proxyUrl by remember { mutableStateOf(viewModel.proxyUrl.value.orEmpty()) }
-    var proxyKey by remember { mutableStateOf(viewModel.proxyKey.value.orEmpty()) }
-    var saveError by remember { mutableStateOf(false) }
-    val firstFocus = remember { FocusRequester() }
-    InitialFocus(firstFocus)
-    // While the IME is open the system closes it first, so this only runs on a real Back.
-    BackHandler {
-        val saved = viewModel.saveCatalogKeys(poiskkinoKey, kinopoiskKey, tmdbKey) &&
-            viewModel.saveTrackerUrls(ProviderId.entries.associateWith { trackerUrls.getValue(it).value }) &&
-            viewModel.saveRutracker(rutrackerUser, rutrackerPassword) &&
-            viewModel.saveOpenSubtitles(osKey, osUser, osPassword) &&
-            viewModel.saveNetwork(proxyUrl, proxyKey)
-        if (saved) onBack() else saveError = true
-    }
-    SectionColumn(SettingsSection.Keys.title, saveError) {
-        GroupHeading("Каталог")
-        TvTextField(
-            value = poiskkinoKey,
-            onValueChange = { poiskkinoKey = it },
-            label = "Ключ PoiskKino",
-            modifier = Modifier.focusRequester(firstFocus),
-            secret = true,
-        )
-        Text("Получить: poiskkino.dev → Telegram-бот")
-        TvTextField(
-            value = kinopoiskKey,
-            onValueChange = { kinopoiskKey = it },
-            label = "Ключ Кинопоиска",
-            secret = true,
-        )
-        Text("Получить: kinopoiskapiunofficial.tech → Профиль")
-        TvTextField(
-            value = tmdbKey,
-            onValueChange = { tmdbKey = it },
-            label = "Ключ TMDB API",
-            secret = true,
-        )
-        Text("Получить: themoviedb.org → Settings → API")
-
-        GroupHeading("Трекеры")
-        ProviderId.entries.forEach { id ->
-            TvTextField(
-                value = trackerUrls.getValue(id).value,
-                onValueChange = { trackerUrls.getValue(id).value = it },
-                label = "Адрес ${id.label}",
-            )
-        }
-        TvTextField(
-            value = rutrackerUser,
-            onValueChange = { rutrackerUser = it },
-            label = "Логин rutracker",
-        )
-        TvTextField(
-            value = rutrackerPassword,
-            onValueChange = { rutrackerPassword = it },
-            label = "Пароль rutracker",
-            secret = true,
-        )
-
-        GroupHeading("OpenSubtitles")
-        TvTextField(
-            value = osKey,
-            onValueChange = { osKey = it },
-            label = "OpenSubtitles ключ",
-            secret = true,
-        )
-        TvTextField(
-            value = osUser,
-            onValueChange = { osUser = it },
-            label = "OpenSubtitles логин",
-        )
-        TvTextField(
-            value = osPassword,
-            onValueChange = { osPassword = it },
-            label = "OpenSubtitles пароль",
-            secret = true,
-        )
-
-        GroupHeading("Прокси")
-        TvTextField(
-            value = proxyUrl,
-            onValueChange = { proxyUrl = it },
-            label = "Адрес прокси",
-            placeholder = "https://имя.workers.dev",
-        )
-        TvTextField(
-            value = proxyKey,
-            onValueChange = { proxyKey = it },
-            label = "Ключ прокси",
-            secret = true,
-        )
-    }
-}
-
-@Composable
-private fun GroupHeading(text: String) {
-    Text(text, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
-}
-
 @Composable
 private fun DebugSection(viewModel: SettingsViewModel, onPlayTest: (String) -> Unit) {
     var testUrl by rememberSaveable { mutableStateOf(viewModel.testUrl.value.orEmpty()) }
@@ -404,8 +294,9 @@ private fun formatOffset(ms: Long): String {
  * Text field safe for D-pad: read-only until OK is pressed, so Up/Down never get trapped.
  * A [secret] value is masked unless the field has focus.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun TvTextField(
+internal fun TvTextField(
     value: String,
     onValueChange: (String) -> Unit,
     label: String,
@@ -416,14 +307,16 @@ private fun TvTextField(
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
     var editing by remember { mutableStateOf(false) }
-    var focused by remember { mutableStateOf(false) }
+    // Back closes the IME without onDone; leave edit mode so secrets mask again.
+    val imeVisible = WindowInsets.isImeVisible
+    LaunchedEffect(imeVisible) { if (!imeVisible) editing = false }
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
         label = { Text(label) },
         placeholder = placeholder?.let { { Text(it) } },
         singleLine = true,
-        visualTransformation = if (secret && !focused) PasswordVisualTransformation() else VisualTransformation.None,
+        visualTransformation = if (secret && !editing) PasswordVisualTransformation() else VisualTransformation.None,
         readOnly = !editing,
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
         keyboardActions = KeyboardActions(onDone = {
@@ -433,7 +326,6 @@ private fun TvTextField(
         modifier = modifier
             .fillMaxWidth()
             .onFocusChanged {
-                focused = it.hasFocus
                 if (!it.hasFocus) editing = false
             }
             .onPreviewKeyEvent { ev ->

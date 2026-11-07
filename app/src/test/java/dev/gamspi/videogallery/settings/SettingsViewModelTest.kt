@@ -228,12 +228,71 @@ class SettingsViewModelTest {
         val vm = SettingsViewModel(SettingsRepository(store))
         assertEquals(false, vm.saveCatalogSource(CatalogSource.PoiskKino))
         assertEquals(false, vm.saveCatalogKeys("a", "b", "c"))
+        assertEquals(false, vm.saveCatalogKey(KeyService.Tmdb, "a"))
         assertEquals(false, vm.saveTrackerEnabled(mapOf(ProviderId.Yts to true)))
         assertEquals(false, vm.saveTrackerUrls(mapOf(ProviderId.Yts to "x")))
         assertEquals(false, vm.saveRutracker("a", "b"))
         assertEquals(false, vm.saveOpenSubtitles("a", "b", "c"))
         assertEquals(false, vm.saveNetwork("a", "b"))
         assertEquals(false, vm.toggleProxy())
+    }
+
+    @Test
+    fun saveCatalogKeyWritesOnlyThatKey() {
+        val store = FakeSecretStore(
+            mapOf("poiskkino_api_key" to "pk", "tmdb_api_key" to "tm", "opensubtitles_key" to "os", "proxy_key" to "px"),
+        )
+        val vm = SettingsViewModel(SettingsRepository(store))
+        assertEquals(true, vm.saveCatalogKey(KeyService.Kinopoisk, " kp "))
+        assertEquals("kp", store.get("kinopoisk_api_key"))
+        assertEquals("kp", vm.kinopoiskApiKey.value)
+        assertEquals("pk", store.get("poiskkino_api_key"))
+        assertEquals("tm", store.get("tmdb_api_key"))
+        assertEquals("os", store.get("opensubtitles_key"))
+        assertEquals("px", store.get("proxy_key"))
+        assertEquals(null, store.get("catalog_source"))
+        assertEquals(true, vm.saveCatalogKey(KeyService.Tmdb, "tm2"))
+        assertEquals("tm2", vm.tmdbApiKey.value)
+        assertEquals("pk", vm.poiskkinoApiKey.value)
+        assertEquals(true, vm.saveCatalogKey(KeyService.PoiskKino, ""))
+        assertEquals(null, store.get("poiskkino_api_key"))
+        assertEquals("kp", store.get("kinopoisk_api_key"))
+        // Non-catalog services are rejected without writing.
+        assertEquals(false, vm.saveCatalogKey(KeyService.Proxy, "x"))
+        assertEquals("px", store.get("proxy_key"))
+    }
+
+    @Test
+    fun saveSingleTrackerUrlKeepsOtherTrackers() {
+        val store = FakeSecretStore(mapOf("tracker_Rutor_url" to "https://rutor.example/"))
+        val vm = SettingsViewModel(SettingsRepository(store))
+        assertEquals(true, vm.saveTrackerUrls(mapOf(ProviderId.Apibay to "bay.example")))
+        assertEquals("https://bay.example/", store.get("tracker_Apibay_url"))
+        assertEquals("https://rutor.example/", store.get("tracker_Rutor_url"))
+        assertEquals(null, store.get("tracker_Yts_url"))
+    }
+
+    @Test
+    fun isKeySetReflectsFilledValues() {
+        val store = FakeSecretStore()
+        val vm = SettingsViewModel(SettingsRepository(store))
+        assertEquals(false, vm.isKeySet(KeyService.PoiskKino))
+        assertEquals(false, vm.isKeySet(KeyService.Rutracker))
+        assertEquals(false, vm.isKeySet(KeyService.OpenSubtitles))
+        assertEquals(false, vm.isKeySet(KeyService.Proxy))
+        // Tracker addresses fall back to defaults, so they always count as set.
+        assertEquals(true, vm.isKeySet(KeyService.Rutor))
+        vm.saveCatalogKey(KeyService.PoiskKino, "pk")
+        assertEquals(true, vm.isKeySet(KeyService.PoiskKino))
+        assertEquals(false, vm.isKeySet(KeyService.Tmdb))
+        vm.saveRutracker("fake_user", "")
+        assertEquals(true, vm.isKeySet(KeyService.Rutracker))
+        vm.saveOpenSubtitles("k", "", "")
+        assertEquals(true, vm.isKeySet(KeyService.OpenSubtitles))
+        vm.saveNetwork("https://w.dev", "")
+        assertEquals(false, vm.isKeySet(KeyService.Proxy))
+        vm.saveNetwork("https://w.dev", "k")
+        assertEquals(true, vm.isKeySet(KeyService.Proxy))
     }
 
     @Test

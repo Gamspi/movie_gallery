@@ -27,11 +27,15 @@ import dev.gamspi.videogallery.gallery.GalleryScreen
 import dev.gamspi.videogallery.player.PlayerScreen
 import dev.gamspi.videogallery.releases.ReleasesScreen
 import dev.gamspi.videogallery.search.SearchScreen
+import dev.gamspi.videogallery.settings.KEY_SERVICE_ROUTE
+import dev.gamspi.videogallery.settings.KeyServiceScreen
 import dev.gamspi.videogallery.settings.SETTINGS_HOME_ROUTE
 import dev.gamspi.videogallery.settings.SETTINGS_SECTION_ROUTE
 import dev.gamspi.videogallery.settings.SettingsHomeScreen
 import dev.gamspi.videogallery.settings.SettingsSection
 import dev.gamspi.videogallery.settings.SettingsSectionScreen
+import dev.gamspi.videogallery.settings.keyServiceOf
+import dev.gamspi.videogallery.settings.keyServiceRoute
 import dev.gamspi.videogallery.settings.sectionOf
 import dev.gamspi.videogallery.settings.settingsRoute
 import dev.gamspi.videogallery.settings.SettingsViewModel
@@ -79,7 +83,19 @@ fun AppNavHost() {
                     onPlayTest = { url ->
                         nav.navigateOnce(entry, "player?url=${Uri.encode(url)}&title=${Uri.encode("Тест")}")
                     },
+                    onOpenKeyService = { nav.navigateOnce(entry, keyServiceRoute(it)) },
                 )
+            }
+        }
+        composable(
+            KEY_SERVICE_ROUTE,
+            arguments = listOf(navArgument("service") { type = NavType.StringType }),
+        ) { entry ->
+            val service = keyServiceOf(entry.arguments?.getString("service"))
+            if (service == null) {
+                LaunchedEffect(Unit) { nav.popBackStack() }
+            } else {
+                KeyServiceScreen(service = service, onBack = { nav.popBackStack() })
             }
         }
         composable(
