@@ -12,6 +12,24 @@ data class MovieCursorDto(
 )
 
 @Serializable
+data class SeasonCursorDto(val docs: List<SeasonDto>? = null)
+
+@Serializable
+data class SeasonDto(val number: Int? = null, val episodes: List<EpisodeDto>? = null)
+
+@Serializable
+data class EpisodeDto(
+    val number: Int? = null,
+    val name: String? = null,
+    val enName: String? = null,
+    val duration: Int? = null,
+    val still: ImageDto? = null,
+)
+
+@Serializable
+data class SeasonInfoDto(val number: Int? = null, val episodesCount: Int? = null)
+
+@Serializable
 data class MovieSearchDto(val docs: List<MovieDto>? = null)
 
 @Serializable
@@ -45,4 +63,5 @@ data class MovieDto(
     val movieLength: Int? = null,
     val genres: List<DictionaryItemDto>? = null,
     val rating: RatingDto? = null,
+    val seasonsInfo: List<SeasonInfoDto>? = null,
 )

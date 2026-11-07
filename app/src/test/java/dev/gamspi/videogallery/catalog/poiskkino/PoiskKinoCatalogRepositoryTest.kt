@@ -1,6 +1,9 @@
 package dev.gamspi.videogallery.catalog.poiskkino
 
 import dev.gamspi.videogallery.catalog.CatalogException
+import dev.gamspi.videogallery.catalog.model.Episode
+import dev.gamspi.videogallery.catalog.model.MediaKind
+import dev.gamspi.videogallery.catalog.model.SeasonInfo
 import dev.gamspi.videogallery.settings.FakeSecretStore
 import dev.gamspi.videogallery.settings.SettingsRepository
 import java.util.concurrent.CountDownLatch
@@ -112,11 +115,11 @@ class PoiskKinoCatalogRepositoryTest {
         assertEquals(2, server.requestCount)
     }
 
-    @Test fun search_sends_page_query_filters_series_and_handles_empty() = runBlocking {
+    @Test fun search_sends_page_query_keeps_series_and_handles_empty() = runBlocking {
         enqueue("search.json")
         enqueue("search_empty.json")
         val r = repo()
-        assertEquals(listOf(301), r.search("матрица").map { it.id })
+        assertEquals(listOf(301, 900), r.search("матрица").map { it.id })
         val request = server.takeRequest()
         assertEquals("/v1.5/movie/search", request.url.encodedPath)
         assertEquals("матрица", request.url.queryParameter("query"))
@@ -254,5 +257,52 @@ class PoiskKinoCatalogRepositoryTest {
         assertEquals(listOf(20), r.popular(2).map { it.id })
         assertNull(server.takeRequest().url.queryParameter("next"))
         assertEquals("new2", server.takeRequest().url.queryParameter("next"))
+    }
+
+    @Test fun types_map_to_kinds() {
+        fun kind(t: String?) = MovieDto(id = 1, type = t).toMovieOrNull()?.kind
+        for (t in listOf("tv-series", "mini-series", "anime", "animated-series")) assertEquals(MediaKind.Series, kind(t))
+        for (t in listOf("movie", "cartoon")) assertEquals(MediaKind.Movie, kind(t))
+        assertNull(kind("tv-show"))
+    }
+
+    @Test fun seriesListUsesIsSeries() = runBlocking {
+        enqueue("popular.json")
+        val r = repo()
+        assertEquals(listOf(900), r.popular(1, MediaKind.Series).map { it.id })
+        val request = server.takeRequest()
+        assertEquals("true", request.url.queryParameter("isSeries"))
+        assertNull(request.url.queryParameter("type"))
+        assertEquals("KEY", request.headers["X-API-KEY"])
+    }
+
+    @Test fun seriesByGenreUsesIsSeries() = runBlocking {
+        enqueue("genres.json"); enqueue("by_genre.json")
+        repo().byGenre(6, 1, MediaKind.Series)
+        server.takeRequest()
+        val request = server.takeRequest()
+        assertEquals("true", request.url.queryParameter("isSeries"))
+        assertNull(request.url.queryParameter("type"))
+        assertEquals("6", request.url.queryParameter("genres.id"))
+    }
+
+    @Test fun seriesDetailsHaveSeasonsWithoutSpecials() = runBlocking {
+        server.enqueue(MockResponse.Builder().body("""{"id":900,"name":"Сериал","type":"tv-series","seasonsInfo":[{"number":0,"episodesCount":1},{"number":1,"episodesCount":8},{"number":2,"episodesCount":10}]}""").build())
+        val d = repo().details(900, MediaKind.Series)
+        assertEquals(MediaKind.Series, d.movie.kind)
+        assertEquals(listOf(SeasonInfo(1, 8), SeasonInfo(2, 10)), d.seasons)
+    }
+
+    @Test fun seasonMapsEpisodesWithStill() = runBlocking {
+        enqueue("season.json")
+        val eps = repo().season(900, 2)
+        assertEquals(Episode(2, 1, "Север", 55, "https://images.example/still1.jpg"), eps[0])
+        assertEquals(Episode(2, 2, "North", null, null), eps[1])
+        assertEquals(Episode(2, 3, "Серия 3", null, null), eps[2])
+        val request = server.takeRequest()
+        assertEquals("/v1.4/season", request.url.encodedPath)
+        assertEquals("900", request.url.queryParameter("movieId"))
+        assertEquals("2", request.url.queryParameter("number"))
+        assertEquals("KEY", request.headers["X-API-KEY"])
     }
 }

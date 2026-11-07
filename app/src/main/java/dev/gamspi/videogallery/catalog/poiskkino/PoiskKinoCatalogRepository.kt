@@ -32,19 +32,18 @@ class PoiskKinoCatalogRepository(private val api: PoiskKinoApi, private val sett
     private class Credentials(val key: String) {
         val genresMutex = Mutex()
         var genres: List<Genre>? = null
-        private val chains = mutableMapOf<Int?, Chain>()
-        @Synchronized fun chain(genreId: Int?): Chain = chains.getOrPut(genreId) { Chain() }
+        private val chains = mutableMapOf<Pair<Int?, MediaKind>, Chain>()
+        @Synchronized fun chain(genreId: Int?, kind: MediaKind): Chain = chains.getOrPut(genreId to kind) { Chain() }
     }
     private var credentials: Credentials? = null
 
     override suspend fun popular(page: Int, kind: MediaKind): List<Movie> =
-        if (kind == MediaKind.Series) emptyList() else call { state -> loadPage(state, null, page) }
+        call { state -> loadPage(state, null, page, kind) }
 
-    override suspend fun genres(kind: MediaKind): List<Genre> =
-        if (kind == MediaKind.Series) emptyList() else call { state -> genres(state) }
+    override suspend fun genres(kind: MediaKind): List<Genre> = call { state -> genres(state) }
 
     override suspend fun byGenre(genreId: Int, page: Int, kind: MediaKind): List<Movie> = call { state ->
-        if (kind == MediaKind.Series || genres(state).none { it.id == genreId }) emptyList() else loadPage(state, genreId, page)
+        if (genres(state).none { it.id == genreId }) emptyList() else loadPage(state, genreId, page, kind)
     }
 
     override suspend fun search(query: String): List<Movie> = call { state ->
@@ -55,16 +54,17 @@ class PoiskKinoCatalogRepository(private val api: PoiskKinoApi, private val sett
         api.details(state.key, id).toDetailsOrNull() ?: throw CatalogException.Parse
     }
 
-    // series are implemented in a later task
-    override suspend fun season(id: Int, number: Int): List<Episode> = emptyList()
+    override suspend fun season(id: Int, number: Int): List<Episode> = call { state ->
+        api.season(state.key, id, number).toEpisodes(number)
+    }
 
     private suspend fun genres(state: Credentials): List<Genre> = state.genresMutex.withLock {
         state.genres ?: api.genres(state.key).toGenres().also { state.genres = it }
     }
 
-    private suspend fun loadPage(state: Credentials, genreId: Int?, page: Int): List<Movie> {
+    private suspend fun loadPage(state: Credentials, genreId: Int?, page: Int, kind: MediaKind): List<Movie> {
         if (page < 1) throw CatalogException.Parse
-        val chain = state.chain(genreId)
+        val chain = state.chain(genreId, kind)
         return chain.mutex.withLock {
             if (page == 1) chain.pages.clear()
             while (chain.pages.size < page) {
@@ -75,14 +75,17 @@ class PoiskKinoCatalogRepository(private val api: PoiskKinoApi, private val sett
                 if (previous != null && (next.isNullOrBlank() || chain.pages.dropLast(1).any { it.next == next })) {
                     throw CatalogException.Parse
                 }
-                val response = api.movies(state.key, next = next,
-                    list = if (genreId == null) "popular-films" else null, genreId = genreId)
+                val series = kind == MediaKind.Series
+                val list = if (genreId != null) null else if (series) "popular-series" else "popular-films"
+                val response = api.movies(state.key, next = next, list = list, genreId = genreId,
+                    type = if (series) null else "movie", isSeries = if (series) true else null)
                 currentCoroutineContext().ensureActive()
                 // In-flight work belongs only to this credential snapshot.
                 if (settings.poiskkinoApiKey.value != state.key) throw CancellationException("Catalog credentials changed")
                 chain.pages += response
             }
             chain.pages[page - 1].docs.orEmpty().mapNotNull { it.toMovieOrNull() }
+                .filter { it.kind == kind }
         }
     }
 
