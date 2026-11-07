@@ -69,7 +69,7 @@ class SearchViewModel @Inject constructor(
             val want = if (k == KindFilter.Series) MediaKind.Series else MediaKind.Movie
             s.movies.filter { it.kind == want }.let { if (it.isEmpty()) SearchUiState.Empty else SearchUiState.Results(it) }
         }
-    }.stateIn(viewModelScope + Dispatchers.Unconfined, SharingStarted.Eagerly, SearchUiState.Idle) // no extra dispatch hop
+    }.stateIn(viewModelScope + Dispatchers.Unconfined, SharingStarted.Eagerly, SearchUiState.Idle) // Unconfined: runs on the emitter thread so Loading/Results are not conflated by a re-dispatch
 
     fun setKind(k: KindFilter) {
         _kind.value = k

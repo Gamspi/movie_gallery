@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -71,7 +71,7 @@ fun SearchScreen(
     // do not recompose the grid items.
     val memory = rememberSaveable(saver = SearchFocusMemory.Saver) { SearchFocusMemory() }
     // Card to restore for this appearance, captured once.
-    val restore = remember { SearchRestore(memory.movieId) }
+    val restore = remember { SearchRestore(memory.cardKey) }
     val openMovie by rememberUpdatedState(onOpenMovie)
     val gridState = rememberLazyGridState()
     val firstCardFocus = remember { FocusRequester() }
@@ -85,7 +85,7 @@ fun SearchScreen(
         viewModel.onQueryChange(text) // restore the query after process/back-stack restore
         viewModel.setKind(KindFilter.valueOf(savedKind)) // restore the filter after process death
         // No card to restore (first entry, or return from Settings/Error): focus the field.
-        if (restore.movieId == -1) fieldFocus.requestFocus()
+        if (restore.cardKey.isEmpty()) fieldFocus.requestFocus()
     }
     Column(
         modifier = Modifier.fillMaxSize().padding(top = 48.dp),
@@ -97,7 +97,7 @@ fun SearchScreen(
                 text = it
                 viewModel.onQueryChange(it)
             },
-            label = { Text("Поиск фильмов") },
+            label = { Text("Поиск") },
             singleLine = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { focusFirstCard() }),
@@ -161,10 +161,11 @@ fun SearchScreen(
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    items(s.movies, key = { "${it.kind}-${it.id}" }) { movie ->
+                    itemsIndexed(s.movies, key = { _, it -> "${it.kind}-${it.id}" }) { index, movie ->
+                        val cardKey = "${movie.kind}-${movie.id}"
                         val ownRequester = remember { FocusRequester() }
-                        val requester = if (movie.id == s.movies.first().id) firstCardFocus else ownRequester
-                        if (movie.id == restore.movieId && !restore.handled) {
+                        val requester = if (index == 0) firstCardFocus else ownRequester
+                        if (cardKey == restore.cardKey && !restore.handled) {
                             // The card is composed and attached by the time this runs (after first frame).
                             LaunchedEffect(Unit) {
                                 withFrameNanos { }
@@ -172,10 +173,10 @@ fun SearchScreen(
                                 requester.requestFocus()
                             }
                         }
-                        val cardModifier = remember(requester, movie.id) {
+                        val cardModifier = remember(requester, cardKey) {
                             Modifier
                                 .focusRequester(requester)
-                                .onFocusChanged { if (it.hasFocus) memory.movieId = movie.id }
+                                .onFocusChanged { if (it.hasFocus) memory.cardKey = cardKey }
                         }
                         val onClick = remember(movie.id, movie.kind) { { openMovie(movie.id, movie.kind) } }
                         MovieCard(movie = movie, onClick = onClick, modifier = cardModifier)
@@ -194,16 +195,16 @@ private val FILTERS = listOf(
 )
 
 /** Last focused result card; plain fields so focus writes stay outside the snapshot system. */
-private class SearchFocusMemory(var movieId: Int = -1) {
+private class SearchFocusMemory(var cardKey: String = "") {
     companion object {
-        val Saver = listSaver<SearchFocusMemory, Int>(
-            save = { listOf(it.movieId) },
+        val Saver = listSaver<SearchFocusMemory, String>(
+            save = { listOf(it.cardKey) },
             restore = { SearchFocusMemory(it[0]) },
         )
     }
 }
 
 /** Card to refocus once per appearance. */
-private class SearchRestore(val movieId: Int) {
+private class SearchRestore(val cardKey: String) {
     var handled = false
 }
