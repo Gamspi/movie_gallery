@@ -3,6 +3,8 @@ package dev.gamspi.videogallery.history
 import dev.gamspi.videogallery.stream.EpisodeRef
 
 class FakeSeriesStore : SeriesStore {
+    override suspend fun awaitLoaded() = Unit
+
     private val releases = mutableMapOf<Pair<String, Int>, SeasonRelease>()
     private val progress = mutableMapOf<String, Map<EpisodeRef, Float>>()
 

@@ -84,6 +84,33 @@ class SeriesStoreTest {
         assertEquals(mapOf(EpisodeRef(1, 1) to 0.5f), next.progress(key))
     }
 
+    @Test fun awaitLoadedReturnsPersistedData() = runTest {
+        var saved: String? = null
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val first = PersistentSeriesStore({ saved }, { saved = it }, this, dispatcher)
+        first.saveRelease(key, 1, release)
+        first.saveProgress(key, EpisodeRef(1, 1), 0.5f)
+        advanceUntilIdle()
+        val store = PersistentSeriesStore({ saved }, { saved = it }, this, dispatcher)
+        store.awaitLoaded()
+        assertEquals(release, store.release(key, 1))
+        assertEquals(mapOf(EpisodeRef(1, 1) to 0.5f), store.progress(key))
+    }
+
+    @Test fun readAfterWriteSeesNewRelease() = runTest {
+        var saved: String? = null
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val store = PersistentSeriesStore({ saved }, { saved = it }, this, dispatcher)
+        store.awaitLoaded()
+        store.saveRelease(key, 1, release)
+        store.saveProgress(key, EpisodeRef(1, 2), 0.75f)
+        assertEquals(release, store.release(key, 1))
+        assertEquals(mapOf(EpisodeRef(1, 2) to 0.75f), store.progress(key))
+        assertNull(saved)
+        advanceUntilIdle()
+        assertTrue(saved!!.isNotBlank())
+    }
+
     @Test fun malformedDataAndWriteFailureKeepStoreUsable() = runTest {
         val store = PersistentSeriesStore({ "broken" }, { throw IllegalStateException("disk") }, this,
             StandardTestDispatcher(testScheduler))
