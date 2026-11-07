@@ -24,6 +24,9 @@ fun afterEpisode(current: EpisodeRef, files: List<EpisodeFile>, seasonEpisodes: 
         seasonOver && has(nextSeason) -> NextStep.PlayFile(nextSeason)
         seasonOver && seasonCount != null && current.season < seasonCount -> NextStep.PickRelease(nextSeason)
         seasonEpisodes != null && !seasonOver -> NextStep.PickRelease(sameSeason)
+        // Unknown season length: never end the series on missing data.
+        seasonEpisodes == null && seasonCount != null && current.season < seasonCount -> NextStep.PickRelease(nextSeason)
+        seasonEpisodes == null -> NextStep.PickRelease(sameSeason)
         else -> NextStep.SeriesDone
     }
 }

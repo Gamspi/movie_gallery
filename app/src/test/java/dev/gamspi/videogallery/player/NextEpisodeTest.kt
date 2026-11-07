@@ -38,7 +38,15 @@ class NextEpisodeTest {
         assertEquals(NextStep.SeriesDone, afterEpisode(EpisodeRef(3, 10), files(3 to 10), 10, 3))
     }
 
-    @Test fun unknownCountersWithoutFileIsDone() {
-        assertEquals(NextStep.SeriesDone, afterEpisode(EpisodeRef(2, 5), files(2 to 5), null, null))
+    @Test fun unknownCountersWithoutFilePicksSameSeasonNextEpisode() {
+        assertEquals(NextStep.PickRelease(EpisodeRef(2, 6)), afterEpisode(EpisodeRef(2, 5), files(2 to 5), null, null))
+    }
+
+    @Test fun unknownEpisodesKnownSeasonCountPicksNextSeason() {
+        assertEquals(NextStep.PickRelease(EpisodeRef(3, 1)), afterEpisode(EpisodeRef(2, 5), files(2 to 5), null, 4))
+    }
+
+    @Test fun unknownEpisodesInLastSeasonNeverEnds() {
+        assertEquals(NextStep.PickRelease(EpisodeRef(4, 6)), afterEpisode(EpisodeRef(4, 5), files(4 to 5), null, 4))
     }
 }
