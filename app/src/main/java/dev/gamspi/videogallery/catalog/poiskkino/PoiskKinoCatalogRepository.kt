@@ -76,7 +76,7 @@ class PoiskKinoCatalogRepository(private val api: PoiskKinoApi, private val sett
                     throw CatalogException.Parse
                 }
                 val series = kind == MediaKind.Series
-                val list = if (genreId != null) null else if (series) "popular-series" else "popular-films"
+                val list = if (genreId == null && !series) "popular-films" else null
                 val response = api.movies(state.key, next = next, list = list, genreId = genreId,
                     type = if (series) null else "movie", isSeries = if (series) true else null)
                 currentCoroutineContext().ensureActive()

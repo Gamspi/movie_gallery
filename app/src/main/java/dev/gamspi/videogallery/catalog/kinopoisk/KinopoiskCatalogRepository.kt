@@ -8,9 +8,11 @@ import dev.gamspi.videogallery.catalog.model.Genre
 import dev.gamspi.videogallery.catalog.model.MediaKind
 import dev.gamspi.videogallery.catalog.model.Movie
 import dev.gamspi.videogallery.catalog.model.MovieDetails
+import dev.gamspi.videogallery.catalog.model.SeasonInfo
 import dev.gamspi.videogallery.settings.SettingsRepository
 import java.io.IOException
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
@@ -44,7 +46,25 @@ class KinopoiskCatalogRepository(
 
     override suspend fun details(id: Int, kind: MediaKind): MovieDetails = call {
         val dto = api.details(id)
-        if (kind == MediaKind.Series) dto.toDetails(kind, api.seasons(id).toSeasonInfos()) else dto.toDetails()
+        if (kind == MediaKind.Series) dto.toDetails(kind, seasonsOrEmpty(id)) else dto.toDetails()
+    }
+
+    /** Seasons are optional for details: non-auth failures degrade to an empty list. */
+    private suspend fun seasonsOrEmpty(id: Int): List<SeasonInfo> = try {
+        api.seasons(id).toSeasonInfos()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: HttpException) {
+        if (e.code() == 401 || e.code() == 402) throw e
+        emptyList()
+    } catch (e: MissingKeyException) {
+        throw e
+    } catch (e: BadKeyException) {
+        throw e
+    } catch (e: SerializationException) {
+        emptyList()
+    } catch (e: IOException) {
+        emptyList()
     }
 
     // the seasons response is cached by the shared HTTP cache

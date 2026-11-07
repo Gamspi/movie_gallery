@@ -16,7 +16,7 @@ internal fun MovieDto.toMovieOrNull(): Movie? {
     val movieId = id?.takeIf { it > 0 } ?: return null
     val kind = when (type) {
         null, "movie", "cartoon" -> MediaKind.Movie
-        "tv-series", "mini-series", "anime", "animated-series" -> MediaKind.Series
+        "tv-series", "mini-series", "anime", "animated-series", "tv-show" -> MediaKind.Series
         else -> return null
     }
     val title = name.nonBlank() ?: alternativeName.nonBlank() ?: enName.nonBlank().orEmpty()

@@ -1,6 +1,9 @@
 package dev.gamspi.videogallery.catalog.kinopoisk
 
 import dev.gamspi.videogallery.catalog.CatalogException
+import dev.gamspi.videogallery.catalog.model.Episode
+import dev.gamspi.videogallery.catalog.model.MediaKind
+import dev.gamspi.videogallery.catalog.model.SeasonInfo
 import dev.gamspi.videogallery.settings.FakeSecretStore
 import dev.gamspi.videogallery.settings.SettingsRepository
 import kotlinx.coroutines.runBlocking
@@ -8,9 +11,6 @@ import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
 import mockwebserver3.SocketEffect
 import org.junit.After
-import dev.gamspi.videogallery.catalog.model.Episode
-import dev.gamspi.videogallery.catalog.model.MediaKind
-import dev.gamspi.videogallery.catalog.model.SeasonInfo
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -240,5 +240,21 @@ class KinopoiskCatalogRepositoryTest {
         assertEquals(listOf(SeasonInfo(1, 2), SeasonInfo(2, 3)), d.seasons)
         assertEquals("/api/v2.2/films/77044", server.takeRequest().url.encodedPath)
         assertEquals("/api/v2.2/films/77044/seasons", server.takeRequest().url.encodedPath)
+    }
+
+    @Test
+    fun seriesDetailsSurviveSeasonsFailure() = runBlocking {
+        enqueueFixture("details_series.json")
+        server.enqueue(MockResponse.Builder().code(500).build())
+        val d = repo().details(77044, MediaKind.Series)
+        assertEquals(MediaKind.Series, d.movie.kind)
+        assertTrue(d.seasons.isEmpty())
+    }
+
+    @Test
+    fun seriesDetailsSeasonsQuotaStillFails() = runBlocking {
+        enqueueFixture("details_series.json")
+        server.enqueue(MockResponse.Builder().code(402).body("{}").build())
+        assertEquals(CatalogException.QuotaExceeded, expectFailure { repo().details(77044, MediaKind.Series) })
     }
 }

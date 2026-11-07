@@ -261,9 +261,9 @@ class PoiskKinoCatalogRepositoryTest {
 
     @Test fun types_map_to_kinds() {
         fun kind(t: String?) = MovieDto(id = 1, type = t).toMovieOrNull()?.kind
-        for (t in listOf("tv-series", "mini-series", "anime", "animated-series")) assertEquals(MediaKind.Series, kind(t))
+        for (t in listOf("tv-series", "mini-series", "anime", "animated-series", "tv-show")) assertEquals(MediaKind.Series, kind(t))
         for (t in listOf("movie", "cartoon")) assertEquals(MediaKind.Movie, kind(t))
-        assertNull(kind("tv-show"))
+        assertNull(kind("video"))
     }
 
     @Test fun seriesListUsesIsSeries() = runBlocking {
@@ -273,6 +273,8 @@ class PoiskKinoCatalogRepositoryTest {
         val request = server.takeRequest()
         assertEquals("true", request.url.queryParameter("isSeries"))
         assertNull(request.url.queryParameter("type"))
+        assertNull(request.url.queryParameter("lists"))
+        assertEquals("votes.kp", request.url.queryParameter("sortField"))
         assertEquals("KEY", request.headers["X-API-KEY"])
     }
 
