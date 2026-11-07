@@ -15,6 +15,11 @@ data class MovieDto(
     @SerialName("poster_path") val posterPath: String? = null,
     val overview: String? = null,
     @SerialName("vote_average") val voteAverage: Double? = null,
+    // tv fields
+    val name: String? = null,
+    @SerialName("original_name") val originalName: String? = null,
+    @SerialName("first_air_date") val firstAirDate: String? = null,
+    @SerialName("media_type") val mediaType: String? = null,
 )
 
 @Serializable
@@ -36,6 +41,30 @@ data class MovieDetailsDto(
     val genres: List<GenreDto>? = null,
     @SerialName("external_ids") val externalIds: ExternalIdsDto? = null,
     @SerialName("vote_average") val voteAverage: Double? = null,
+    // tv fields
+    val name: String? = null,
+    @SerialName("original_name") val originalName: String? = null,
+    @SerialName("first_air_date") val firstAirDate: String? = null,
+    @SerialName("episode_run_time") val episodeRunTime: List<Int>? = null,
+    val seasons: List<SeasonSummaryDto>? = null,
+)
+
+@Serializable
+data class SeasonSummaryDto(
+    @SerialName("season_number") val seasonNumber: Int,
+    @SerialName("episode_count") val episodeCount: Int? = null,
+)
+
+@Serializable
+data class SeasonDto(val episodes: List<EpisodeDto>? = null)
+
+@Serializable
+data class EpisodeDto(
+    @SerialName("season_number") val seasonNumber: Int? = null,
+    @SerialName("episode_number") val episodeNumber: Int,
+    val name: String? = null,
+    val runtime: Int? = null,
+    @SerialName("still_path") val stillPath: String? = null,
 )
 
 @Serializable

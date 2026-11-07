@@ -2,7 +2,9 @@ package dev.gamspi.videogallery.catalog.poiskkino
 
 import dev.gamspi.videogallery.catalog.CatalogException
 import dev.gamspi.videogallery.catalog.CatalogRepository
+import dev.gamspi.videogallery.catalog.model.Episode
 import dev.gamspi.videogallery.catalog.model.Genre
+import dev.gamspi.videogallery.catalog.model.MediaKind
 import dev.gamspi.videogallery.catalog.model.Movie
 import dev.gamspi.videogallery.catalog.model.MovieDetails
 import dev.gamspi.videogallery.catalog.withCatalogCredentials
@@ -35,21 +37,26 @@ class PoiskKinoCatalogRepository(private val api: PoiskKinoApi, private val sett
     }
     private var credentials: Credentials? = null
 
-    override suspend fun popular(page: Int): List<Movie> = call { state -> loadPage(state, null, page) }
+    override suspend fun popular(page: Int, kind: MediaKind): List<Movie> =
+        if (kind == MediaKind.Series) emptyList() else call { state -> loadPage(state, null, page) }
 
-    override suspend fun genres(): List<Genre> = call { state -> genres(state) }
+    override suspend fun genres(kind: MediaKind): List<Genre> =
+        if (kind == MediaKind.Series) emptyList() else call { state -> genres(state) }
 
-    override suspend fun byGenre(genreId: Int, page: Int): List<Movie> = call { state ->
-        if (genres(state).none { it.id == genreId }) emptyList() else loadPage(state, genreId, page)
+    override suspend fun byGenre(genreId: Int, page: Int, kind: MediaKind): List<Movie> = call { state ->
+        if (kind == MediaKind.Series || genres(state).none { it.id == genreId }) emptyList() else loadPage(state, genreId, page)
     }
 
     override suspend fun search(query: String): List<Movie> = call { state ->
         api.search(state.key, query).docs.orEmpty().mapNotNull { it.toMovieOrNull() }
     }
 
-    override suspend fun details(id: Int): MovieDetails = call { state ->
+    override suspend fun details(id: Int, kind: MediaKind): MovieDetails = call { state ->
         api.details(state.key, id).toDetailsOrNull() ?: throw CatalogException.Parse
     }
+
+    // series are implemented in a later task
+    override suspend fun season(id: Int, number: Int): List<Episode> = emptyList()
 
     private suspend fun genres(state: Credentials): List<Genre> = state.genresMutex.withLock {
         state.genres ?: api.genres(state.key).toGenres().also { state.genres = it }

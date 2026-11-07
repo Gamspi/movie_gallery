@@ -3,7 +3,9 @@ package dev.gamspi.videogallery.catalog.tmdb
 import dev.gamspi.videogallery.catalog.CatalogException
 import dev.gamspi.videogallery.catalog.CatalogRepository
 import dev.gamspi.videogallery.catalog.withCatalogCredentials
+import dev.gamspi.videogallery.catalog.model.Episode
 import dev.gamspi.videogallery.catalog.model.Genre
+import dev.gamspi.videogallery.catalog.model.MediaKind
 import dev.gamspi.videogallery.catalog.model.Movie
 import dev.gamspi.videogallery.catalog.model.MovieDetails
 import dev.gamspi.videogallery.settings.SettingsRepository
@@ -22,20 +24,30 @@ class TmdbCatalogRepository(
     private val settings: SettingsRepository,
 ) : CatalogRepository {
 
-    override suspend fun popular(page: Int): List<Movie> =
-        call { api.popular(page).results.orEmpty().map { it.toMovie() } }
+    override suspend fun popular(page: Int, kind: MediaKind): List<Movie> = call {
+        if (kind == MediaKind.Series) api.tvPopular(page).results.orEmpty().map { it.toSeries() }
+        else api.popular(page).results.orEmpty().map { it.toMovie() }
+    }
 
-    override suspend fun genres(): List<Genre> =
-        call { api.genres().genres.orEmpty().map { it.toGenre() } }
+    override suspend fun genres(kind: MediaKind): List<Genre> = call {
+        val dto = if (kind == MediaKind.Series) api.tvGenres() else api.genres()
+        dto.genres.orEmpty().map { it.toGenre() }
+    }
 
-    override suspend fun byGenre(genreId: Int, page: Int): List<Movie> =
-        call { api.discover(genreId, page).results.orEmpty().map { it.toMovie() } }
+    override suspend fun byGenre(genreId: Int, page: Int, kind: MediaKind): List<Movie> = call {
+        if (kind == MediaKind.Series) api.tvDiscover(genreId, page).results.orEmpty().map { it.toSeries() }
+        else api.discover(genreId, page).results.orEmpty().map { it.toMovie() }
+    }
 
     override suspend fun search(query: String): List<Movie> =
-        call { api.search(query).results.orEmpty().map { it.toMovie() } }
+        call { api.searchMulti(query).results.orEmpty().mapNotNull { it.toMultiResult() } }
 
-    override suspend fun details(id: Int): MovieDetails =
-        call { api.details(id).toDetails() }
+    override suspend fun details(id: Int, kind: MediaKind): MovieDetails = call {
+        if (kind == MediaKind.Series) api.tvDetails(id).toSeriesDetails() else api.details(id).toDetails()
+    }
+
+    override suspend fun season(id: Int, number: Int): List<Episode> =
+        call { api.season(id, number).toEpisodes(number) }
 
     private suspend fun <T> call(block: suspend () -> T): T {
         if (settings.tmdbApiKey.value.isNullOrBlank()) throw CatalogException.MissingApiKey

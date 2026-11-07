@@ -3,7 +3,9 @@ package dev.gamspi.videogallery.catalog.kinopoisk
 import dev.gamspi.videogallery.catalog.CatalogException
 import dev.gamspi.videogallery.catalog.CatalogRepository
 import dev.gamspi.videogallery.catalog.withCatalogCredentials
+import dev.gamspi.videogallery.catalog.model.Episode
 import dev.gamspi.videogallery.catalog.model.Genre
+import dev.gamspi.videogallery.catalog.model.MediaKind
 import dev.gamspi.videogallery.catalog.model.Movie
 import dev.gamspi.videogallery.catalog.model.MovieDetails
 import dev.gamspi.videogallery.settings.SettingsRepository
@@ -22,20 +24,23 @@ class KinopoiskCatalogRepository(
     private val settings: SettingsRepository,
 ) : CatalogRepository {
 
-    override suspend fun popular(page: Int): List<Movie> =
-        call { api.popular(page).movies() }
+    override suspend fun popular(page: Int, kind: MediaKind): List<Movie> =
+        if (kind == MediaKind.Series) emptyList() else call { api.popular(page).movies() }
 
-    override suspend fun genres(): List<Genre> =
-        call { api.filters().genres.orEmpty().mapNotNull { it.toGenreOrNull() } }
+    override suspend fun genres(kind: MediaKind): List<Genre> =
+        if (kind == MediaKind.Series) emptyList() else call { api.filters().genres.orEmpty().mapNotNull { it.toGenreOrNull() } }
 
-    override suspend fun byGenre(genreId: Int, page: Int): List<Movie> =
-        call { api.byGenre(genreId, page).movies() }
+    override suspend fun byGenre(genreId: Int, page: Int, kind: MediaKind): List<Movie> =
+        if (kind == MediaKind.Series) emptyList() else call { api.byGenre(genreId, page).movies() }
 
     override suspend fun search(query: String): List<Movie> =
         call { api.search(query).movies() }
 
-    override suspend fun details(id: Int): MovieDetails =
+    override suspend fun details(id: Int, kind: MediaKind): MovieDetails =
         call { api.details(id).toDetails() }
+
+    // series are implemented in a later task
+    override suspend fun season(id: Int, number: Int): List<Episode> = emptyList()
 
     private fun FilmListDto.movies(): List<Movie> =
         items.orEmpty().filter { it.isFilm() }.map { it.toMovie() }

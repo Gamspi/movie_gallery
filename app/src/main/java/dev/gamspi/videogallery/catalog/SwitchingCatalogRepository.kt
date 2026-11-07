@@ -1,6 +1,8 @@
 package dev.gamspi.videogallery.catalog
 
+import dev.gamspi.videogallery.catalog.model.Episode
 import dev.gamspi.videogallery.catalog.model.Genre
+import dev.gamspi.videogallery.catalog.model.MediaKind
 import dev.gamspi.videogallery.catalog.model.Movie
 import dev.gamspi.videogallery.catalog.model.MovieDetails
 import dev.gamspi.videogallery.settings.CatalogSource
@@ -20,9 +22,11 @@ class SwitchingCatalogRepository(
             CatalogSource.PoiskKino -> poiskkino
         }
 
-    override suspend fun popular(page: Int): List<Movie> = current.popular(page)
-    override suspend fun genres(): List<Genre> = current.genres()
-    override suspend fun byGenre(genreId: Int, page: Int): List<Movie> = current.byGenre(genreId, page)
+    override suspend fun popular(page: Int, kind: MediaKind): List<Movie> = current.popular(page, kind)
+    override suspend fun genres(kind: MediaKind): List<Genre> = current.genres(kind)
+    override suspend fun byGenre(genreId: Int, page: Int, kind: MediaKind): List<Movie> =
+        current.byGenre(genreId, page, kind)
     override suspend fun search(query: String): List<Movie> = current.search(query)
-    override suspend fun details(id: Int): MovieDetails = current.details(id)
+    override suspend fun details(id: Int, kind: MediaKind): MovieDetails = current.details(id, kind)
+    override suspend fun season(id: Int, number: Int): List<Episode> = current.season(id, number)
 }

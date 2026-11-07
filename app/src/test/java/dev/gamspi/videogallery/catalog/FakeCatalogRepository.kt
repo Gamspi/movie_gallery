@@ -1,6 +1,8 @@
 package dev.gamspi.videogallery.catalog
 
+import dev.gamspi.videogallery.catalog.model.Episode
 import dev.gamspi.videogallery.catalog.model.Genre
+import dev.gamspi.videogallery.catalog.model.MediaKind
 import dev.gamspi.videogallery.catalog.model.Movie
 import dev.gamspi.videogallery.catalog.model.MovieDetails
 
@@ -10,6 +12,7 @@ class FakeCatalogRepository : CatalogRepository {
     var genresResult: () -> List<Genre> = { emptyList() }
     var byGenreResult: (Int) -> List<Movie> = { emptyList() }
     var searchResult: (String) -> List<Movie> = { emptyList() }
+    var seasonResult: (Int, Int) -> List<Episode> = { _, _ -> emptyList() }
     var detailsResult: (Int) -> MovieDetails = { error("detailsResult not configured") }
 
     var popularCalls = 0
@@ -17,19 +20,24 @@ class FakeCatalogRepository : CatalogRepository {
     val byGenreCalls = mutableListOf<Int>()
     val searchCalls = mutableListOf<String>()
     val detailsCalls = mutableListOf<Int>()
+    val kindCalls = mutableListOf<MediaKind>()
+    val seasonCalls = mutableListOf<Pair<Int, Int>>()
 
-    override suspend fun popular(page: Int): List<Movie> {
+    override suspend fun popular(page: Int, kind: MediaKind): List<Movie> {
         popularCalls++
+        kindCalls += kind
         return popularResult()
     }
 
-    override suspend fun genres(): List<Genre> {
+    override suspend fun genres(kind: MediaKind): List<Genre> {
         genresCalls++
+        kindCalls += kind
         return genresResult()
     }
 
-    override suspend fun byGenre(genreId: Int, page: Int): List<Movie> {
+    override suspend fun byGenre(genreId: Int, page: Int, kind: MediaKind): List<Movie> {
         byGenreCalls += genreId
+        kindCalls += kind
         return byGenreResult(genreId)
     }
 
@@ -38,8 +46,14 @@ class FakeCatalogRepository : CatalogRepository {
         return searchResult(query)
     }
 
-    override suspend fun details(id: Int): MovieDetails {
+    override suspend fun details(id: Int, kind: MediaKind): MovieDetails {
         detailsCalls += id
+        kindCalls += kind
         return detailsResult(id)
+    }
+
+    override suspend fun season(id: Int, number: Int): List<Episode> {
+        seasonCalls += id to number
+        return seasonResult(id, number)
     }
 }

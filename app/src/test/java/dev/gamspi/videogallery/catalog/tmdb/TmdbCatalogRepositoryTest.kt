@@ -1,6 +1,9 @@
 package dev.gamspi.videogallery.catalog.tmdb
 
 import dev.gamspi.videogallery.catalog.CatalogException
+import dev.gamspi.videogallery.catalog.model.Episode
+import dev.gamspi.videogallery.catalog.model.MediaKind
+import dev.gamspi.videogallery.catalog.model.SeasonInfo
 import dev.gamspi.videogallery.settings.FakeSecretStore
 import dev.gamspi.videogallery.settings.SettingsRepository
 import kotlinx.coroutines.runBlocking
@@ -71,6 +74,59 @@ class TmdbCatalogRepositoryTest {
         val url = server.takeRequest().url
         assertEquals("/3/movie/550", url.encodedPath)
         assertEquals("external_ids", url.queryParameter("append_to_response"))
+    }
+
+    @Test
+    fun tvPopularMapsSeries() = runBlocking {
+        enqueueFixture("tv_popular.json")
+        val m = repo().popular(1, MediaKind.Series).first()
+        assertEquals(MediaKind.Series, m.kind)
+        assertEquals("Игра престолов", m.title)
+        assertEquals("Game of Thrones", m.originalTitle)
+        assertEquals(2011, m.year)
+        assertEquals("/3/tv/popular", server.takeRequest().url.encodedPath)
+    }
+
+    @Test
+    fun tvGenresAndDiscoverUseTvEndpoints() = runBlocking {
+        enqueueFixture("genres.json")
+        repo().genres(MediaKind.Series)
+        assertEquals("/3/genre/tv/list", server.takeRequest().url.encodedPath)
+        enqueueFixture("tv_popular.json")
+        assertEquals(MediaKind.Series, repo().byGenre(28, 1, MediaKind.Series).first().kind)
+        assertEquals("/3/discover/tv", server.takeRequest().url.encodedPath)
+    }
+
+    @Test
+    fun searchMultiKeepsMoviesAndSeriesDropsPeople() = runBlocking {
+        enqueueFixture("search_multi.json")
+        val list = repo().search("pitt")
+        assertEquals(listOf(MediaKind.Movie, MediaKind.Series), list.map { it.kind })
+        assertEquals(listOf(550, 1399), list.map { it.id })
+        assertEquals("/3/search/multi", server.takeRequest().url.encodedPath)
+    }
+
+    @Test
+    fun tvDetailsMapsSeasonsWithoutSpecials() = runBlocking {
+        enqueueFixture("tv_details.json")
+        val d = repo().details(1399, MediaKind.Series)
+        assertEquals(listOf(SeasonInfo(1, 10), SeasonInfo(2, 8)), d.seasons)
+        assertEquals("tt0944947", d.imdbId)
+        assertEquals(MediaKind.Series, d.movie.kind)
+        assertEquals(60, d.runtimeMin)
+        val url = server.takeRequest().url
+        assertEquals("/3/tv/1399", url.encodedPath)
+        assertEquals("external_ids", url.queryParameter("append_to_response"))
+    }
+
+    @Test
+    fun seasonMapsEpisodes() = runBlocking {
+        enqueueFixture("season.json")
+        val eps = repo().season(1399, 2)
+        assertEquals(Episode(2, 3, "Призраки", 51, "https://image.tmdb.org/t/p/w300/x.jpg"), eps[0])
+        assertNull(eps[1].stillUrl)
+        assertNull(eps[1].runtimeMin)
+        assertEquals("/3/tv/1399/season/2", server.takeRequest().url.encodedPath)
     }
 
     @Test

@@ -1,5 +1,6 @@
 package dev.gamspi.videogallery.catalog
 
+import dev.gamspi.videogallery.catalog.model.MediaKind
 import dev.gamspi.videogallery.settings.CatalogSource
 import dev.gamspi.videogallery.settings.FakeSecretStore
 import dev.gamspi.videogallery.settings.SettingsRepository
@@ -29,5 +30,10 @@ class SwitchingCatalogRepositoryTest {
         settings.setCatalogSource(CatalogSource.PoiskKino)
         repo.genres()
         assertEquals(1, poiskkino.genresCalls)
+
+        repo.popular(2, MediaKind.Series)
+        repo.season(7, 3)
+        assertEquals(MediaKind.Series, poiskkino.kindCalls.last())
+        assertEquals(listOf(7 to 3), poiskkino.seasonCalls)
     }
 }

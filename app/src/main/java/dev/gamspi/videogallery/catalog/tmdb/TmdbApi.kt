@@ -26,4 +26,29 @@ interface TmdbApi {
         @Path("id") id: Int,
         @Query("append_to_response") append: String = "external_ids",
     ): MovieDetailsDto
+
+    @GET("tv/popular")
+    suspend fun tvPopular(@Query("page") page: Int): MovieListDto
+
+    @GET("genre/tv/list")
+    suspend fun tvGenres(): GenreListDto
+
+    @GET("discover/tv")
+    suspend fun tvDiscover(
+        @Query("with_genres") genreId: Int,
+        @Query("page") page: Int,
+        @Query("sort_by") sortBy: String = "popularity.desc",
+    ): MovieListDto
+
+    @GET("search/multi")
+    suspend fun searchMulti(@Query("query") query: String): MovieListDto
+
+    @GET("tv/{id}")
+    suspend fun tvDetails(
+        @Path("id") id: Int,
+        @Query("append_to_response") append: String = "external_ids",
+    ): MovieDetailsDto
+
+    @GET("tv/{id}/season/{number}")
+    suspend fun season(@Path("id") id: Int, @Path("number") number: Int): SeasonDto
 }
