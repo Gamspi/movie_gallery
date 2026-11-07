@@ -20,17 +20,21 @@ import dev.gamspi.videogallery.ui.components.ErrorKind
 import dev.gamspi.videogallery.ui.components.toErrorKind
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 sealed interface ReleasesUiState {
     data object Loading : ReleasesUiState
     data class Content(
         val movieTitle: String,
         val all: List<TorrentResult>,
-        val filter: Quality?,
+        val filter: ReleaseFilter,
+        val limitBytes: Long,
         val unavailable: List<ProviderId>,
         val noProviders: Boolean = false,
         val imdbId: String? = null,
@@ -41,7 +45,7 @@ sealed interface ReleasesUiState {
         val message: String? = null,
     ) :ReleasesUiState {
         val visible: List<TorrentResult>
-            get() = if (filter == null) all else all.filter { it.quality == filter }
+            get() = all.applyFilter(filter, limitBytes)
 
         /** Movie and release data forwarded to the stream and player screens. */
         fun metaFor(r: TorrentResult): PlaybackMeta = PlaybackMeta(
@@ -76,6 +80,9 @@ class ReleasesViewModel @Inject constructor(
     val state: StateFlow<ReleasesUiState> = _state
     private var job: Job? = null
     private var resolveJob: Job? = null
+    private var saveJob: Job? = null
+    /** Dispatcher for settings writes; tests replace it. */
+    internal var io: CoroutineDispatcher = Dispatchers.IO
     private val _play = MutableStateFlow<PlayRequest?>(null)
     /** Set when a resolved release is ready; the screen navigates and calls [onPlayHandled]. */
     val play: StateFlow<PlayRequest?> = _play
@@ -84,9 +91,28 @@ class ReleasesViewModel @Inject constructor(
         load()
     }
 
-    fun setFilter(q: Quality?) {
-        val s = _state.value
-        if (s is ReleasesUiState.Content) _state.value = s.copy(filter = q)
+    fun setQuality(q: Quality?) = updateFilter { it.copy(quality = q) }
+
+    fun toggleProvider(id: ProviderId) = updateFilter {
+        it.copy(hiddenProviders = if (id in it.hiddenProviders) it.hiddenProviders - id else it.hiddenProviders + id)
+    }
+
+    fun toggleDead() = updateFilter { it.copy(showDead = !it.showDead) }
+
+    fun toggleOverLimit() = updateFilter { it.copy(showOverLimit = !it.showOverLimit) }
+
+    private fun updateFilter(f: (ReleaseFilter) -> ReleaseFilter) {
+        val s = _state.value as? ReleasesUiState.Content ?: return
+        val next = f(s.filter)
+        _state.value = s.copy(filter = next)
+        if (settings.rememberReleaseFilter.value) {
+            // Writes run in order off the main thread.
+            val previous = saveJob
+            saveJob = viewModelScope.launch {
+                previous?.join()
+                withContext(io) { settings.saveReleaseFilter(next) }
+            }
+        }
     }
 
     fun retry() = load()
@@ -138,7 +164,8 @@ class ReleasesViewModel @Inject constructor(
                 ReleasesUiState.Content(
                     movieTitle = details.movie.title,
                     all = outcome.results,
-                    filter = null,
+                    filter = if (settings.rememberReleaseFilter.value) settings.savedReleaseFilter() else ReleaseFilter(),
+                    limitBytes = settings.torrentStoragePrefs.value.limitBytes,
                     unavailable = outcome.unavailable,
                     reasons = outcome.reasons,
                     noProviders = noProviders,

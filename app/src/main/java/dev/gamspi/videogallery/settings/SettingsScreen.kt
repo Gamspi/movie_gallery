@@ -150,6 +150,8 @@ private fun TrackersSection(viewModel: SettingsViewModel, onBack: () -> Unit) {
                 trackerEnabled.getValue(id).value = !on
             }
         }
+        val rememberFilter by viewModel.rememberReleaseFilter.collectAsState()
+        SourceButton("Запоминать фильтр раздач", rememberFilter, null) { viewModel.toggleRememberReleaseFilter() }
         Text("Адреса трекеров и вход rutracker — в разделе «Ключи»", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
     }
 }

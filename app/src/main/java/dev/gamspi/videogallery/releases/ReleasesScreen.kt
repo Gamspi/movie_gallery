@@ -1,5 +1,15 @@
 package dev.gamspi.videogallery.releases
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.focus.focusProperties
+import androidx.tv.material3.Button
+import androidx.tv.material3.ButtonDefaults
+import dev.gamspi.videogallery.ui.theme.AppColors
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -78,90 +88,208 @@ fun ReleasesScreen(
     when (val s = state) {
         ReleasesUiState.Loading -> FullScreenLoader("Ищем раздачи…")
         is ReleasesUiState.Error -> ErrorView(s.kind, onRetry = viewModel::retry, onOpenKeySettings = onOpenKeySettings, onOpenSettings = onOpenSettings)
-        is ReleasesUiState.Content -> ReleasesContent(s, viewModel::setFilter) {
+        is ReleasesUiState.Content -> ReleasesContent(
+            s,
+            FilterActions(
+                viewModel::setQuality,
+                viewModel::toggleProvider,
+                viewModel::toggleDead,
+                viewModel::toggleOverLimit,
+            ),
+        ) {
             // Releases without a magnet are resolved first; the rest open directly.
             if (it.needsResolve) viewModel.resolve(it) else onPlay(it, s.metaFor(it))
         }
     }
 }
 
+private class FilterActions(
+    val onQuality: (Quality?) -> Unit,
+    val onProvider: (ProviderId) -> Unit,
+    val onDead: () -> Unit,
+    val onOverLimit: () -> Unit,
+)
+
 @Composable
 private fun ReleasesContent(
     content: ReleasesUiState.Content,
-    onFilter: (Quality?) -> Unit,
+    actions: FilterActions,
     onPlay: (TorrentResult) -> Unit,
 ) {
-    val allFocus = remember { FocusRequester() }
+    val filterFocus = remember { FocusRequester() }
     val restoreFocus = remember { FocusRequester() }
+    val qualityFocus = remember { (listOf<Quality?>(null) + Quality.entries).associateWith { FocusRequester() } }
+    val qualityRowFocus = remember { FocusRequester() }
+    var qualityView by rememberSaveable { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val visible = content.visible
+    val filter = content.filter
+    var panelOpen by rememberSaveable { mutableStateOf(false) }
     // Survive navigation: the last focused release.
     var focusedKey by rememberSaveable { mutableStateOf("") }
     val restoreIndex = visible.indexOfFirst { it.key == focusedKey }.coerceAtLeast(0)
-    // Initial focus only: last focused row, else first row, otherwise the «Все» filter.
+    // Initial focus only: last focused row, else first row, otherwise the «Фильтр» button.
     LaunchedEffect(Unit) {
         if (visible.isNotEmpty()) listState.scrollToItem(restoreIndex)
         withFrameNanos { }
-        runCatching { if (visible.isNotEmpty()) restoreFocus.requestFocus() else allFocus.requestFocus() }
+        if (!panelOpen) {
+            runCatching { if (visible.isNotEmpty()) restoreFocus.requestFocus() else filterFocus.requestFocus() }
+        }
     }
-    Column(
-        modifier = Modifier.fillMaxSize().padding(48.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Text(content.movieTitle, style = MaterialTheme.typography.headlineMedium)
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            FilterButton("Все", content.filter == null, Modifier.focusRequester(allFocus)) { onFilter(null) }
-            Quality.entries.forEach { q ->
-                FilterButton(q.label, content.filter == q, Modifier) { onFilter(q) }
+    // Opening focuses the selected quality; closing returns focus to the button.
+    var wasOpen by remember { mutableStateOf(panelOpen) }
+    LaunchedEffect(panelOpen, qualityView) {
+        withFrameNanos { }
+        if (panelOpen) {
+            runCatching {
+                if (qualityView) qualityFocus.getValue(filter.quality).requestFocus() else qualityRowFocus.requestFocus()
             }
+        } else if (wasOpen) {
+            qualityView = false
+            runCatching { filterFocus.requestFocus() }
         }
-        if (content.unavailable.isNotEmpty()) {
-            Text(
-                content.unavailable.joinToString(", ") { unavailableNote(it, content.reasons[it]) },
-                style = MaterialTheme.typography.bodyMedium,
-            )
-        }
-        content.message?.let {
-            Text(it, style = MaterialTheme.typography.bodyMedium, color = Color(0xFFFF8A80))
-        }
-        if (visible.isEmpty()) {
-            Box(Modifier.fillMaxSize(), Alignment.Center) {
-                CatMascot(
-                    CatPose.Shrug,
-                    size = 120.dp,
-                    message = if (content.noProviders) "Включите трекеры в настройках" else "Раздачи не найдены",
+        wasOpen = panelOpen
+    }
+    BackHandler(enabled = panelOpen) { if (qualityView) qualityView = false else panelOpen = false }
+    Box(Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(48.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Text(content.movieTitle, style = MaterialTheme.typography.headlineMedium)
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                AccentButton(
+                    onClick = { panelOpen = true },
+                    modifier = Modifier.focusProperties { canFocus = !panelOpen }.focusRequester(filterFocus),
+                ) { Text("Фильтр") }
+                Text(
+                    filterSummary(content.all, visible.size, filter),
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
-        } else {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                itemsIndexed(visible, key = { _, r -> r.key }) { index, r ->
-                    val resolving = content.resolving == r.key
-                    ListItem(
-                        selected = false,
-                        onClick = { onPlay(r) },
-                        headlineContent = { Text(r.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
-                        supportingContent = {
-                            Text(if (resolving) "Открываем раздачу…" else releaseInfoLine(r))
+            if (content.unavailable.isNotEmpty()) {
+                Text(
+                    content.unavailable.joinToString(", ") { unavailableNote(it, content.reasons[it]) },
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            content.message?.let {
+                Text(it, style = MaterialTheme.typography.bodyMedium, color = Color(0xFFFF8A80))
+            }
+            if (visible.isEmpty()) {
+                Box(Modifier.fillMaxSize(), Alignment.Center) {
+                    CatMascot(
+                        CatPose.Shrug,
+                        size = 120.dp,
+                        message = when {
+                            content.all.isNotEmpty() -> "Все раздачи скрыты фильтром"
+                            content.noProviders -> "Включите трекеры в настройках"
+                            else -> "Раздачи не найдены"
                         },
-                        modifier = Modifier.fillMaxWidth()
-                            .then(if (index == restoreIndex) Modifier.focusRequester(restoreFocus) else Modifier)
-                            .onFocusChanged { if (it.hasFocus) focusedKey = r.key },
                     )
                 }
+            } else {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    itemsIndexed(visible, key = { _, r -> r.key }) { index, r ->
+                        val resolving = content.resolving == r.key
+                        ListItem(
+                            selected = false,
+                            onClick = { onPlay(r) },
+                            headlineContent = { Text(r.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+                            supportingContent = {
+                                Text(if (resolving) "Открываем раздачу…" else releaseInfoLine(r))
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                                // The list must not take focus while the panel is open.
+                                .focusProperties { canFocus = !panelOpen }
+                                .then(if (index == restoreIndex) Modifier.focusRequester(restoreFocus) else Modifier)
+                                .onFocusChanged { if (it.hasFocus) focusedKey = r.key },
+                        )
+                    }
+                }
             }
+        }
+        if (panelOpen) {
+            FilterPanel(
+                content, actions, qualityFocus, qualityRowFocus, qualityView, { qualityView = it },
+                Modifier.align(Alignment.CenterEnd),
+            )
+        }
+    }
+}
+
+/** Right-side panel styled like the player's settings menu; Back belongs to the screen. */
+@Composable
+private fun FilterPanel(
+    content: ReleasesUiState.Content,
+    actions: FilterActions,
+    qualityFocus: Map<Quality?, FocusRequester>,
+    qualityRowFocus: FocusRequester,
+    qualityView: Boolean,
+    setQualityView: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val filter = content.filter
+    Column(
+        modifier.fillMaxHeight().width(420.dp).background(Color(0xE6101018)).padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(if (qualityView) "Качество" else "Фильтр", color = Color.White)
+        if (qualityView) {
+            val options = listOf<Quality?>(null) + Quality.entries
+            options.forEach { q ->
+                PanelItem(q?.label ?: "Все", filter.quality == q, Modifier.focusRequester(qualityFocus.getValue(q))) {
+                    actions.onQuality(q)
+                    setQualityView(false)
+                }
+            }
+            return@Column
+        }
+        Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Button(
+            onClick = { setQualityView(true) },
+            modifier = Modifier.fillMaxWidth().focusRequester(qualityRowFocus),
+            colors = ButtonDefaults.colors(
+                containerColor = Color(0xFF34343C),
+                contentColor = Color.White,
+                focusedContainerColor = AppColors.Accent,
+                focusedContentColor = AppColors.OnAccent,
+            ),
+        ) { Text("Качество: ${filter.quality?.label ?: "Все"} ›") }
+        val counts = content.all.providerCounts(filter, content.limitBytes)
+        if (counts.isNotEmpty()) {
+            Text("Источники", color = Color.LightGray)
+            counts.forEach { (id, n) ->
+                PanelItem("${id.label} ($n)", id !in filter.hiddenProviders, Modifier) { actions.onProvider(id) }
+            }
+        }
+        Text("Показать", color = Color.LightGray)
+        PanelItem("Мёртвые (${content.all.deadCount(filter)})", filter.showDead, Modifier) { actions.onDead() }
+        PanelItem(
+            "Больше лимита (${content.all.overLimitCount(filter, content.limitBytes)})",
+            filter.showOverLimit,
+            Modifier,
+        ) { actions.onOverLimit() }
         }
     }
 }
 
 @Composable
-private fun FilterButton(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    AccentButton(
+private fun PanelItem(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    Button(
         onClick = onClick,
-        selected = selected,
-        modifier = modifier,
+        modifier = modifier.fillMaxWidth(),
+        colors = ButtonDefaults.colors(
+            containerColor = Color(0xFF34343C),
+            contentColor = if (selected) AppColors.Accent else Color.White,
+            focusedContainerColor = AppColors.Accent,
+            focusedContentColor = AppColors.OnAccent,
+        ),
     ) { Text(if (selected) "✓ $label" else label) }
 }

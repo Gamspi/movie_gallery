@@ -143,6 +143,11 @@ class SettingsViewModel @Inject constructor(
 
     fun tracker(id: ProviderId): StateFlow<TrackerConfig> = repository.tracker(id)
 
+    val rememberReleaseFilter: StateFlow<Boolean> = repository.rememberReleaseFilter
+
+    fun toggleRememberReleaseFilter(): Boolean =
+        runSave { repository.setRememberReleaseFilter(!rememberReleaseFilter.value) }
+
     /** Writes the selected catalog source only; false when the store write fails. */
     fun saveCatalogSource(source: CatalogSource): Boolean = runSave { repository.setCatalogSource(source) }
 

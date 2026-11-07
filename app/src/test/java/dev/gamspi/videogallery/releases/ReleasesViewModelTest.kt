@@ -69,7 +69,7 @@ class ReleasesViewModelTest {
         TorrentSearch({ providers.toList() }),
         settings,
         SavedStateHandle(mapOf("id" to 5)),
-    )
+    ).also { it.io = Dispatchers.Main }
 
     @Before fun setUp() {
         Dispatchers.setMain(StandardTestDispatcher())
@@ -87,7 +87,7 @@ class ReleasesViewModelTest {
             val c = awaitItem() as ReleasesUiState.Content
             assertEquals("Матрица", c.movieTitle)
             assertEquals(listOf("b", "a"), c.all.map { it.infoHash })
-            assertEquals(null, c.filter)
+            assertEquals(ReleaseFilter(), c.filter)
             assertFalse(c.noProviders)
         }
         assertEquals(listOf(5), repo.detailsCalls)
@@ -128,13 +128,64 @@ class ReleasesViewModelTest {
         vm.state.test {
             assertEquals(ReleasesUiState.Loading, awaitItem())
             awaitItem()
-            vm.setFilter(Quality.FullHd)
+            vm.setQuality(Quality.FullHd)
             val c = awaitItem() as ReleasesUiState.Content
-            assertEquals(Quality.FullHd, c.filter)
+            assertEquals(Quality.FullHd, c.filter.quality)
             assertEquals(listOf("a"), c.visible.map { it.infoHash })
-            vm.setFilter(null)
+            vm.setQuality(null)
             assertEquals(3, (awaitItem() as ReleasesUiState.Content).visible.size)
         }
+    }
+
+    private val savedFilter = ReleaseFilter(Quality.Hd, setOf(ProviderId.Rutor), showDead = true, showOverLimit = true)
+
+    private fun TestScope.vmWithSaved(remember: Boolean, s: SettingsRepository = settings()): Pair<ReleasesViewModel, SettingsRepository> {
+        s.saveReleaseFilter(savedFilter)
+        s.setRememberReleaseFilter(remember)
+        return vm(s, Fake(ProviderId.Apibay) { listOf(r("a", 5, Quality.Hd)) }) to s
+    }
+
+    @Test
+    fun rememberOff_startsWithDefaultFilter() = runTest {
+        val (vm, _) = vmWithSaved(false)
+        assertEquals(ReleaseFilter(), loaded(vm).filter)
+    }
+
+    @Test
+    fun rememberOn_restoresSavedFilter() = runTest {
+        val (vm, _) = vmWithSaved(true)
+        assertEquals(savedFilter, loaded(vm).filter)
+    }
+
+    @Test
+    fun rememberOn_savesFilterOnChange() = runTest {
+        val s = settings()
+        s.setRememberReleaseFilter(true)
+        val vm = vm(s, Fake(ProviderId.Apibay) { listOf(r("a", 5, Quality.Hd)) })
+        loaded(vm)
+        vm.setQuality(Quality.Uhd)
+        vm.toggleProvider(ProviderId.Yts)
+        vm.toggleDead()
+        vm.toggleOverLimit()
+        advanceUntilIdle()
+        assertEquals(ReleaseFilter(Quality.Uhd, setOf(ProviderId.Yts), true, true), s.savedReleaseFilter())
+    }
+
+    @Test
+    fun rememberOff_doesNotSaveFilter() = runTest {
+        val s = settings()
+        val vm = vm(s, Fake(ProviderId.Apibay) { listOf(r("a", 5, Quality.Hd)) })
+        loaded(vm)
+        vm.setQuality(Quality.Uhd)
+        vm.toggleDead()
+        advanceUntilIdle()
+        assertEquals(ReleaseFilter(), s.savedReleaseFilter())
+    }
+
+    @Test
+    fun content_carriesStorageLimit() = runTest {
+        val vm = vm(settings(), Fake(ProviderId.Apibay) { emptyList() })
+        assertEquals(10L * 1024 * 1024 * 1024, loaded(vm).limitBytes)
     }
 
     @Test

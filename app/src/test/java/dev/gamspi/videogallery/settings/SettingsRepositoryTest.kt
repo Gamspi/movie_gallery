@@ -3,7 +3,9 @@ package dev.gamspi.videogallery.settings
 import app.cash.turbine.test
 import kotlinx.coroutines.runBlocking
 import dev.gamspi.videogallery.net.ProxyConfig
+import dev.gamspi.videogallery.releases.ReleaseFilter
 import dev.gamspi.videogallery.torrents.ProviderId
+import dev.gamspi.videogallery.torrents.Quality
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -37,6 +39,40 @@ class SettingsRepositoryTest {
         assertEquals(TorrentStoragePrefs(), repo.torrentStoragePrefs.value)
         assertEquals(1, SettingsRepository(FakeSecretStore(mapOf("torrent_limit_gib" to "-3"))).torrentStoragePrefs.value.limitGiB)
         assertEquals(100, SettingsRepository(FakeSecretStore(mapOf("torrent_limit_gib" to "1000"))).torrentStoragePrefs.value.limitGiB)
+    }
+
+    @Test
+    fun releaseFilter_rememberDefaultsOffAndPersists() {
+        val store = FakeSecretStore()
+        val repo = SettingsRepository(store)
+        assertFalse(repo.rememberReleaseFilter.value)
+        repo.setRememberReleaseFilter(true)
+        assertEquals(true, repo.rememberReleaseFilter.value)
+        assertEquals(true, SettingsRepository(store).rememberReleaseFilter.value)
+    }
+
+    @Test
+    fun releaseFilter_roundTrip() {
+        val store = FakeSecretStore()
+        val f = ReleaseFilter(Quality.FullHd, setOf(ProviderId.Rutor, ProviderId.Yts), true, true)
+        SettingsRepository(store).saveReleaseFilter(f)
+        assertEquals(f, SettingsRepository(store).savedReleaseFilter())
+        SettingsRepository(store).saveReleaseFilter(ReleaseFilter())
+        assertEquals(ReleaseFilter(), SettingsRepository(store).savedReleaseFilter())
+    }
+
+    @Test
+    fun releaseFilter_invalidValuesFallBackToDefaults() {
+        assertEquals(ReleaseFilter(), SettingsRepository(FakeSecretStore()).savedReleaseFilter())
+        val repo = SettingsRepository(FakeSecretStore(mapOf(
+            "release_filter_remember" to "yes",
+            "release_filter_quality" to "4K",
+            "release_filter_hidden" to "Bogus,,Rutor",
+            "release_filter_dead" to "maybe",
+            "release_filter_over" to "1",
+        )))
+        assertFalse(repo.rememberReleaseFilter.value)
+        assertEquals(ReleaseFilter(hiddenProviders = setOf(ProviderId.Rutor)), repo.savedReleaseFilter())
     }
 
     @Test

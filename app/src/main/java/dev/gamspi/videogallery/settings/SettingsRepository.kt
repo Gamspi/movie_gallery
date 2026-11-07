@@ -1,6 +1,8 @@
 package dev.gamspi.videogallery.settings
 
 import dev.gamspi.videogallery.net.ProxyConfig
+import dev.gamspi.videogallery.releases.ReleaseFilter
+import dev.gamspi.videogallery.torrents.Quality
 import dev.gamspi.videogallery.subs.SubtitleSettingsSource
 import dev.gamspi.videogallery.torrents.ProviderId
 import javax.inject.Inject
@@ -24,6 +26,31 @@ class SettingsRepository @Inject constructor(private val store: SecretStore) : S
         store.put(KEY_TORRENT_KEEP, normalized.keepAfterPlayback.toString())
         store.put(KEY_TORRENT_LIMIT, normalized.limitGiB.toString())
         _torrentStoragePrefs.value = normalized
+    }
+
+    private val _rememberReleaseFilter =
+        MutableStateFlow(store.get(KEY_RF_REMEMBER)?.toBooleanStrictOrNull() ?: false)
+    val rememberReleaseFilter: StateFlow<Boolean> = _rememberReleaseFilter
+
+    fun setRememberReleaseFilter(on: Boolean) {
+        store.put(KEY_RF_REMEMBER, on.toString())
+        _rememberReleaseFilter.value = on
+    }
+
+    /** Saved release filter; invalid or missing values fall back to defaults. */
+    fun savedReleaseFilter(): ReleaseFilter = ReleaseFilter(
+        quality = Quality.entries.firstOrNull { it.name == store.get(KEY_RF_QUALITY) },
+        hiddenProviders = store.get(KEY_RF_HIDDEN).orEmpty().split(',')
+            .mapNotNull { n -> ProviderId.entries.firstOrNull { it.name == n } }.toSet(),
+        showDead = store.get(KEY_RF_DEAD)?.toBooleanStrictOrNull() ?: false,
+        showOverLimit = store.get(KEY_RF_OVER)?.toBooleanStrictOrNull() ?: false,
+    )
+
+    fun saveReleaseFilter(f: ReleaseFilter) {
+        store.put(KEY_RF_QUALITY, f.quality?.name)
+        store.put(KEY_RF_HIDDEN, f.hiddenProviders.joinToString(",") { it.name })
+        store.put(KEY_RF_DEAD, f.showDead.toString())
+        store.put(KEY_RF_OVER, f.showOverLimit.toString())
     }
 
     private val _poiskkinoApiKey = MutableStateFlow(store.get(KEY_POISKKINO))
@@ -269,6 +296,11 @@ class SettingsRepository @Inject constructor(private val store: SecretStore) : S
     internal companion object {
         const val KEY_TORRENT_KEEP = "torrent_keep_after_playback"
         const val KEY_TORRENT_LIMIT = "torrent_limit_gib"
+        const val KEY_RF_REMEMBER = "release_filter_remember"
+        const val KEY_RF_QUALITY = "release_filter_quality"
+        const val KEY_RF_HIDDEN = "release_filter_hidden"
+        const val KEY_RF_DEAD = "release_filter_dead"
+        const val KEY_RF_OVER = "release_filter_over"
         const val KEY_POISKKINO = "poiskkino_api_key"
         const val KEY_TMDB = "tmdb_api_key"
         const val KEY_KINOPOISK = "kinopoisk_api_key"
