@@ -72,6 +72,14 @@ class WatchHistoryStoreTest {
         assertEquals(listOf(series), reopened.entries.value)
     }
 
+    @Test fun awaitLoadedReturnsPersistedEntries() = runTest {
+        val saved = encodeHistory(listOf(entry(7)))
+        val store = PersistentWatchHistoryStore({ saved }, {}, this, StandardTestDispatcher(testScheduler))
+        assertTrue(store.entries.value.isEmpty())
+        store.awaitLoaded()
+        assertEquals(listOf(entry(7)), store.entries.value)
+    }
+
     private fun entry(id: Int, pos: Long = 1_000, dur: Long = 10_000, at: Long = id.toLong()) = WatchEntry(
         movieId = id, title = "Фильм $id", year = 2000 + id, posterUrl = "p$id", rating = 7.5,
         magnet = "magnet:$id", torrentUrl = "", imdb = "tt$id", positionKey = "bt:$id:0",

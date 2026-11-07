@@ -128,6 +128,7 @@ class PlayerViewModelTest {
         override val entries = MutableStateFlow<List<WatchEntry>>(emptyList())
         override fun upsert(entry: WatchEntry) { upserts += entry }
         override fun remove(identity: String) = Unit
+        override suspend fun awaitLoaded() = Unit
     }
 
     private fun metaVm(history: WatchHistoryStore, args: Map<String, String>) = PlayerViewModel(

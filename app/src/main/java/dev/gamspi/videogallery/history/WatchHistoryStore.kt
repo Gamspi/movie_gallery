@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -22,6 +23,9 @@ interface WatchHistoryStore {
     fun upsert(entry: WatchEntry)
 
     fun remove(identity: String)
+
+    /** Suspends until the persisted history has been read into [entries]. */
+    suspend fun awaitLoaded()
 }
 
 private val json = Json { ignoreUnknownKeys = true }
@@ -58,6 +62,10 @@ class PersistentWatchHistoryStore(
     override fun upsert(entry: WatchEntry) = mutate { it.upserting(entry) }
 
     override fun remove(identity: String) = mutate { list -> list.filterNot { it.matchesIdentity(identity) } }
+
+    override suspend fun awaitLoaded() {
+        withContext(serial) { ensureLoaded() }
+    }
 
     private fun mutate(change: (List<WatchEntry>) -> List<WatchEntry>) {
         scope.launch(serial) {

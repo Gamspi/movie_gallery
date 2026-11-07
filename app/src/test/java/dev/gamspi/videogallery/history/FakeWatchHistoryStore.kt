@@ -7,4 +7,5 @@ class FakeWatchHistoryStore(initial: List<WatchEntry> = emptyList()) : WatchHist
     override val entries = MutableStateFlow(initial)
     override fun upsert(entry: WatchEntry) { entries.value = entries.value.upserting(entry) }
     override fun remove(identity: String) { entries.value = entries.value.filterNot { it.matchesIdentity(identity) } }
+    override suspend fun awaitLoaded() = Unit
 }
