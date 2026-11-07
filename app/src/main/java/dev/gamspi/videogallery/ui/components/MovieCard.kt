@@ -34,12 +34,14 @@ import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import dev.gamspi.videogallery.catalog.model.MediaKind
 import dev.gamspi.videogallery.catalog.model.Movie
 import dev.gamspi.videogallery.ui.theme.AppColors
 
 private val CardShape = RoundedCornerShape(8.dp)
 private val FocusBorder = Border(BorderStroke(3.dp, AppColors.Accent), shape = CardShape)
 private val BadgeShape = RoundedCornerShape(bottomEnd = 8.dp)
+private val SeriesBadgeShape = RoundedCornerShape(bottomStart = 8.dp)
 private val ProgressTrack = Color(0x99000000)
 
 // Poster decode size: 150x225 dp card at TV density ~2.0.
@@ -97,6 +99,18 @@ fun MovieCard(movie: Movie, onClick: () -> Unit, modifier: Modifier = Modifier, 
                         modifier = Modifier
                             .align(Alignment.TopStart)
                             .background(AppColors.Accent, BadgeShape)
+                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                    )
+                }
+                if (movie.kind == MediaKind.Series) {
+                    Text(
+                        SERIES_BADGE,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = AppColors.OnAccent,
+                        maxLines = 1,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .background(AppColors.Accent, SeriesBadgeShape)
                             .padding(horizontal = 6.dp, vertical = 2.dp),
                     )
                 }

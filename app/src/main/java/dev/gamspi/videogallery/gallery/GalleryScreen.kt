@@ -18,6 +18,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.listSaver
@@ -36,6 +39,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import dev.gamspi.videogallery.R
+import dev.gamspi.videogallery.catalog.model.MediaKind
 import dev.gamspi.videogallery.catalog.model.Movie
 import dev.gamspi.videogallery.history.WatchEntry
 import dev.gamspi.videogallery.ui.components.CatLogo
@@ -59,12 +63,45 @@ fun GalleryScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val history by viewModel.history.collectAsStateWithLifecycle()
-    when (val s = state) {
-        is GalleryUiState.Loading ->
-            if (s.initial) FullScreenLoader() else GallerySkeleton()
-        is GalleryUiState.Error ->
-            ErrorView(s.kind, onRetry = viewModel::retry, onOpenKeySettings = onOpenKeySettings, onOpenSettings = onOpenSettings)
-        is GalleryUiState.Content -> GalleryContent(s, history, onOpenMovie, onContinue, onOpenSearch, onOpenSettings)
+    val tab by viewModel.tab.collectAsStateWithLifecycle()
+    // Survives navigation and process death; the ViewModel starts on All and is told the saved tab.
+    var savedTab by rememberSaveable { mutableStateOf(HomeTab.All) }
+    LaunchedEffect(Unit) { viewModel.selectTab(savedTab) }
+    // Focus memory lives here so it outlives the content swapping to a skeleton on tab change.
+    val memory = rememberSaveable(saver = GalleryFocusMemory.Saver) { GalleryFocusMemory() }
+    val railEntry = remember { FocusRequester() }
+    val railLinks = remember { RailLinks() }
+    val showRail = !(state is GalleryUiState.Loading && (state as GalleryUiState.Loading).initial)
+    Box(Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxSize().padding(start = if (showRail) RailCollapsedWidth else 0.dp)) {
+            when (val s = state) {
+                is GalleryUiState.Loading ->
+                    if (s.initial) FullScreenLoader() else GallerySkeleton()
+                is GalleryUiState.Error ->
+                    ErrorView(s.kind, onRetry = viewModel::retry, onOpenKeySettings = onOpenKeySettings, onOpenSettings = onOpenSettings)
+                is GalleryUiState.Content -> key(s.tab) {
+                    GalleryContent(s, history, memory, railEntry, railLinks, onOpenMovie, onContinue, onOpenSearch, onOpenSettings)
+                }
+            }
+        }
+        if (showRail) {
+            HomeRail(
+                selected = tab,
+                onSelect = {
+                    if (it != tab) {
+                        // Focus stays on the rail: forget the card and skip the initial auto-focus.
+                        memory.rowKey = ""
+                        memory.movieId = -1
+                        memory.initialFocusDone = true
+                        savedTab = it
+                        viewModel.selectTab(it)
+                    }
+                },
+                entry = railEntry,
+                links = railLinks,
+                modifier = Modifier.align(Alignment.CenterStart),
+            )
+        }
     }
 }
 
@@ -90,7 +127,7 @@ private fun GallerySkeleton() {
  * Last focused card, kept outside the snapshot system: focus moves write it on every D-pad
  * press, and a snapshot read in card composition would recompose every visible card.
  */
-private class GalleryFocusMemory(
+internal class GalleryFocusMemory(
     var rowKey: String = "",
     var movieId: Int = -1,
     var initialFocusDone: Boolean = false,
@@ -120,6 +157,11 @@ private class RestoreTarget(var wanted: CardKey?, var active: Boolean) {
         active && target.let { it != null && it.row == rowKey && it.movieId == id }
 }
 
+/** Card identity within a row: TMDB movie and series ids can collide, so series ids get a high bit. */
+private fun Movie.cardId(): Int = if (kind == MediaKind.Series) id or SERIES_ID_BIT else id
+
+private const val SERIES_ID_BIT = 1 shl 30
+
 /** One displayed row: the continue row or a catalog row. */
 private class DisplayRow(val key: String, val title: String, val movies: List<Movie>)
 
@@ -127,13 +169,14 @@ private class DisplayRow(val key: String, val title: String, val movies: List<Mo
 private fun GalleryContent(
     content: GalleryUiState.Content,
     history: List<WatchEntry>,
+    memory: GalleryFocusMemory,
+    railEntry: FocusRequester,
+    railLinks: RailLinks,
     onOpenMovie: (Int) -> Unit,
     onContinue: (WatchEntry) -> Unit,
     onOpenSearch: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
-    // Survives navigation (saved with the back stack entry).
-    val memory = rememberSaveable(saver = GalleryFocusMemory.Saver) { GalleryFocusMemory() }
     val restore = remember {
         val saved = if (memory.movieId != -1) CardKey(memory.rowKey, memory.movieId) else null
         RestoreTarget(saved, active = saved != null || !memory.initialFocusDone)
@@ -156,7 +199,7 @@ private fun GalleryContent(
         restore.wanted = CardKey(memory.rowKey, memory.movieId)
         restore.active = true
     }
-    if (restore.active) restore.target = resolveFocusTarget(rows.map { r -> r.key to r.movies.map { it.id } }, restore.wanted)
+    if (restore.active) restore.target = resolveFocusTarget(rows.map { r -> r.key to r.movies.map { it.cardId() } }, restore.wanted)
     // Down from the header: previously focused card, else the first card, else default search.
     val headerFocus = remember {
         Modifier
@@ -164,6 +207,12 @@ private fun GalleryContent(
                 down = memory.lastFocused ?: if (memory.firstCardAttached) firstCard else FocusRequester.Default
             }
             .onFocusChanged { if (it.hasFocus) memory.cardFocused = false }
+    }
+
+    // Right from the rail: the remembered card, else the first one.
+    DisposableEffect(railLinks) {
+        railLinks.enter = { memory.lastFocused ?: if (memory.firstCardAttached) firstCard else FocusRequester.Default }
+        onDispose { railLinks.enter = { FocusRequester.Default } }
     }
 
     ShimmerHost {
@@ -215,11 +264,11 @@ private fun GalleryContent(
                     contentPadding = PaddingValues(horizontal = 48.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    itemsIndexed(row.movies, key = { _, m -> m.id }) { index, movie ->
+                    itemsIndexed(row.movies, key = { _, m -> m.cardId() }) { index, movie ->
                         val isFirst = rowIndex == 0 && index == 0
                         val ownRequester = remember { FocusRequester() }
                         val requester = if (isFirst) firstCard else ownRequester
-                        if (restore.matches(row.key, movie.id)) {
+                        if (restore.matches(row.key, movie.cardId())) {
                             // The card is composed and attached by the time this runs (after first frame).
                             LaunchedEffect(Unit) {
                                 withFrameNanos { }
@@ -235,13 +284,15 @@ private fun GalleryContent(
                                 if (memory.lastFocused === requester) memory.lastFocused = null
                             }
                         }
-                        val cardModifier = remember(requester, row.key, movie.id) {
+                        val cardModifier = remember(requester, row.key, movie.id, movie.kind, index) {
                             Modifier
                                 .focusRequester(requester)
+                                // Left from the first card of any row enters the rail.
+                                .then(if (index == 0) Modifier.focusProperties { left = railEntry } else Modifier)
                                 .onFocusChanged {
                                     if (it.hasFocus) {
                                         memory.rowKey = row.key
-                                        memory.movieId = movie.id
+                                        memory.movieId = movie.cardId()
                                         memory.lastFocused = requester
                                         memory.cardFocused = true
                                     }

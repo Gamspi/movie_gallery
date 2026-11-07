@@ -14,3 +14,6 @@ const val MIN_CARD_PROGRESS = 0.04f
 
 /** Width share of the progress fill: the visible progress raised to [MIN_CARD_PROGRESS]. */
 fun cardProgressFill(progress: Float?): Float? = visibleProgress(progress)?.coerceAtLeast(MIN_CARD_PROGRESS)
+
+/** Badge text of a series card. */
+const val SERIES_BADGE = "Сериал"

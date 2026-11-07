@@ -11,6 +11,9 @@ class FakeCatalogRepository : CatalogRepository {
     var popularResult: () -> List<Movie> = { emptyList() }
     var genresResult: () -> List<Genre> = { emptyList() }
     var byGenreResult: (Int) -> List<Movie> = { emptyList() }
+    var popularFor: ((MediaKind) -> List<Movie>)? = null
+    var genresFor: ((MediaKind) -> List<Genre>)? = null
+    var byGenreFor: ((MediaKind, Int) -> List<Movie>)? = null
     var searchResult: (String) -> List<Movie> = { emptyList() }
     var seasonResult: (Int, Int) -> List<Episode> = { _, _ -> emptyList() }
     var detailsResult: (Int) -> MovieDetails = { error("detailsResult not configured") }
@@ -26,19 +29,19 @@ class FakeCatalogRepository : CatalogRepository {
     override suspend fun popular(page: Int, kind: MediaKind): List<Movie> {
         popularCalls++
         kindCalls += kind
-        return popularResult()
+        return popularFor?.invoke(kind) ?: popularResult()
     }
 
     override suspend fun genres(kind: MediaKind): List<Genre> {
         genresCalls++
         kindCalls += kind
-        return genresResult()
+        return genresFor?.invoke(kind) ?: genresResult()
     }
 
     override suspend fun byGenre(genreId: Int, page: Int, kind: MediaKind): List<Movie> {
         byGenreCalls += genreId
         kindCalls += kind
-        return byGenreResult(genreId)
+        return byGenreFor?.invoke(kind, genreId) ?: byGenreResult(genreId)
     }
 
     override suspend fun search(query: String): List<Movie> {

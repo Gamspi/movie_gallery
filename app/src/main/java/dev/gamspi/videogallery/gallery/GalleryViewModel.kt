@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.gamspi.videogallery.catalog.CatalogException
 import dev.gamspi.videogallery.catalog.CatalogRepository
+import dev.gamspi.videogallery.catalog.model.Genre
+import dev.gamspi.videogallery.catalog.model.MediaKind
 import dev.gamspi.videogallery.catalog.model.Movie
 import dev.gamspi.videogallery.history.WatchEntry
 import dev.gamspi.videogallery.history.WatchHistoryStore
@@ -24,9 +26,19 @@ import kotlinx.coroutines.launch
 
 data class MovieRow(val title: String, val movies: List<Movie>)
 
+enum class HomeTab { All, Movies, Series }
+
+/** Alternates items of [a] and [b] starting with [a]; the longer tail is appended. */
+internal fun <T> interleave(a: List<T>, b: List<T>): List<T> = buildList(a.size + b.size) {
+    for (i in 0 until maxOf(a.size, b.size)) {
+        if (i < a.size) add(a[i])
+        if (i < b.size) add(b[i])
+    }
+}
+
 sealed interface GalleryUiState {
     data class Loading(val initial: Boolean) : GalleryUiState
-    data class Content(val rows: List<MovieRow>) : GalleryUiState
+    data class Content(val rows: List<MovieRow>, val tab: HomeTab? = null) : GalleryUiState
     data class Error(val kind: ErrorKind) : GalleryUiState
 }
 
@@ -41,12 +53,24 @@ class GalleryViewModel @Inject constructor(
     private val _state = MutableStateFlow<GalleryUiState>(GalleryUiState.Loading(initial = true))
     val state: StateFlow<GalleryUiState> = _state.asStateFlow()
     private val retryTick = MutableStateFlow(0)
+    private val _tab = MutableStateFlow(HomeTab.All)
+    val tab: StateFlow<HomeTab> = _tab.asStateFlow()
     private var firstLoad = true
+
+    // Rows per tab; dropped on catalog change or retry.
+    private val cache = HashMap<HomeTab, List<MovieRow>>()
+    private var cacheEpoch: Pair<*, Int>? = null
 
     init {
         viewModelScope.launch {
-            combine(settings.activeCatalog, retryTick) { active, tick -> active to tick }
-                .collectLatest { load() }
+            combine(settings.activeCatalog, retryTick, _tab) { active, tick, tab -> Triple(active, tick, tab) }
+                .collectLatest { (active, tick, tab) ->
+                    if (cacheEpoch != active to tick) {
+                        cache.clear()
+                        cacheEpoch = active to tick
+                    }
+                    load(tab)
+                }
         }
     }
 
@@ -54,11 +78,25 @@ class GalleryViewModel @Inject constructor(
         retryTick.value++
     }
 
-    private suspend fun load() {
+    fun selectTab(t: HomeTab) {
+        _tab.value = t
+    }
+
+    private suspend fun load(tab: HomeTab) {
+        cache[tab]?.let {
+            _state.value = GalleryUiState.Content(it, tab)
+            return
+        }
         _state.value = GalleryUiState.Loading(initial = firstLoad)
         firstLoad = false
         _state.value = try {
-            GalleryUiState.Content(fetchRows())
+            val rows = when (tab) {
+                HomeTab.Movies -> fetchRows(MediaKind.Movie, "Популярное")
+                HomeTab.Series -> fetchRows(MediaKind.Series, "Популярные сериалы")
+                HomeTab.All -> fetchAllRows()
+            }
+            cache[tab] = rows
+            GalleryUiState.Content(rows, tab)
         } catch (e: CancellationException) {
             throw e
         } catch (e: CatalogException) {
@@ -66,20 +104,51 @@ class GalleryViewModel @Inject constructor(
         }
     }
 
-    private suspend fun fetchRows(): List<MovieRow> = coroutineScope {
-        val popular = async { catalog.popular() }
-        val genres = catalog.genres().take(GENRE_ROWS)
+    private suspend fun fetchRows(kind: MediaKind, popularTitle: String): List<MovieRow> = coroutineScope {
+        val popular = async { catalog.popular(kind = kind) }
+        val genres = catalog.genres(kind).take(GENRE_ROWS)
         val genreRows = genres.map { genre ->
             async {
                 try {
-                    MovieRow(genre.name, catalog.byGenre(genre.id))
+                    MovieRow(genre.name, catalog.byGenre(genre.id, kind = kind))
                 } catch (e: CatalogException) {
                     null // failed genre row is skipped; CancellationException is not caught here
                 }
             }
         }
-        listOf(MovieRow("Популярное", popular.await())) + genreRows.mapNotNull { it.await() }.filter { it.movies.isNotEmpty() }
+        listOf(MovieRow(popularTitle, popular.await())) + genreRows.mapNotNull { it.await() }.filter { it.movies.isNotEmpty() }
     }
+
+    // Movie rows mixed with the same-named series genre; series failures only thin the rows out.
+    private suspend fun fetchAllRows(): List<MovieRow> = coroutineScope {
+        val popular = async { catalog.popular(kind = MediaKind.Movie) }
+        val seriesPopular = async { optional { catalog.popular(kind = MediaKind.Series) } }
+        val seriesGenres = async { optional { catalog.genres(MediaKind.Series) } }
+        val genres = catalog.genres(MediaKind.Movie).take(GENRE_ROWS)
+        val seriesByName: Map<String, Genre> = seriesGenres.await().associateBy { it.name }
+        val genreRows = genres.map { genre ->
+            async {
+                try {
+                    val movies = catalog.byGenre(genre.id, kind = MediaKind.Movie)
+                    val series = seriesByName[genre.name]
+                        ?.let { optional { catalog.byGenre(it.id, kind = MediaKind.Series) } }
+                        .orEmpty()
+                    MovieRow(genre.name, interleave(movies, series))
+                } catch (e: CatalogException) {
+                    null
+                }
+            }
+        }
+        val first = MovieRow("Популярное", interleave(popular.await(), seriesPopular.await()))
+        listOf(first) + genreRows.mapNotNull { it.await() }.filter { it.movies.isNotEmpty() }
+    }
+
+    private suspend fun <T> optional(block: suspend () -> List<T>): List<T> =
+        try {
+            block()
+        } catch (e: CatalogException) {
+            emptyList()
+        }
 
     private companion object {
         const val GENRE_ROWS = 8

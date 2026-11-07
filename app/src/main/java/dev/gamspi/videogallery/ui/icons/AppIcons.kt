@@ -13,6 +13,9 @@ object AppIcons {
     private var _play: ImageVector? = null
     private var _pause: ImageVector? = null
     private var _chevronRight: ImageVector? = null
+    private var _grid: ImageVector? = null
+    private var _movie: ImageVector? = null
+    private var _tv: ImageVector? = null
 
     val Search: ImageVector
         get() = _search ?: ImageVector.Builder(
@@ -129,4 +132,52 @@ object AppIcons {
                 close()
             }
         }.build().also { _chevronRight = it }
+
+    /** Four tiles: «Все». */
+    val Grid: ImageVector
+        get() = _grid ?: ImageVector.Builder(
+            name = "Grid", defaultWidth = 24.dp, defaultHeight = 24.dp,
+            viewportWidth = 24f, viewportHeight = 24f,
+        ).apply {
+            path(fill = SolidColor(Color.Black)) {
+                moveTo(4f, 4f); lineTo(10.5f, 4f); lineTo(10.5f, 10.5f); lineTo(4f, 10.5f); close()
+                moveTo(13.5f, 4f); lineTo(20f, 4f); lineTo(20f, 10.5f); lineTo(13.5f, 10.5f); close()
+                moveTo(4f, 13.5f); lineTo(10.5f, 13.5f); lineTo(10.5f, 20f); lineTo(4f, 20f); close()
+                moveTo(13.5f, 13.5f); lineTo(20f, 13.5f); lineTo(20f, 20f); lineTo(13.5f, 20f); close()
+            }
+        }.build().also { _grid = it }
+
+    /** Film strip: «Фильмы». */
+    val Movie: ImageVector
+        get() = _movie ?: ImageVector.Builder(
+            name = "Movie", defaultWidth = 24.dp, defaultHeight = 24.dp,
+            viewportWidth = 24f, viewportHeight = 24f,
+        ).apply {
+            path(fill = SolidColor(Color.Black), pathFillType = PathFillType.EvenOdd) {
+                moveTo(3f, 4f); lineTo(21f, 4f); lineTo(21f, 20f); lineTo(3f, 20f); close()
+                // Perforation holes on both edges and the frame in the middle.
+                moveTo(4.5f, 5.5f); lineTo(6.5f, 5.5f); lineTo(6.5f, 7.5f); lineTo(4.5f, 7.5f); close()
+                moveTo(4.5f, 10f); lineTo(6.5f, 10f); lineTo(6.5f, 12f); lineTo(4.5f, 12f); close()
+                moveTo(4.5f, 14.5f); lineTo(6.5f, 14.5f); lineTo(6.5f, 16.5f); lineTo(4.5f, 16.5f); close()
+                moveTo(17.5f, 5.5f); lineTo(19.5f, 5.5f); lineTo(19.5f, 7.5f); lineTo(17.5f, 7.5f); close()
+                moveTo(17.5f, 10f); lineTo(19.5f, 10f); lineTo(19.5f, 12f); lineTo(17.5f, 12f); close()
+                moveTo(17.5f, 14.5f); lineTo(19.5f, 14.5f); lineTo(19.5f, 16.5f); lineTo(17.5f, 16.5f); close()
+                moveTo(8.5f, 6f); lineTo(15.5f, 6f); lineTo(15.5f, 18f); lineTo(8.5f, 18f); close()
+            }
+        }.build().also { _movie = it }
+
+    /** Television: «Сериалы». */
+    val Tv: ImageVector
+        get() = _tv ?: ImageVector.Builder(
+            name = "Tv", defaultWidth = 24.dp, defaultHeight = 24.dp,
+            viewportWidth = 24f, viewportHeight = 24f,
+        ).apply {
+            path(fill = SolidColor(Color.Black), pathFillType = PathFillType.EvenOdd) {
+                moveTo(3f, 5f); lineTo(21f, 5f); lineTo(21f, 17f); lineTo(3f, 17f); close()
+                moveTo(5f, 7f); lineTo(19f, 7f); lineTo(19f, 15f); lineTo(5f, 15f); close()
+            }
+            path(fill = SolidColor(Color.Black)) {
+                moveTo(8f, 19f); lineTo(16f, 19f); lineTo(16f, 21f); lineTo(8f, 21f); close()
+            }
+        }.build().also { _tv = it }
 }
