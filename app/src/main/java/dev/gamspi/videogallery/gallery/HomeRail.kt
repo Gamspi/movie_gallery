@@ -74,13 +74,19 @@ internal fun HomeRail(
             .onFocusChanged { expanded = it.hasFocus },
         verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
     ) {
-        Items.forEach { item ->
+        Items.forEachIndexed { index, item ->
             val isSelected = item.tab == selected
             Surface(
                 onClick = { onSelect(item.tab) },
                 modifier = Modifier
                     .then(if (isSelected) Modifier.focusRequester(entry) else Modifier)
-                    .focusProperties { right = links.enter() }
+                    .focusProperties {
+                        // Keep focus inside the rail: the expanded rail overlaps content.
+                        right = links.enter()
+                        left = FocusRequester.Cancel
+                        if (index == 0) up = FocusRequester.Cancel
+                        if (index == Items.lastIndex) down = FocusRequester.Cancel
+                    }
                     .height(48.dp)
                     .width(width - 8.dp),
                 shape = ClickableSurfaceDefaults.shape(ItemShape),
