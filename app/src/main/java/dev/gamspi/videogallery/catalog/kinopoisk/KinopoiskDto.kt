@@ -61,6 +61,20 @@ data class FilmDto(
 )
 
 @Serializable
+data class SeasonsDto(val items: List<SeasonDto>? = null)
+
+@Serializable
+data class SeasonDto(val number: Int? = null, val episodes: List<EpisodeDto>? = null)
+
+@Serializable
+data class EpisodeDto(
+    val seasonNumber: Int? = null,
+    val episodeNumber: Int? = null,
+    val nameRu: String? = null,
+    val nameEn: String? = null,
+)
+
+@Serializable
 data class FiltersDto(val genres: List<GenreDto>? = null)
 
 @Serializable

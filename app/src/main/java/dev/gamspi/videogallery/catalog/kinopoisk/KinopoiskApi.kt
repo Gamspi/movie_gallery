@@ -8,7 +8,7 @@ interface KinopoiskApi {
     @GET("api/v2.2/films/collections")
     suspend fun popular(
         @Query("page") page: Int,
-        @Query("type") type: String = "TOP_POPULAR_MOVIES",
+        @Query("type") type: String = "TOP_POPULAR_MOVIES", // series: POPULAR_SERIES
     ): FilmListDto
 
     @GET("api/v2.2/films/filters")
@@ -27,9 +27,12 @@ interface KinopoiskApi {
         @Query("keyword") keyword: String,
         @Query("page") page: Int = 1,
         @Query("order") order: String = "NUM_VOTE",
-        @Query("type") type: String = "FILM",
+        @Query("type") type: String = "ALL",
     ): FilmListDto
 
     @GET("api/v2.2/films/{id}")
     suspend fun details(@Path("id") id: Int): FilmDetailsDto
+
+    @GET("api/v2.2/films/{id}/seasons")
+    suspend fun seasons(@Path("id") id: Int): SeasonsDto
 }

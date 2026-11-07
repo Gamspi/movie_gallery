@@ -24,26 +24,35 @@ class KinopoiskCatalogRepository(
     private val settings: SettingsRepository,
 ) : CatalogRepository {
 
-    override suspend fun popular(page: Int, kind: MediaKind): List<Movie> =
-        if (kind == MediaKind.Series) emptyList() else call { api.popular(page).movies() }
+    override suspend fun popular(page: Int, kind: MediaKind): List<Movie> = call {
+        val list = if (kind == MediaKind.Series) api.popular(page, "POPULAR_SERIES") else api.popular(page)
+        list.movies(kind)
+    }
 
-    override suspend fun genres(kind: MediaKind): List<Genre> =
-        if (kind == MediaKind.Series) emptyList() else call { api.filters().genres.orEmpty().mapNotNull { it.toGenreOrNull() } }
+    override suspend fun genres(kind: MediaKind): List<Genre> = call {
+        api.filters().genres.orEmpty().mapNotNull { it.toGenreOrNull() }
+    }
 
-    override suspend fun byGenre(genreId: Int, page: Int, kind: MediaKind): List<Movie> =
-        if (kind == MediaKind.Series) emptyList() else call { api.byGenre(genreId, page).movies() }
+    override suspend fun byGenre(genreId: Int, page: Int, kind: MediaKind): List<Movie> = call {
+        val list = if (kind == MediaKind.Series) api.byGenre(genreId, page, type = "TV_SERIES")
+        else api.byGenre(genreId, page)
+        list.movies(kind)
+    }
 
     override suspend fun search(query: String): List<Movie> =
-        call { api.search(query).movies() }
+        call { api.search(query).items.orEmpty().mapNotNull { dto -> dto.kind()?.let { dto.toMovie(it) } } }
 
-    override suspend fun details(id: Int, kind: MediaKind): MovieDetails =
-        call { api.details(id).toDetails() }
+    override suspend fun details(id: Int, kind: MediaKind): MovieDetails = call {
+        val dto = api.details(id)
+        if (kind == MediaKind.Series) dto.toDetails(kind, api.seasons(id).toSeasonInfos()) else dto.toDetails()
+    }
 
-    // series are implemented in a later task
-    override suspend fun season(id: Int, number: Int): List<Episode> = emptyList()
+    // the seasons response is cached by the shared HTTP cache
+    override suspend fun season(id: Int, number: Int): List<Episode> =
+        call { api.seasons(id).toEpisodes(number) }
 
-    private fun FilmListDto.movies(): List<Movie> =
-        items.orEmpty().filter { it.isFilm() }.map { it.toMovie() }
+    private fun FilmListDto.movies(kind: MediaKind): List<Movie> =
+        items.orEmpty().filter { it.kind() == kind }.map { it.toMovie(kind) }
 
     private suspend fun <T> call(block: suspend () -> T): T {
         val key = settings.kinopoiskApiKey.value

@@ -1,8 +1,11 @@
 package dev.gamspi.videogallery.catalog.kinopoisk
 
+import dev.gamspi.videogallery.catalog.model.Episode
 import dev.gamspi.videogallery.catalog.model.Genre
+import dev.gamspi.videogallery.catalog.model.MediaKind
 import dev.gamspi.videogallery.catalog.model.Movie
 import dev.gamspi.videogallery.catalog.model.MovieDetails
+import dev.gamspi.videogallery.catalog.model.SeasonInfo
 import dev.gamspi.videogallery.catalog.model.positiveRating
 
 private val EXCLUDED_GENRES = setOf(
@@ -23,6 +26,7 @@ private fun movie(
     posterUrlPreview: String?,
     overview: String?,
     rating: Double?,
+    kind: MediaKind = MediaKind.Movie,
 ): Movie {
     val title = nameRu.nonBlank() ?: nameOriginal.nonBlank() ?: nameEn.nonBlank() ?: ""
     return Movie(
@@ -33,14 +37,32 @@ private fun movie(
         posterUrl = posterUrlPreview.nonBlank() ?: posterUrl.nonBlank(),
         overview = overview.orEmpty(),
         rating = rating.positiveRating(),
+        kind = kind,
     )
 }
 
-/** Only films are shown; an absent type is kept. */
-fun FilmDto.isFilm(): Boolean = type == null || type == "FILM"
+/** Films and series are shown; an absent type counts as a film, anything else is dropped. */
+fun FilmDto.kind(): MediaKind? = when (type) {
+    null, "FILM" -> MediaKind.Movie
+    "TV_SERIES", "MINI_SERIES", "TV_SHOW" -> MediaKind.Series
+    else -> null
+}
 
-fun FilmDto.toMovie(): Movie =
-    movie(kinopoiskId, nameRu, nameEn, nameOriginal, year, posterUrl, posterUrlPreview, null, ratingKinopoisk)
+fun FilmDto.toMovie(kind: MediaKind = MediaKind.Movie): Movie =
+    movie(kinopoiskId, nameRu, nameEn, nameOriginal, year, posterUrl, posterUrlPreview, null, ratingKinopoisk, kind)
+
+/** Season 0 (specials) is dropped. */
+fun SeasonsDto.toSeasonInfos(): List<SeasonInfo> = items.orEmpty()
+    .filter { (it.number ?: 0) > 0 }
+    .map { SeasonInfo(it.number!!, it.episodes.orEmpty().size) }
+
+fun SeasonsDto.toEpisodes(season: Int): List<Episode> = items.orEmpty()
+    .filter { it.number == season }
+    .flatMap { it.episodes.orEmpty() }
+    .mapNotNull { e ->
+        val n = e.episodeNumber ?: return@mapNotNull null
+        Episode(season, n, e.nameRu.nonBlank() ?: e.nameEn.nonBlank() ?: "Серия $n", null, null)
+    }
 
 fun GenreDto.toGenreOrNull(): Genre? {
     val name = genre.nonBlank() ?: return null
@@ -49,11 +71,13 @@ fun GenreDto.toGenreOrNull(): Genre? {
     return Genre(genreId, name.capitalized())
 }
 
-fun FilmDetailsDto.toDetails(): MovieDetails = MovieDetails(
+fun FilmDetailsDto.toDetails(kind: MediaKind = MediaKind.Movie, seasons: List<SeasonInfo> = emptyList()): MovieDetails =
+    MovieDetails(
     movie = movie(kinopoiskId, nameRu, nameEn, nameOriginal, year, posterUrl, posterUrlPreview, description,
-        ratingKinopoisk),
+        ratingKinopoisk, kind),
     imdbId = imdbId.nonBlank(),
     runtimeMin = filmLength?.takeIf { it > 0 },
     genres = genres.orEmpty().mapNotNull { it.genre.nonBlank()?.capitalized() },
     backdropUrl = coverUrl.nonBlank(),
+    seasons = seasons,
 )

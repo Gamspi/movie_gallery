@@ -8,6 +8,9 @@ import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
 import mockwebserver3.SocketEffect
 import org.junit.After
+import dev.gamspi.videogallery.catalog.model.Episode
+import dev.gamspi.videogallery.catalog.model.MediaKind
+import dev.gamspi.videogallery.catalog.model.SeasonInfo
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -116,7 +119,7 @@ class KinopoiskCatalogRepositoryTest {
         assertEquals(1, r.search("матрица").size)
         val url = server.takeRequest().url
         assertEquals("матрица", url.queryParameter("keyword"))
-        assertEquals("FILM", url.queryParameter("type"))
+        assertEquals("ALL", url.queryParameter("type"))
         assertEquals("1", url.queryParameter("page"))
         enqueueFixture("search_empty.json")
         assertTrue(r.search("zzz").isEmpty())
@@ -178,5 +181,64 @@ class KinopoiskCatalogRepositoryTest {
     fun garbageBody_parse() = runBlocking {
         server.enqueue(MockResponse.Builder().body("<html>captive portal</html>").build())
         assertEquals(CatalogException.Parse, expectFailure { repo().popular() })
+    }
+
+    @Test
+    fun kindMapsTypes() {
+        fun kind(type: String?) = FilmDto(1, type = type).kind()
+        assertEquals(MediaKind.Movie, kind("FILM"))
+        assertEquals(MediaKind.Series, kind("TV_SERIES"))
+        assertEquals(MediaKind.Series, kind("MINI_SERIES"))
+        assertEquals(MediaKind.Series, kind("TV_SHOW"))
+        assertNull(kind("VIDEO"))
+    }
+
+    @Test
+    fun searchKeepsSeries() = runBlocking {
+        enqueueFixture("popular.json")
+        val r = repo().search("x")
+        assertEquals(listOf(301, 77044, 600, 700, 800), r.map { it.id })
+        assertEquals(MediaKind.Series, r[1].kind)
+        assertEquals(MediaKind.Movie, r[0].kind)
+    }
+
+    @Test
+    fun popularSeriesUsesCollection() = runBlocking {
+        enqueueFixture("popular.json")
+        assertEquals(listOf(77044), repo().popular(1, MediaKind.Series).map { it.id })
+        assertEquals("POPULAR_SERIES", server.takeRequest().url.queryParameter("type"))
+    }
+
+    @Test
+    fun byGenreSeriesSendsTvSeries() = runBlocking {
+        enqueueFixture("by_genre.json")
+        repo().byGenre(11, 1, MediaKind.Series)
+        assertEquals("TV_SERIES", server.takeRequest().url.queryParameter("type"))
+    }
+
+    @Test
+    fun genresSameForSeries() = runBlocking {
+        enqueueFixture("filters.json")
+        assertEquals(3, repo().genres(MediaKind.Series).size)
+    }
+
+    @Test
+    fun seasonsMapEpisodes() = runBlocking {
+        enqueueFixture("seasons.json")
+        val eps = repo().season(77044, 2)
+        assertEquals(listOf(Episode(2, 1, "Север", null, null), Episode(2, 2, "North", null, null),
+            Episode(2, 3, "Серия 3", null, null)), eps)
+        assertEquals("/api/v2.2/films/77044/seasons", server.takeRequest().url.encodedPath)
+    }
+
+    @Test
+    fun seriesDetailsHaveSeasons() = runBlocking {
+        enqueueFixture("details_series.json")
+        enqueueFixture("seasons.json")
+        val d = repo().details(77044, MediaKind.Series)
+        assertEquals(MediaKind.Series, d.movie.kind)
+        assertEquals(listOf(SeasonInfo(1, 2), SeasonInfo(2, 3)), d.seasons)
+        assertEquals("/api/v2.2/films/77044", server.takeRequest().url.encodedPath)
+        assertEquals("/api/v2.2/films/77044/seasons", server.takeRequest().url.encodedPath)
     }
 }
