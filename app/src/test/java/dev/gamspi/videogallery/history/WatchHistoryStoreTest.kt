@@ -1,5 +1,6 @@
 package dev.gamspi.videogallery.history
 
+import dev.gamspi.videogallery.catalog.model.MediaKind
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -12,6 +13,65 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class WatchHistoryStoreTest {
+    @Test fun legacyJsonWithoutNewFieldsDecodes() {
+        val legacy = """[{"movieId":7,"title":"Фильм","positionKey":"bt:x:0","positionMs":1000,"durationMs":10000,"updatedAt":1}]"""
+        val decoded = decodeHistory(legacy).single()
+        assertEquals(MediaKind.Movie, decoded.kind)
+        assertNull(decoded.source)
+        assertNull(decoded.season)
+        assertEquals("-:Movie:7", decoded.identity)
+    }
+
+    @Test fun movieAndSeriesWithSameIdCoexist() {
+        val movie = entry(7).copy(source = "Tmdb")
+        val series = movie.copy(kind = MediaKind.Series, season = 1, episode = 1)
+        assertEquals(setOf(movie, series), listOf(movie).upserting(series).toSet())
+        assertEquals("Tmdb:Series:7", series.identity)
+    }
+
+    @Test fun seriesUpsertReplacesEpisodeOfSameSeries() {
+        val first = entry(7).copy(kind = MediaKind.Series, source = "Tmdb", season = 1, episode = 1)
+        val next = first.copy(episode = 2, updatedAt = 100, seasonEpisodes = 8, seasonCount = 3)
+        assertEquals(listOf(next), listOf(first).upserting(next))
+        assertEquals(listOf(next), decodeHistory(encodeHistory(listOf(next))))
+    }
+
+    @Test fun sourcesAreDistinctAndLegacyMatchesEitherDirection() {
+        val legacy = entry(7)
+        val tmdb = legacy.copy(source = "Tmdb")
+        val kp = legacy.copy(source = "Kinopoisk")
+        assertEquals(setOf(tmdb, kp), listOf(tmdb).upserting(kp).toSet())
+        assertEquals(listOf(tmdb), listOf(legacy).upserting(tmdb))
+        assertEquals(listOf(legacy), listOf(tmdb).upserting(legacy))
+        assertEquals(listOf(kp), listOf(tmdb, kp).upserting(tmdb.copy(positionMs = 9_000)))
+    }
+
+    @Test fun removeUsesIdentityAndLegacyWildcard() = runTest {
+        var persisted: String? = null
+        fun create() = PersistentWatchHistoryStore(
+            { persisted }, { persisted = it }, this, StandardTestDispatcher(testScheduler),
+        )
+        val movie = entry(7).copy(source = "Tmdb")
+        val series = movie.copy(kind = MediaKind.Series)
+        val kp = movie.copy(source = "Kinopoisk")
+        val s = create()
+        listOf(movie, series, kp).forEach(s::upsert)
+        advanceUntilIdle()
+        val reopened = create()
+        advanceUntilIdle()
+        assertEquals(setOf(movie, series, kp), reopened.entries.value.toSet())
+        reopened.remove(movie.identity)
+        advanceUntilIdle()
+        assertEquals(setOf(series, kp), reopened.entries.value.toSet())
+        reopened.remove(entry(7).identity)
+        advanceUntilIdle()
+        assertEquals(listOf(series), reopened.entries.value)
+        reopened.upsert(entry(8))
+        reopened.remove(entry(8).copy(source = "Tmdb").identity)
+        advanceUntilIdle()
+        assertEquals(listOf(series), reopened.entries.value)
+    }
+
     private fun entry(id: Int, pos: Long = 1_000, dur: Long = 10_000, at: Long = id.toLong()) = WatchEntry(
         movieId = id, title = "Фильм $id", year = 2000 + id, posterUrl = "p$id", rating = 7.5,
         magnet = "magnet:$id", torrentUrl = "", imdb = "tt$id", positionKey = "bt:$id:0",
@@ -80,7 +140,7 @@ class WatchHistoryStoreTest {
         s.upsert(entry(2, pos = 9_900, at = 3))
         advanceUntilIdle()
         assertEquals(listOf(1), s.entries.value.map { it.movieId })
-        s.remove(1)
+        s.remove(entry(1).identity)
         advanceUntilIdle()
         assertTrue(s.entries.value.isEmpty())
         assertNull(s.entries.value.firstOrNull())

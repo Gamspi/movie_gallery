@@ -1,10 +1,14 @@
 package dev.gamspi.videogallery.stream
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class EpisodeRef(val season: Int, val episode: Int) : Comparable<EpisodeRef> {
     override fun compareTo(other: EpisodeRef): Int =
         compareValuesBy(this, other, EpisodeRef::season, EpisodeRef::episode)
 }
 
+@Serializable
 data class EpisodeFile(val ref: EpisodeRef, val fileIndex: Int)
 
 private const val MIN_EPISODE_BYTES = 50L * 1024 * 1024

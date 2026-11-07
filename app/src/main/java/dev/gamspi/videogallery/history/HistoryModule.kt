@@ -16,6 +16,14 @@ import kotlinx.coroutines.SupervisorJob
 object HistoryModule {
     @Provides
     @Singleton
+    fun provideSeriesStore(@ApplicationContext context: Context): SeriesStore =
+        PersistentSeriesStore.fromPrefs(
+            { context.getSharedPreferences("series", Context.MODE_PRIVATE) },
+            CoroutineScope(SupervisorJob() + Dispatchers.IO),
+        )
+
+    @Provides
+    @Singleton
     fun provideWatchHistoryStore(@ApplicationContext context: Context): WatchHistoryStore =
         PersistentWatchHistoryStore.fromPrefs(
             { context.getSharedPreferences("watch_history", Context.MODE_PRIVATE) },

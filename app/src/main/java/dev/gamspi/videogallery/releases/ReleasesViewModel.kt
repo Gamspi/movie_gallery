@@ -7,6 +7,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.gamspi.videogallery.catalog.CatalogException
 import dev.gamspi.videogallery.catalog.CatalogRepository
 import dev.gamspi.videogallery.catalog.model.Movie
+import dev.gamspi.videogallery.catalog.model.MediaKind
 import dev.gamspi.videogallery.history.PlaybackMeta
 import dev.gamspi.videogallery.settings.SettingsRepository
 import dev.gamspi.videogallery.torrents.ProviderId
@@ -43,6 +44,8 @@ sealed interface ReleasesUiState {
         /** Key of the release whose magnet is being fetched. */
         val resolving: String? = null,
         val message: String? = null,
+        val source: String? = null,
+        val season: Int? = null,
     ) :ReleasesUiState {
         val visible: List<TorrentResult>
             get() = all.applyFilter(filter, limitBytes)
@@ -57,6 +60,9 @@ sealed interface ReleasesUiState {
             magnet = r.magnet,
             torrent = r.torrentUrl.orEmpty(),
             imdb = imdbId.orEmpty(),
+            kind = movie?.kind ?: MediaKind.Movie,
+            source = source,
+            season = season,
         )
     }
 
@@ -76,6 +82,9 @@ class ReleasesViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
     private val id: Int = checkNotNull(savedStateHandle["id"])
+    private val kind = MediaKind.entries.firstOrNull { it.name == savedStateHandle.get<String>("kind") }
+        ?: MediaKind.Movie
+    private val season = savedStateHandle.get<String>("season")?.toIntOrNull()
     private val _state = MutableStateFlow<ReleasesUiState>(ReleasesUiState.Loading)
     val state: StateFlow<ReleasesUiState> = _state
     private var job: Job? = null
@@ -158,9 +167,10 @@ class ReleasesViewModel @Inject constructor(
         _state.value = ReleasesUiState.Loading
         job = viewModelScope.launch {
             _state.value = try {
-                val details = catalog.details(id)
+                val source = settings.catalogSource.value.name
+                val details = catalog.details(id, kind)
                 val noProviders = ProviderId.entries.none { settings.tracker(it).value.enabled }
-                val outcome = search.search(details)
+                val outcome = search.search(details, season)
                 ReleasesUiState.Content(
                     movieTitle = details.movie.title,
                     all = outcome.results,
@@ -171,6 +181,8 @@ class ReleasesViewModel @Inject constructor(
                     noProviders = noProviders,
                     imdbId = details.imdbId,
                     movie = details.movie,
+                    source = source,
+                    season = season,
                 )
             } catch (e: CancellationException) {
                 throw e

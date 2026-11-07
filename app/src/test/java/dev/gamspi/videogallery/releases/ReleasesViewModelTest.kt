@@ -5,6 +5,7 @@ import app.cash.turbine.test
 import dev.gamspi.videogallery.catalog.CatalogException
 import dev.gamspi.videogallery.catalog.FakeCatalogRepository
 import dev.gamspi.videogallery.catalog.model.Movie
+import dev.gamspi.videogallery.catalog.model.MediaKind
 import dev.gamspi.videogallery.catalog.model.MovieDetails
 import dev.gamspi.videogallery.history.PlaybackMeta
 import dev.gamspi.videogallery.settings.FakeSecretStore
@@ -114,9 +115,33 @@ class ReleasesViewModelTest {
             val c = awaitItem() as ReleasesUiState.Content
             val meta = c.metaFor(r("a", 1, null).copy(magnet = "magnet:a", torrentUrl = "https://t/a.torrent"))
             assertEquals(PlaybackMeta(5, "Матрица", 1999, "p", 8.5, "magnet:a", "https://t/a.torrent",
-                "tt0133093"), meta)
+                "tt0133093", source = "PoiskKino"), meta)
             assertFalse(meta.autoResume)
         }
+    }
+
+    @Test
+    fun seriesRouteKeepsKindSeasonAndSource() = runTest {
+        repo.detailsResult = { details.copy(movie = movie.copy(kind = MediaKind.Series)) }
+        val provider = object : TorrentProvider {
+            override val id = ProviderId.Apibay
+            override suspend fun search(movie: MovieDetails, season: Int?): List<TorrentResult> {
+                assertEquals(MediaKind.Series, movie.movie.kind)
+                assertEquals(3, season)
+                return listOf(r("a", 1, null))
+            }
+        }
+        val vm = ReleasesViewModel(repo, TorrentSearch({ listOf(provider) }), settings(),
+            SavedStateHandle(mapOf("id" to 5, "kind" to "Series", "season" to "3")))
+        vm.state.test {
+            assertEquals(ReleasesUiState.Loading, awaitItem())
+            val content = awaitItem() as ReleasesUiState.Content
+            val meta = content.metaFor(content.all.single())
+            assertEquals(MediaKind.Series, meta.kind)
+            assertEquals(3, meta.season)
+            assertEquals("PoiskKino", meta.source)
+        }
+        assertEquals(listOf(MediaKind.Series), repo.kindCalls)
     }
 
     @Test

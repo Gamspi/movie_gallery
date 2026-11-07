@@ -22,6 +22,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.NavOptionsBuilder
 import androidx.navigation.navArgument
+import dev.gamspi.videogallery.catalog.model.MediaKind
 import dev.gamspi.videogallery.details.DetailsScreen
 import dev.gamspi.videogallery.gallery.GalleryScreen
 import dev.gamspi.videogallery.player.PlayerScreen
@@ -57,7 +58,7 @@ fun AppNavHost() {
     ) {
         composable("gallery") { entry ->
             GalleryScreen(
-                onOpenMovie = { nav.navigateOnce(entry, "movie/$it") },
+                onOpenMovie = { id, kind -> nav.navigateOnce(entry, movieRoute(id, kind)) },
                 onContinue = { nav.navigateOnce(entry, it.streamRoute()) },
                 onOpenSearch = { nav.navigateOnce(entry, "search") },
                 onOpenSettings = { nav.navigateOnce(entry, SETTINGS_HOME_ROUTE) },
@@ -110,19 +111,30 @@ fun AppNavHost() {
         ) { PlayerScreen(onBack = { nav.popBackStack() }) }
         composable("search") { entry ->
             SearchScreen(
-                onOpenMovie = { nav.navigateOnce(entry, "movie/$it") },
+                onOpenMovie = { nav.navigateOnce(entry, movieRoute(it)) },
                 onOpenKeySettings = { nav.navigateOnce(entry, settingsRoute(SettingsSection.Keys)) },
                 onOpenSettings = { nav.navigateOnce(entry, SETTINGS_HOME_ROUTE) },
             )
         }
-        composable("movie/{id}", arguments = listOf(navArgument("id") { type = NavType.IntType })) { entry ->
+        composable(MOVIE_ROUTE, arguments = listOf(
+            navArgument("id") { type = NavType.IntType },
+            navArgument("kind") { type = NavType.StringType; defaultValue = MediaKind.Movie.name },
+        )) { entry ->
             DetailsScreen(
                 onOpenKeySettings = { nav.navigateOnce(entry, settingsRoute(SettingsSection.Keys)) },
                 onOpenSettings = { nav.navigateOnce(entry, SETTINGS_HOME_ROUTE) },
-                onWatch = { nav.navigateOnce(entry, "releases/${entry.arguments?.getInt("id")}") },
+                onWatch = {
+                    val kind = MediaKind.entries.firstOrNull { it.name == entry.arguments?.getString("kind") }
+                        ?: MediaKind.Movie
+                    nav.navigateOnce(entry, releasesRoute(checkNotNull(entry.arguments).getInt("id"), kind))
+                },
             )
         }
-        composable("releases/{id}", arguments = listOf(navArgument("id") { type = NavType.IntType })) { entry ->
+        composable(RELEASES_ROUTE, arguments = listOf(
+            navArgument("id") { type = NavType.IntType },
+            navArgument("kind") { type = NavType.StringType; defaultValue = MediaKind.Movie.name },
+            navArgument("season") { type = NavType.StringType; defaultValue = "" },
+        )) { entry ->
             ReleasesScreen(
                 onOpenKeySettings = { nav.navigateOnce(entry, settingsRoute(SettingsSection.Keys)) },
                 onOpenSettings = { nav.navigateOnce(entry, SETTINGS_HOME_ROUTE) },

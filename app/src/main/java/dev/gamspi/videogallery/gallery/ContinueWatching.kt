@@ -1,6 +1,7 @@
 package dev.gamspi.videogallery.gallery
 
 import dev.gamspi.videogallery.catalog.model.Movie
+import dev.gamspi.videogallery.catalog.model.MediaKind
 import dev.gamspi.videogallery.history.WatchEntry
 
 /** Stable LazyColumn/focus key of the «Продолжить просмотр» row. */
@@ -18,11 +19,16 @@ internal fun WatchEntry.toMovie(): Movie = Movie(
     posterUrl = posterUrl,
     overview = "",
     rating = rating,
+    kind = kind,
 )
 
-/** Movie id to watched share, built once per history change. */
-internal fun progressByMovie(entries: List<WatchEntry>): Map<Int, Float> =
-    entries.associate { it.movieId to it.progress }
+/** The active catalog's entries; legacy records belong to any source. */
+internal fun historyForSource(entries: List<WatchEntry>, source: String): List<WatchEntry> =
+    entries.filter { it.source == null || it.source == source }.distinctBy { it.kind to it.movieId }
+
+/** Media identity to watched share, built once per history change. */
+internal fun progressByMovie(entries: List<WatchEntry>): Map<Pair<MediaKind, Int>, Float> =
+    entries.associate { (it.kind to it.movieId) to it.progress }
 
 /** A card position: row key and the movie id inside the row. */
 internal data class CardKey(val row: String, val movieId: Int)

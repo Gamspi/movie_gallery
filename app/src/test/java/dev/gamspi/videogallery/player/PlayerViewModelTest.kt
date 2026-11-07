@@ -1,6 +1,7 @@
 package dev.gamspi.videogallery.player
 
 import androidx.lifecycle.SavedStateHandle
+import dev.gamspi.videogallery.catalog.model.MediaKind
 import dev.gamspi.videogallery.history.WatchEntry
 import dev.gamspi.videogallery.history.WatchHistoryStore
 import dev.gamspi.videogallery.stream.FakeTorrentEngine
@@ -126,7 +127,7 @@ class PlayerViewModelTest {
         val upserts = mutableListOf<WatchEntry>()
         override val entries = MutableStateFlow<List<WatchEntry>>(emptyList())
         override fun upsert(entry: WatchEntry) { upserts += entry }
-        override fun remove(movieId: Int) = Unit
+        override fun remove(identity: String) = Unit
     }
 
     private fun metaVm(history: WatchHistoryStore, args: Map<String, String>) = PlayerViewModel(
@@ -177,6 +178,22 @@ class PlayerViewModelTest {
             500_000, 3_600_000, 42L)), history.upserts)
         vm.onPauseOrExit(3_500_000, 3_600_000) // finished: still upserted, the store drops it
         assertEquals(2, history.upserts.size)
+    }
+
+    @Test
+    fun pauseOrExit_preservesSeriesIdentityAndEpisode() {
+        val history = FakeHistory()
+        val vm = metaVm(history, mapOf("movieId" to "7", "movieTitle" to "Сериал", "magnet" to "magnet:x",
+            "kind" to "Series", "source" to "Tmdb", "season" to "3", "episode" to "2",
+            "seasonEpisodes" to "8", "seasonCount" to "4"))
+        vm.onPauseOrExit(500_000, 3_600_000)
+        val entry = history.upserts.single()
+        assertEquals("Tmdb:Series:7", entry.identity)
+        assertEquals(MediaKind.Series, entry.kind)
+        assertEquals(3, entry.season)
+        assertEquals(2, entry.episode)
+        assertEquals(8, entry.seasonEpisodes)
+        assertEquals(4, entry.seasonCount)
     }
 
     @Test

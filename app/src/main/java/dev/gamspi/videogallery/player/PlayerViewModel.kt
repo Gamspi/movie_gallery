@@ -544,6 +544,12 @@ class PlayerViewModel internal constructor(
             positionMs = positionMs,
             durationMs = durationMs,
             updatedAt = wallClock(),
+            kind = meta.kind,
+            source = meta.source,
+            season = meta.season,
+            episode = meta.episode,
+            seasonEpisodes = meta.seasonEpisodes,
+            seasonCount = meta.seasonCount,
         ))
     }
 

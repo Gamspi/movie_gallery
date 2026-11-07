@@ -1,5 +1,6 @@
 package dev.gamspi.videogallery.gallery
 
+import dev.gamspi.videogallery.catalog.model.MediaKind
 import dev.gamspi.videogallery.history.WatchEntry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -30,7 +31,26 @@ class ContinueWatchingTest {
     @Test
     fun progressByMovie_mapsIdToShare() {
         val map = progressByMovie(listOf(entry(1, 25, 100), entry(2, 50, 200)))
-        assertEquals(mapOf(1 to 0.25f, 2 to 0.25f), map)
+        assertEquals(mapOf((MediaKind.Movie to 1) to 0.25f, (MediaKind.Movie to 2) to 0.25f), map)
+    }
+
+    @Test fun progressSeparatesMovieAndSeriesWithSameId() {
+        val movie = entry(7, 20)
+        val series = entry(7, 60).copy(kind = MediaKind.Series)
+        val map = progressByMovie(listOf(movie, series))
+        assertEquals(0.2f, map[MediaKind.Movie to 7]!!, 0f)
+        assertEquals(0.6f, map[MediaKind.Series to 7]!!, 0f)
+        assertNull(progressByMovie(listOf(movie))[MediaKind.Series to 7])
+        assertEquals(MediaKind.Series, series.toMovie().kind)
+    }
+
+    @Test fun historyFiltersOtherSourcesButKeepsLegacy() {
+        val legacy = entry(1)
+        val movie = entry(7).copy(source = "Tmdb")
+        val series = movie.copy(kind = MediaKind.Series)
+        val other = movie.copy(source = "Kinopoisk")
+        assertEquals(listOf(legacy, movie, series), historyForSource(listOf(legacy, movie, series, other), "Tmdb"))
+        assertEquals(listOf(legacy, other), historyForSource(listOf(legacy, movie, series, other), "Kinopoisk"))
     }
 
     @Test

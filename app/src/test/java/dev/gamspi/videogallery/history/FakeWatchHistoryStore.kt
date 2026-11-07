@@ -6,5 +6,5 @@ import kotlinx.coroutines.flow.MutableStateFlow
 class FakeWatchHistoryStore(initial: List<WatchEntry> = emptyList()) : WatchHistoryStore {
     override val entries = MutableStateFlow(initial)
     override fun upsert(entry: WatchEntry) { entries.value = entries.value.upserting(entry) }
-    override fun remove(movieId: Int) { entries.value = entries.value.filterNot { it.movieId == movieId } }
+    override fun remove(identity: String) { entries.value = entries.value.filterNot { it.matchesIdentity(identity) } }
 }

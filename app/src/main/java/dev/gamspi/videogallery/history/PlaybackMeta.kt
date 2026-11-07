@@ -1,6 +1,7 @@
 package dev.gamspi.videogallery.history
 
 import java.net.URLEncoder
+import dev.gamspi.videogallery.catalog.model.MediaKind
 
 /** Movie and release data carried as route args releases → stream → player. */
 data class PlaybackMeta(
@@ -14,6 +15,13 @@ data class PlaybackMeta(
     val imdb: String = "",
     /** Resume from the saved position without the «Продолжить/Сначала» offer. */
     val autoResume: Boolean = false,
+    val kind: MediaKind = MediaKind.Movie,
+    val source: String? = null,
+    val season: Int? = null,
+    val episode: Int? = null,
+    val seasonEpisodes: Int? = null,
+    val seasonCount: Int? = null,
+    val episodeTitle: String = "",
 ) {
     /** Query part with every arg, URL-encoded; absent values are empty. */
     fun query(): String = listOf(
@@ -26,10 +34,20 @@ data class PlaybackMeta(
         "torrent" to torrent,
         "imdb" to imdb,
         "autoResume" to if (autoResume) "true" else "",
+        "kind" to kind.name,
+        "source" to source.orEmpty(),
+        "season" to season?.toString().orEmpty(),
+        "episode" to episode?.toString().orEmpty(),
+        "seasonEpisodes" to seasonEpisodes?.toString().orEmpty(),
+        "seasonCount" to seasonCount?.toString().orEmpty(),
+        "episodeTitle" to episodeTitle,
     ).joinToString("&") { (k, v) -> "$k=${encodeArg(v)}" }
 
     companion object {
-        val ARGS = listOf("movieId", "movieTitle", "movieYear", "poster", "rating", "magnet", "torrent", "imdb", "autoResume")
+        val ARGS = listOf(
+            "movieId", "movieTitle", "movieYear", "poster", "rating", "magnet", "torrent", "imdb", "autoResume",
+            "kind", "source", "season", "episode", "seasonEpisodes", "seasonCount", "episodeTitle",
+        )
 
         /** Reads args by name (e.g. from SavedStateHandle); blanks become defaults. */
         fun from(arg: (String) -> String?): PlaybackMeta {
@@ -44,6 +62,13 @@ data class PlaybackMeta(
                 torrent = s("torrent"),
                 imdb = s("imdb"),
                 autoResume = s("autoResume").toBoolean(),
+                kind = MediaKind.entries.firstOrNull { it.name == s("kind") } ?: MediaKind.Movie,
+                source = s("source").ifEmpty { null },
+                season = s("season").toIntOrNull(),
+                episode = s("episode").toIntOrNull(),
+                seasonEpisodes = s("seasonEpisodes").toIntOrNull(),
+                seasonCount = s("seasonCount").toIntOrNull(),
+                episodeTitle = s("episodeTitle"),
             )
         }
     }

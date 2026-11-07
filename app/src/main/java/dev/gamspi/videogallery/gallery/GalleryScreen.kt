@@ -47,6 +47,7 @@ import dev.gamspi.videogallery.ui.components.ErrorView
 import dev.gamspi.videogallery.ui.components.FullScreenLoader
 import dev.gamspi.videogallery.ui.components.IconPillButton
 import dev.gamspi.videogallery.ui.components.MovieCard
+import dev.gamspi.videogallery.ui.components.LocalCatalogSource
 import dev.gamspi.videogallery.ui.components.ShimmerHost
 import dev.gamspi.videogallery.ui.components.SkeletonBar
 import dev.gamspi.videogallery.ui.components.SkeletonRow
@@ -54,7 +55,7 @@ import dev.gamspi.videogallery.ui.icons.AppIcons
 
 @Composable
 fun GalleryScreen(
-    onOpenMovie: (Int) -> Unit,
+    onOpenMovie: (Int, MediaKind) -> Unit,
     onContinue: (WatchEntry) -> Unit,
     onOpenSearch: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -63,6 +64,8 @@ fun GalleryScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val history by viewModel.history.collectAsStateWithLifecycle()
+    val source = LocalCatalogSource.current
+    val visibleHistory = remember(history, source) { historyForSource(history, source.name) }
     val tab by viewModel.tab.collectAsStateWithLifecycle()
     // Survives navigation and process death; the ViewModel starts on All and is told the saved tab.
     var savedTab by rememberSaveable { mutableStateOf(HomeTab.All) }
@@ -80,7 +83,7 @@ fun GalleryScreen(
                 is GalleryUiState.Error ->
                     ErrorView(s.kind, onRetry = viewModel::retry, onOpenKeySettings = onOpenKeySettings, onOpenSettings = onOpenSettings)
                 is GalleryUiState.Content -> key(s.tab) {
-                    GalleryContent(s, history, memory, railEntry, railLinks, onOpenMovie, onContinue, onOpenSearch, onOpenSettings)
+                    GalleryContent(s, visibleHistory, memory, railEntry, railLinks, onOpenMovie, onContinue, onOpenSearch, onOpenSettings)
                 }
             }
         }
@@ -172,7 +175,7 @@ private fun GalleryContent(
     memory: GalleryFocusMemory,
     railEntry: FocusRequester,
     railLinks: RailLinks,
-    onOpenMovie: (Int) -> Unit,
+    onOpenMovie: (Int, MediaKind) -> Unit,
     onContinue: (WatchEntry) -> Unit,
     onOpenSearch: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -186,7 +189,8 @@ private fun GalleryContent(
     val continueWatch by rememberUpdatedState(onContinue)
     val listState = rememberLazyListState()
     // Built once per history change, not per card.
-    val entriesById = remember(history) { history.associateBy { it.movieId } }
+    val entriesById = remember(history) { history.associateBy { it.kind to it.movieId } }
+    val historyCardIds = remember(history) { history.map { it.toMovie().cardId() }.toSet() }
     val progress = remember(history) { progressByMovie(history) }
     val rows = remember(history, content) {
         buildList {
@@ -195,7 +199,7 @@ private fun GalleryContent(
         }
     }
     // The focused continue card vanished (watched to the end): refocus a neighbour.
-    if (!restore.active && memory.cardFocused && memory.rowKey == CONTINUE_ROW_KEY && memory.movieId !in entriesById) {
+    if (!restore.active && memory.cardFocused && memory.rowKey == CONTINUE_ROW_KEY && memory.movieId !in historyCardIds) {
         restore.wanted = CardKey(memory.rowKey, memory.movieId)
         restore.active = true
     }
@@ -298,11 +302,11 @@ private fun GalleryContent(
                                     }
                                 }
                         }
-                        val entry = if (isContinue) entriesById[movie.id] else null
-                        val onClick = remember(movie.id, entry) {
-                            if (entry != null) { { continueWatch(entry) } } else { { openMovie(movie.id) } }
+                        val entry = if (isContinue) entriesById[movie.kind to movie.id] else null
+                        val onClick = remember(movie.id, movie.kind, entry) {
+                            if (entry != null) { { continueWatch(entry) } } else { { openMovie(movie.id, movie.kind) } }
                         }
-                        MovieCard(movie = movie, onClick = onClick, modifier = cardModifier, progress = progress[movie.id])
+                        MovieCard(movie = movie, onClick = onClick, modifier = cardModifier, progress = progress[movie.kind to movie.id])
                     }
                 }
             }
@@ -314,7 +318,7 @@ private fun GalleryContent(
 /** History reordered under a focused continue card: scroll the row so the card stays on screen. */
 @Composable
 private fun KeepFocusedContinueCardVisible(movies: List<Movie>, memory: GalleryFocusMemory, rowState: LazyListState) {
-    val ids = remember(movies) { movies.map { it.id } }
+    val ids = remember(movies) { movies.map { it.cardId() } }
     val previous = remember { arrayOf(ids) }
     LaunchedEffect(ids) {
         if (ids == previous[0]) return@LaunchedEffect

@@ -1,5 +1,6 @@
 package dev.gamspi.videogallery.ui.nav
 
+import dev.gamspi.videogallery.catalog.model.MediaKind
 import dev.gamspi.videogallery.history.PlaybackMeta
 import dev.gamspi.videogallery.history.WatchEntry
 import java.net.URLDecoder
@@ -9,6 +10,38 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RoutesTest {
+    @Test fun detailsAndReleaseRoutesIncludeKind() {
+        assertEquals("movie/{id}?kind={kind}", MOVIE_ROUTE)
+        assertEquals("releases/{id}?kind={kind}&season={season}", RELEASES_ROUTE)
+        assertEquals("movie/7?kind=Movie", movieRoute(7))
+        assertEquals("movie/7?kind=Series", movieRoute(7, MediaKind.Series))
+        assertEquals("releases/7?kind=Movie&season=", releasesRoute(7))
+        assertEquals("releases/7?kind=Series&season=3", releasesRoute(7, MediaKind.Series, 3))
+    }
+
+    @Test fun seriesMetaSurvivesStreamPlayerAndHistoryRoutes() {
+        val series = meta.copy(kind = MediaKind.Series, source = "Tmdb", season = 3, episode = 2,
+            seasonEpisodes = 8, seasonCount = 4, episodeTitle = "Серия & + ?")
+        val streamed = PlaybackMeta.from(query(streamRoute("Сезон", series))::get)
+        assertEquals(series, streamed)
+        assertEquals(series, PlaybackMeta.from(query(playerRoute("url", "title", "key", streamed))::get))
+        val entry = WatchEntry(301, "Сериал", positionKey = "bt:x:0", positionMs = 1, durationMs = 10,
+            updatedAt = 1, kind = series.kind, source = series.source, season = series.season,
+            episode = series.episode, seasonEpisodes = series.seasonEpisodes, seasonCount = series.seasonCount)
+        val resumed = PlaybackMeta.from(query(entry.streamRoute())::get)
+        assertEquals(MediaKind.Series, resumed.kind)
+        assertEquals("Tmdb", resumed.source)
+        assertEquals(3, resumed.season)
+        assertEquals(2, resumed.episode)
+        assertEquals(8, resumed.seasonEpisodes)
+        assertEquals(4, resumed.seasonCount)
+        assertTrue(resumed.autoResume)
+    }
+
+    @Test fun unknownKindFallsBackToMovie() {
+        assertEquals(MediaKind.Movie, PlaybackMeta.from { if (it == "kind") "future" else null }.kind)
+    }
+
     private fun query(route: String): Map<String, String> = route.substringAfter('?').split('&').associate {
         val (k, v) = it.split('=', limit = 2)
         k to URLDecoder.decode(v, "UTF-8")

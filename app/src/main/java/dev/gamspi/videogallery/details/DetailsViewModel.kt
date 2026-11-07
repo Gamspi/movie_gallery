@@ -7,6 +7,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.gamspi.videogallery.catalog.CatalogException
 import dev.gamspi.videogallery.catalog.CatalogRepository
 import dev.gamspi.videogallery.catalog.model.MovieDetails
+import dev.gamspi.videogallery.catalog.model.MediaKind
 import dev.gamspi.videogallery.settings.SettingsRepository
 import dev.gamspi.videogallery.ui.components.ErrorKind
 import dev.gamspi.videogallery.ui.components.toErrorKind
@@ -42,6 +43,8 @@ class DetailsViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
     private val id: Int = checkNotNull(savedStateHandle["id"])
+    private val kind = MediaKind.entries.firstOrNull { it.name == savedStateHandle.get<String>("kind") }
+        ?: MediaKind.Movie
     private val _state = MutableStateFlow<DetailsUiState>(DetailsUiState.Loading)
     val state: StateFlow<DetailsUiState> = _state
     private val retryTick = MutableStateFlow(0)
@@ -60,7 +63,7 @@ class DetailsViewModel @Inject constructor(
     private suspend fun load() {
         _state.value = DetailsUiState.Loading
         _state.value = try {
-            DetailsUiState.Content(catalog.details(id))
+            DetailsUiState.Content(catalog.details(id, kind))
         } catch (e: CancellationException) {
             throw e
         } catch (e: CatalogException) {

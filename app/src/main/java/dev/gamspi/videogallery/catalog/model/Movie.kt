@@ -1,5 +1,8 @@
 package dev.gamspi.videogallery.catalog.model
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 enum class MediaKind { Movie, Series }
 
 data class Movie(

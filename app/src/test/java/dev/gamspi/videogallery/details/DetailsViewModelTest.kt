@@ -5,6 +5,7 @@ import app.cash.turbine.test
 import dev.gamspi.videogallery.catalog.CatalogException
 import dev.gamspi.videogallery.catalog.FakeCatalogRepository
 import dev.gamspi.videogallery.catalog.model.Movie
+import dev.gamspi.videogallery.catalog.model.MediaKind
 import dev.gamspi.videogallery.catalog.model.MovieDetails
 import dev.gamspi.videogallery.settings.CatalogSource
 import dev.gamspi.videogallery.settings.FakeSecretStore
@@ -41,6 +42,17 @@ class DetailsViewModelTest {
     @After fun tearDown() = Dispatchers.resetMain()
 
     @Test
+    fun loadsSeriesKindFromRoute() = runTest {
+        repo.detailsResult = { details(it) }
+        val vm = DetailsViewModel(repo, settings(), SavedStateHandle(mapOf("id" to 550, "kind" to "Series")))
+        vm.state.test {
+            assertEquals(DetailsUiState.Loading, awaitItem())
+            assertEquals(DetailsUiState.Content(details(550)), awaitItem())
+        }
+        assertEquals(listOf(MediaKind.Series), repo.kindCalls)
+    }
+
+    @Test
     fun loads_details_by_id() = runTest {
         repo.detailsResult = { details(it) }
         val vm = DetailsViewModel(repo, settings(), SavedStateHandle(mapOf("id" to 550)))
@@ -49,6 +61,7 @@ class DetailsViewModelTest {
             assertEquals(DetailsUiState.Content(details(550)), awaitItem())
         }
         assertEquals(listOf(550), repo.detailsCalls)
+        assertEquals(listOf(MediaKind.Movie), repo.kindCalls)
     }
 
     @Test

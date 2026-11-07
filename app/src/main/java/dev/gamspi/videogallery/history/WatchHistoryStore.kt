@@ -21,7 +21,7 @@ interface WatchHistoryStore {
     /** Inserts or replaces the movie's entry; watched or duration-less entries are not kept. */
     fun upsert(entry: WatchEntry)
 
-    fun remove(movieId: Int)
+    fun remove(identity: String)
 }
 
 private val json = Json { ignoreUnknownKeys = true }
@@ -57,7 +57,7 @@ class PersistentWatchHistoryStore(
 
     override fun upsert(entry: WatchEntry) = mutate { it.upserting(entry) }
 
-    override fun remove(movieId: Int) = mutate { list -> list.filterNot { it.movieId == movieId } }
+    override fun remove(identity: String) = mutate { list -> list.filterNot { it.matchesIdentity(identity) } }
 
     private fun mutate(change: (List<WatchEntry>) -> List<WatchEntry>) {
         scope.launch(serial) {
