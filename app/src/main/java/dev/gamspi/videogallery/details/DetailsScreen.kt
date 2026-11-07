@@ -40,14 +40,14 @@ fun DetailsScreen(
     onOpenSettings: () -> Unit,
     onWatch: () -> Unit,
     onStream: (releaseTitle: String, meta: PlaybackMeta) -> Unit = { _, _ -> },
-    onPickRelease: (season: Int, episode: Int) -> Unit = { _, _ -> },
+    onPickRelease: (season: Int, episode: Int?) -> Unit = { _, _ -> },
     viewModel: DetailsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     when (val s = state) {
         DetailsUiState.Loading -> FullScreenLoader()
         is DetailsUiState.Error -> ErrorView(s.kind, onRetry = viewModel::retry, onOpenKeySettings = onOpenKeySettings, onOpenSettings = onOpenSettings)
-        is DetailsUiState.Content -> if (s.seasons.isEmpty()) {
+        is DetailsUiState.Content -> if (!s.series) {
             DetailsContent(s.details, onWatch)
         } else {
             val play = { ref: EpisodeRef ->

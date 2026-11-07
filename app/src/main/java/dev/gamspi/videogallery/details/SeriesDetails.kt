@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -86,32 +87,44 @@ internal fun SeriesDetailsContent(
     val retryFocus = remember { FocusRequester() }
     val requesters = remember(c.selectedSeason, c.episodes) { c.episodes.associate { it.number to FocusRequester() } }
     val firstTarget = c.episodes.getOrNull(firstUnwatched(c.episodes, c.progress))?.let { requesters[it.number] }
-    // Last started episode (season * 1000 + number); survives the trip to the player.
-    var last by rememberSaveable { mutableIntStateOf(0) }
+    val pickFocus = remember { FocusRequester() }
+    val tabFocus = remember(c.seasons) { c.seasons.associate { it.number to FocusRequester() } }
+    val upToSelected = Modifier.focusProperties { tabFocus[c.selectedSeason]?.let { up = it } }
+    // Set when an episode is started; survives the trip to the player.
+    var pending by rememberSaveable { mutableStateOf(false) }
+    // True only after coming back from the player: focus follows the history entry (c.resume).
+    var returning by remember { mutableStateOf(false) }
     // 0 until initial focus is placed; saved so a return from the player does not repeat it.
     var focusPlaced by rememberSaveable { mutableIntStateOf(0) }
     fun play(ref: EpisodeRef) {
-        last = ref.season * 1000 + ref.episode
+        pending = true
         onPlay(ref)
     }
 
     LaunchedEffect(Unit) {
-        val l = last
-        if (l > 0) onSelectSeason(l / 1000)
+        if (pending) {
+            pending = false
+            returning = true
+        }
     }
-    LaunchedEffect(c.episodes, c.selectedSeason) {
-        val l = last
-        val target = if (l > 0 && l / 1000 == c.selectedSeason) requesters[l % 1000] else null
-        if (focusPlaced == 1 && l == 0) return@LaunchedEffect
+    LaunchedEffect(returning, c.resume) {
+        val r = c.resume
+        if (returning && r != null && r.season != c.selectedSeason) onSelectSeason(r.season)
+    }
+    LaunchedEffect(c.episodes, c.selectedSeason, c.resume, returning) {
+        if (focusPlaced == 1 && !returning) return@LaunchedEffect
+        val r = c.resume
+        if (returning && (r == null || r.season != c.selectedSeason || c.episodesLoading)) return@LaunchedEffect
         withFrameNanos { }
-        if (target != null) {
-            // Back from the player: focus the episode that was played, once.
-            last = 0
+        if (returning) {
+            // Back from the player: focus the history episode (may differ from the one launched), once.
+            returning = false
             focusPlaced = 1
+            val target = r?.let { requesters[it.episode] } ?: if (r != null) watchFocus else pickFocus
             runCatching { target.requestFocus() }
-        } else if (l == 0 && focusPlaced == 0) {
+        } else {
             focusPlaced = 1
-            runCatching { watchFocus.requestFocus() }
+            runCatching { (if (c.resume != null) watchFocus else pickFocus).requestFocus() }
         }
     }
 
@@ -154,7 +167,7 @@ internal fun SeriesDetailsContent(
                     val meta = listOfNotNull(
                         movie.year?.toString(),
                         formatRating(movie.rating)?.let { "★ $it" },
-                        seasonsLabel(c.seasons.size),
+                        c.seasons.size.takeIf { it > 0 }?.let(::seasonsLabel),
                         details.genres.takeIf { it.isNotEmpty() }?.joinToString(", "),
                     )
                     Text(
@@ -181,7 +194,10 @@ internal fun SeriesDetailsContent(
                                 Text((if (c.started) "▶ Продолжить " else "▶ Смотреть ") + episodeCode(resume))
                             }
                         }
-                        AccentButton(onClick = { onPickSeason(c.selectedSeason) }) { Text("Раздачи сезона") }
+                        AccentButton(
+                            onClick = { onPickSeason(c.selectedSeason) },
+                            modifier = Modifier.focusRequester(pickFocus),
+                        ) { Text("Раздачи сезона") }
                     }
                 }
             }
@@ -195,6 +211,7 @@ internal fun SeriesDetailsContent(
                         onClick = { onSelectSeason(info.number) },
                         selected = info.number == c.selectedSeason,
                         modifier = Modifier
+                            .then(tabFocus[info.number]?.let { Modifier.focusRequester(it) } ?: Modifier)
                             .onFocusChanged { if (it.hasFocus) onSelectSeason(info.number) }
                             .focusProperties { tabsDown?.let { down = it } },
                     ) { Text("Сезон ${info.number}") }
@@ -208,7 +225,7 @@ internal fun SeriesDetailsContent(
                     modifier = Modifier.height(130.dp),
                 ) {
                     Text(catalogErrorMessage(error, LocalCatalogSource.current), style = MaterialTheme.typography.bodyLarge)
-                    AccentButton(onClick = onRetryEpisodes, modifier = Modifier.focusRequester(retryFocus)) {
+                    AccentButton(onClick = onRetryEpisodes, modifier = upToSelected.focusRequester(retryFocus)) {
                         Text("Повторить")
                     }
                 }
@@ -225,7 +242,7 @@ internal fun SeriesDetailsContent(
                             ep,
                             c.progress[ref],
                             onClick = { play(ref) },
-                            modifier = requesters[ep.number]?.let { Modifier.focusRequester(it) } ?: Modifier,
+                            modifier = upToSelected.then(requesters[ep.number]?.let { Modifier.focusRequester(it) } ?: Modifier),
                         )
                     }
                 }

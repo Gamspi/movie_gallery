@@ -61,7 +61,7 @@ class DetailsViewModelTest {
         val vm = DetailsViewModel(repo, settings(), history, seriesStore, SavedStateHandle(mapOf("id" to 550, "kind" to "Series")))
         vm.state.test {
             assertEquals(DetailsUiState.Loading, awaitItem())
-            assertEquals(DetailsUiState.Content(details(550)), awaitItem())
+            assertEquals(DetailsUiState.Content(details(550), selectedSeason = 1, series = true), awaitItem())
         }
         assertEquals(listOf(MediaKind.Series), repo.kindCalls)
     }
@@ -250,6 +250,32 @@ class DetailsViewModelTest {
         val ok = vm.state.value as DetailsUiState.Content
         assertNull(ok.episodesError)
         assertEquals(episodes(1), ok.episodes)
+    }
+
+    @Test
+    fun seriesWithoutSeasonListProbesSeasonOne() = runTest {
+        val vm = seriesVm()
+        repo.detailsResult = { seriesDetails(it).copy(seasons = emptyList()) }
+        advanceUntilIdle()
+        val c = vm.state.value as DetailsUiState.Content
+        assertTrue(c.series)
+        assertEquals(listOf(1), c.seasons.map { it.number })
+        assertEquals(episodes(1), c.episodes)
+        assertEquals(EpisodeRef(1, 1), c.resume)
+    }
+
+    @Test
+    fun seriesWithoutSeasonsAndEpisodesStaysSeriesWithSeasonOnePick() = runTest {
+        val vm = seriesVm()
+        repo.detailsResult = { seriesDetails(it).copy(seasons = emptyList()) }
+        repo.seasonResult = { _, _ -> emptyList() }
+        advanceUntilIdle()
+        val c = vm.state.value as DetailsUiState.Content
+        assertTrue(c.series)
+        assertTrue(c.seasons.isEmpty())
+        assertEquals(1, c.selectedSeason)
+        assertNull(c.resume)
+        assertNull(vm.releaseEpisode(1))
     }
 
     @Test

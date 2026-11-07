@@ -46,6 +46,8 @@ sealed interface DetailsUiState {
         val resume: EpisodeRef? = null,
         /** True when [resume] comes from history or progress, false for the S01E01 start. */
         val started: Boolean = false,
+        /** True for any series, even when no released season is known (then only the season releases are offered). */
+        val series: Boolean = false,
     ) : DetailsUiState
     data class Error(val kind: ErrorKind) : DetailsUiState
 }
@@ -164,8 +166,10 @@ class DetailsViewModel @Inject constructor(
     }
 
     /** Episode to preselect in the release list for [season]. */
-    fun releaseEpisode(season: Int): Int {
-        val r = content()?.resume
+    fun releaseEpisode(season: Int): Int? {
+        val c = content() ?: return 1
+        if (c.seasons.isEmpty()) return null
+        val r = c.resume
         return if (r != null && r.season == season) r.episode else 1
     }
 
@@ -208,17 +212,39 @@ class DetailsViewModel @Inject constructor(
             _state.value = DetailsUiState.Error(e.toErrorKind())
             return
         }
-        val seasons = if (kind == MediaKind.Series) details.seasons.filter { it.episodeCount > 0 } else emptyList()
+        val isSeries = kind == MediaKind.Series
+        var seasons = if (isSeries) details.seasons.filter { it.episodeCount > 0 } else emptyList()
+        var preloaded: List<Episode>? = null
         if (seasons.isEmpty()) {
-            _state.value = DetailsUiState.Content(details)
-            return
+            if (!isSeries) {
+                _state.value = DetailsUiState.Content(details)
+                return
+            }
+            // No season list: probe season 1 so a series is never shown as a movie.
+            val probe = try {
+                catalog.season(id, 1)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: CatalogException) {
+                emptyList()
+            }
+            if (probe.isEmpty()) {
+                _state.value = DetailsUiState.Content(details, selectedSeason = 1, series = true)
+                return
+            }
+            seasons = listOf(SeasonInfo(1, probe.size))
+            preloaded = probe
         }
         // The store reads stay empty until loaded.
         series.awaitLoaded()
+        history.awaitLoaded()
         val progress = series.progress(key())
         val (resume, started) = resumeOf(seasons, progress)
         val first = historyEntry()?.season?.takeIf { s -> seasons.any { it.number == s } } ?: seasons.first().number
-        _state.value = DetailsUiState.Content(details, seasons, first, progress = progress, resume = resume, started = started)
-        loadEpisodes(first)
+        _state.value = DetailsUiState.Content(
+            details, seasons, first, progress = progress, resume = resume, started = started, series = true,
+            episodes = preloaded.orEmpty(),
+        )
+        if (preloaded == null) loadEpisodes(first)
     }
 }
