@@ -6,8 +6,8 @@ enum class SettingsSection(val route: String, val title: String) {
     Storage("storage", "Хранение"),
     Subtitles("subtitles", "Субтитры"),
     Translation("translation", "Перевод"),
-    OpenSubtitles("opensubtitles", "OpenSubtitles"),
     Network("network", "Сеть"),
+    Keys("keys", "Ключи"),
     Debug("debug", "Отладка"),
 }
 
@@ -20,5 +20,4 @@ fun sectionOf(route: String?): SettingsSection? = SettingsSection.entries.firstO
 
 /** Sections whose edits are written when the user leaves with Back. */
 val SettingsSection.autosaves: Boolean
-    get() = this == SettingsSection.Catalog || this == SettingsSection.Trackers ||
-        this == SettingsSection.OpenSubtitles || this == SettingsSection.Network
+    get() = this == SettingsSection.Catalog || this == SettingsSection.Trackers || this == SettingsSection.Keys

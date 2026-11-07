@@ -52,7 +52,7 @@ import dev.gamspi.videogallery.ui.components.SkeletonGrid
 @Composable
 fun SearchScreen(
     onOpenMovie: (Int) -> Unit,
-    onOpenCatalogSettings: () -> Unit,
+    onOpenKeySettings: () -> Unit,
     onOpenSettings: () -> Unit,
     viewModel: SearchViewModel = hiltViewModel(),
 ) {
@@ -114,7 +114,7 @@ fun SearchScreen(
                     ErrorView(
                         s.kind,
                         onRetry = viewModel::retry,
-                        onOpenCatalogSettings = onOpenCatalogSettings,
+                        onOpenKeySettings = onOpenKeySettings,
                         onOpenSettings = onOpenSettings,
                         autoFocus = false, // do not steal focus from the text field while typing
                         catSize = 88.dp,

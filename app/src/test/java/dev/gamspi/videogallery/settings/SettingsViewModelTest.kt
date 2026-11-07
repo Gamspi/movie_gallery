@@ -125,11 +125,12 @@ class SettingsViewModelTest {
     }
 
     @Test
-    fun saveCatalog_persistsSourceAndThreeKeys() {
+    fun saveCatalogSourceAndKeys_persist() {
         val store = FakeSecretStore()
         val repo = SettingsRepository(store)
         val vm = SettingsViewModel(repo)
-        assertEquals(true, vm.saveCatalog(CatalogSource.PoiskKino, " pk-key ", "kp-key", "tm-key"))
+        assertEquals(true, vm.saveCatalogSource(CatalogSource.PoiskKino))
+        assertEquals(true, vm.saveCatalogKeys(" pk-key ", "kp-key", "tm-key"))
         assertEquals(CatalogSource.PoiskKino, vm.catalogSource.value)
         assertEquals("pk-key", vm.poiskkinoApiKey.value)
         assertEquals("kp-key", vm.kinopoiskApiKey.value)
@@ -141,24 +142,45 @@ class SettingsViewModelTest {
     }
 
     @Test
-    fun saveCatalogPersistsOnlyCatalog() {
+    fun saveCatalogSourceDoesNotTouchKeys() {
+        val store = FakeSecretStore(mapOf("poiskkino_api_key" to "pk", "tmdb_api_key" to "tm"))
+        val vm = SettingsViewModel(SettingsRepository(store))
+        assertEquals(true, vm.saveCatalogSource(CatalogSource.Tmdb))
+        assertEquals("Tmdb", store.get("catalog_source"))
+        assertEquals("pk", store.get("poiskkino_api_key"))
+        assertEquals(ActiveCatalog(CatalogSource.Tmdb, "tm"), SettingsRepository(store).activeCatalog.value)
+    }
+
+    @Test
+    fun saveCatalogKeysDoesNotTouchSourceOrOthers() {
         val store = FakeSecretStore(mapOf("tracker_Yts_url" to "https://old.example/", "opensubtitles_key" to "os"))
         val vm = SettingsViewModel(SettingsRepository(store))
-        assertEquals(true, vm.saveCatalog(CatalogSource.Tmdb, "pk", "kp", "tm"))
+        assertEquals(true, vm.saveCatalogKeys("pk", "kp", "tm"))
         assertEquals("pk", store.get("poiskkino_api_key"))
         assertEquals("tm", store.get("tmdb_api_key"))
-        assertEquals("Tmdb", store.get("catalog_source"))
+        assertEquals(null, store.get("catalog_source"))
         assertEquals("https://old.example/", store.get("tracker_Yts_url"))
         assertEquals("os", store.get("opensubtitles_key"))
     }
 
     @Test
-    fun saveTrackersPersistsOnlyTrackers() {
-        val store = FakeSecretStore(mapOf("poiskkino_api_key" to "pk"))
+    fun saveTrackerEnabledKeepsUrls() {
+        val store = FakeSecretStore(mapOf("tracker_Yts_url" to "https://old.example/"))
         val vm = SettingsViewModel(SettingsRepository(store))
-        assertEquals(true, vm.saveTrackers(mapOf(ProviderId.Yts to TrackerConfig(true, "yts.example"))))
+        assertEquals(true, vm.saveTrackerEnabled(mapOf(ProviderId.Yts to true)))
+        assertEquals(TrackerConfig(true, "https://old.example/"), vm.tracker(ProviderId.Yts).value)
+        assertEquals("true", store.get("tracker_Yts_enabled"))
+        assertEquals("https://old.example/", store.get("tracker_Yts_url"))
+    }
+
+    @Test
+    fun saveTrackerUrlsKeepsEnabledFlags() {
+        val store = FakeSecretStore(mapOf("poiskkino_api_key" to "pk", "tracker_Yts_enabled" to "true"))
+        val vm = SettingsViewModel(SettingsRepository(store))
+        assertEquals(true, vm.saveTrackerUrls(mapOf(ProviderId.Yts to "yts.example")))
         assertEquals(TrackerConfig(true, "https://yts.example/"), vm.tracker(ProviderId.Yts).value)
         assertEquals("https://yts.example/", store.get("tracker_Yts_url"))
+        assertEquals("true", store.get("tracker_Yts_enabled"))
         assertEquals("pk", store.get("poiskkino_api_key"))
         assertEquals(null, store.get("catalog_source"))
     }
@@ -204,8 +226,11 @@ class SettingsViewModelTest {
             override fun put(key: String, value: String?) = throw IllegalStateException("boom")
         }
         val vm = SettingsViewModel(SettingsRepository(store))
-        assertEquals(false, vm.saveCatalog(CatalogSource.PoiskKino, "a", "b", "c"))
-        assertEquals(false, vm.saveTrackers(mapOf(ProviderId.Yts to TrackerConfig(true, "x"))))
+        assertEquals(false, vm.saveCatalogSource(CatalogSource.PoiskKino))
+        assertEquals(false, vm.saveCatalogKeys("a", "b", "c"))
+        assertEquals(false, vm.saveTrackerEnabled(mapOf(ProviderId.Yts to true)))
+        assertEquals(false, vm.saveTrackerUrls(mapOf(ProviderId.Yts to "x")))
+        assertEquals(false, vm.saveRutracker("a", "b"))
         assertEquals(false, vm.saveOpenSubtitles("a", "b", "c"))
         assertEquals(false, vm.saveNetwork("a", "b"))
         assertEquals(false, vm.toggleProxy())

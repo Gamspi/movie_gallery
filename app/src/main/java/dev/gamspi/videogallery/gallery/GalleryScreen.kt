@@ -54,7 +54,7 @@ fun GalleryScreen(
     onContinue: (WatchEntry) -> Unit,
     onOpenSearch: () -> Unit,
     onOpenSettings: () -> Unit,
-    onOpenCatalogSettings: () -> Unit,
+    onOpenKeySettings: () -> Unit,
     viewModel: GalleryViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -63,7 +63,7 @@ fun GalleryScreen(
         is GalleryUiState.Loading ->
             if (s.initial) FullScreenLoader() else GallerySkeleton()
         is GalleryUiState.Error ->
-            ErrorView(s.kind, onRetry = viewModel::retry, onOpenCatalogSettings = onOpenCatalogSettings, onOpenSettings = onOpenSettings)
+            ErrorView(s.kind, onRetry = viewModel::retry, onOpenKeySettings = onOpenKeySettings, onOpenSettings = onOpenSettings)
         is GalleryUiState.Content -> GalleryContent(s, history, onOpenMovie, onContinue, onOpenSearch, onOpenSettings)
     }
 }

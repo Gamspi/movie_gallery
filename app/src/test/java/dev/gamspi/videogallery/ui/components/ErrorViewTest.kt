@@ -15,10 +15,10 @@ class ErrorViewTest {
     }
 
     @Test fun settingsTarget_byErrorKind() {
-        assertEquals(true, ErrorKind.MissingKey.opensCatalogSettings())
-        assertEquals(true, ErrorKind.BadKey.opensCatalogSettings())
-        assertEquals(true, ErrorKind.QuotaExceeded.opensCatalogSettings())
-        assertEquals(false, ErrorKind.Network.opensCatalogSettings())
-        assertEquals(false, ErrorKind.Other.opensCatalogSettings())
+        assertEquals(true, ErrorKind.MissingKey.opensKeySettings())
+        assertEquals(true, ErrorKind.BadKey.opensKeySettings())
+        assertEquals(true, ErrorKind.QuotaExceeded.opensKeySettings())
+        assertEquals(false, ErrorKind.Network.opensKeySettings())
+        assertEquals(false, ErrorKind.Other.opensKeySettings())
     }
 }

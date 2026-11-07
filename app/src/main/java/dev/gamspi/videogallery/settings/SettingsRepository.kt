@@ -80,18 +80,26 @@ class SettingsRepository @Inject constructor(private val store: SecretStore) : S
     }
 
     fun update(source: CatalogSource, poiskkinoKey: String, kinopoiskKey: String, tmdbKey: String) {
-        val pk = poiskkinoKey.trim().ifEmpty { null }
-        val kp = kinopoiskKey.trim().ifEmpty { null }
-        val tm = tmdbKey.trim().ifEmpty { null }
-        store.put(KEY_POISKKINO, pk)
-        store.put(KEY_KINOPOISK, kp)
-        store.put(KEY_TMDB, tm)
+        writeCatalogKeys(poiskkinoKey, kinopoiskKey, tmdbKey)
         store.put(KEY_SOURCE, source.name)
+        _catalogSource.value = source
+        // Single emission for the combined change.
+        refreshActive()
+    }
+
+    /** Writes the three catalog keys without touching the selected source. */
+    fun setCatalogKeys(poiskkinoKey: String, kinopoiskKey: String, tmdbKey: String) {
+        writeCatalogKeys(poiskkinoKey, kinopoiskKey, tmdbKey)
+        refreshActive()
+    }
+
+    private fun writeCatalogKeys(poiskkinoKey: String, kinopoiskKey: String, tmdbKey: String) {
+        store.put(KEY_POISKKINO, poiskkinoKey.trim().ifEmpty { null })
+        store.put(KEY_KINOPOISK, kinopoiskKey.trim().ifEmpty { null })
+        store.put(KEY_TMDB, tmdbKey.trim().ifEmpty { null })
         _poiskkinoApiKey.value = store.get(KEY_POISKKINO)
         _kinopoiskApiKey.value = store.get(KEY_KINOPOISK)
         _tmdbApiKey.value = store.get(KEY_TMDB)
-        _catalogSource.value = source
-        refreshActive()
     }
 
     private val trackerFlows: Map<ProviderId, MutableStateFlow<TrackerConfig>> =
@@ -116,6 +124,19 @@ class SettingsRepository @Inject constructor(private val store: SecretStore) : S
             store.put(urlKey(id), c.baseUrl)
         }
         for ((id, c) in normalized) trackerFlows.getValue(id).value = c
+    }
+
+    /** Writes only the enabled flags; addresses stay as they are. */
+    fun setTrackerEnabled(enabled: Map<ProviderId, Boolean>) {
+        for ((id, on) in enabled) store.put(enabledKey(id), on.toString())
+        for ((id, on) in enabled) trackerFlows.getValue(id).let { it.value = it.value.copy(enabled = on) }
+    }
+
+    /** Writes only the addresses (normalized); enabled flags stay as they are. */
+    fun setTrackerUrls(urls: Map<ProviderId, String>) {
+        val normalized = urls.mapValues { (id, url) -> normalizeTrackerUrl(id, url) }
+        for ((id, url) in normalized) store.put(urlKey(id), url)
+        for ((id, url) in normalized) trackerFlows.getValue(id).let { it.value = it.value.copy(baseUrl = url) }
     }
 
     private fun enabledKey(id: ProviderId) = "tracker_${id.name}_enabled"

@@ -57,8 +57,8 @@ fun SettingsSectionScreen(
         SettingsSection.Storage -> StorageSection(viewModel)
         SettingsSection.Subtitles -> SubtitlesSection(viewModel)
         SettingsSection.Translation -> TranslationSection(viewModel)
-        SettingsSection.OpenSubtitles -> OpenSubtitlesSection(viewModel, onBack)
-        SettingsSection.Network -> NetworkSection(viewModel, onBack)
+        SettingsSection.Network -> NetworkSection(viewModel)
+        SettingsSection.Keys -> KeysSection(viewModel, onBack)
         SettingsSection.Debug -> DebugSection(viewModel, onPlayTest)
     }
 }
@@ -90,10 +90,6 @@ private fun InitialFocus(requester: FocusRequester) {
 @Composable
 private fun CatalogSection(viewModel: SettingsViewModel, onBack: () -> Unit) {
     var sourceName by rememberSaveable { mutableStateOf(viewModel.catalogSource.value.name) }
-    // Credentials persist only through SecretStore, never Activity saved state.
-    var poiskkinoKey by remember { mutableStateOf(viewModel.poiskkinoApiKey.value.orEmpty()) }
-    var kinopoiskKey by remember { mutableStateOf(viewModel.kinopoiskApiKey.value.orEmpty()) }
-    var tmdbKey by remember { mutableStateOf(viewModel.tmdbApiKey.value.orEmpty()) }
     val source = CatalogSource.entries.firstOrNull { it.name == sourceName } ?: CatalogSource.PoiskKino
     var saveError by remember { mutableStateOf(false) }
     val poiskkinoFocus = remember { FocusRequester() }
@@ -110,9 +106,8 @@ private fun CatalogSection(viewModel: SettingsViewModel, onBack: () -> Unit) {
             }
         }
     }
-    // While the IME is open the system closes it first, so this only runs on a real Back.
     BackHandler {
-        if (viewModel.saveCatalog(source, poiskkinoKey, kinopoiskKey, tmdbKey)) onBack() else saveError = true
+        if (viewModel.saveCatalogSource(source)) onBack() else saveError = true
     }
     SectionColumn(SettingsSection.Catalog.title, saveError) {
         Text("Источник каталога")
@@ -127,24 +122,7 @@ private fun CatalogSection(viewModel: SettingsViewModel, onBack: () -> Unit) {
                 sourceName = CatalogSource.Tmdb.name
             }
         }
-        TvTextField(
-            value = poiskkinoKey,
-            onValueChange = { poiskkinoKey = it },
-            label = "Ключ PoiskKino",
-        )
-        Text("Получить: poiskkino.dev → Telegram-бот")
-        TvTextField(
-            value = kinopoiskKey,
-            onValueChange = { kinopoiskKey = it },
-            label = "Ключ Кинопоиска",
-        )
-        Text("Получить: kinopoiskapiunofficial.tech → Профиль")
-        TvTextField(
-            value = tmdbKey,
-            onValueChange = { tmdbKey = it },
-            label = "Ключ TMDB API",
-        )
-        Text("Получить: themoviedb.org → Settings → API")
+        Text("Ключи источников — в разделе «Ключи»", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
     }
 }
 
@@ -153,21 +131,12 @@ private fun TrackersSection(viewModel: SettingsViewModel, onBack: () -> Unit) {
     val trackerEnabled = ProviderId.entries.associateWith { id ->
         rememberSaveable(id.name) { mutableStateOf(viewModel.tracker(id).value.enabled) }
     }
-    val trackerUrls = ProviderId.entries.associateWith { id ->
-        rememberSaveable(id.name + "_url") { mutableStateOf(viewModel.tracker(id).value.baseUrl) }
-    }
-    // Credentials persist only through SecretStore, never Activity saved state.
-    var rutrackerUser by remember { mutableStateOf(viewModel.rutrackerUser.orEmpty()) }
-    var rutrackerPassword by remember { mutableStateOf(viewModel.rutrackerPassword.orEmpty()) }
     var saveError by remember { mutableStateOf(false) }
     val firstFocus = remember { FocusRequester() }
     InitialFocus(firstFocus)
     BackHandler {
-        val trackers = ProviderId.entries.associateWith {
-            TrackerConfig(trackerEnabled.getValue(it).value, trackerUrls.getValue(it).value)
-        }
-        val saved = viewModel.saveRutracker(rutrackerUser, rutrackerPassword) && viewModel.saveTrackers(trackers)
-        if (saved) onBack() else saveError = true
+        val enabled = ProviderId.entries.associateWith { trackerEnabled.getValue(it).value }
+        if (viewModel.saveTrackerEnabled(enabled)) onBack() else saveError = true
     }
     SectionColumn(SettingsSection.Trackers.title, saveError) {
         ProviderId.entries.forEachIndexed { index, id ->
@@ -175,25 +144,8 @@ private fun TrackersSection(viewModel: SettingsViewModel, onBack: () -> Unit) {
             SourceButton(id.label, on, if (index == 0) firstFocus else null) {
                 trackerEnabled.getValue(id).value = !on
             }
-            TvTextField(
-                value = trackerUrls.getValue(id).value,
-                onValueChange = { trackerUrls.getValue(id).value = it },
-                label = "Адрес ${id.label}",
-            )
-            if (id == ProviderId.Rutracker) {
-                TvTextField(
-                    value = rutrackerUser,
-                    onValueChange = { rutrackerUser = it },
-                    label = "Логин rutracker",
-                )
-                TvTextField(
-                    value = rutrackerPassword,
-                    onValueChange = { rutrackerPassword = it },
-                    label = "Пароль rutracker",
-                    visualTransformation = PasswordVisualTransformation(),
-                )
-            }
         }
+        Text("Адреса трекеров и вход rutracker — в разделе «Ключи»", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
     }
 }
 
@@ -287,22 +239,100 @@ private fun TranslationSection(viewModel: SettingsViewModel) {
 }
 
 @Composable
-private fun OpenSubtitlesSection(viewModel: SettingsViewModel, onBack: () -> Unit) {
-    var osKey by remember { mutableStateOf(viewModel.openSubtitlesKey.orEmpty()) }
-    var osUser by remember { mutableStateOf(viewModel.openSubtitlesUser.orEmpty()) }
-    var osPassword by remember { mutableStateOf(viewModel.openSubtitlesPassword.orEmpty()) }
+private fun NetworkSection(viewModel: SettingsViewModel) {
+    val enabled by viewModel.proxyEnabled.collectAsState()
     var saveError by remember { mutableStateOf(false) }
     val firstFocus = remember { FocusRequester() }
     InitialFocus(firstFocus)
-    BackHandler {
-        if (viewModel.saveOpenSubtitles(osKey, osUser, osPassword)) onBack() else saveError = true
+    SectionColumn(SettingsSection.Network.title, saveError) {
+        SourceButton("Прокси через Cloudflare", enabled, firstFocus) {
+            if (!viewModel.toggleProxy()) saveError = true
+        }
+        Text("Через прокси идут TMDB, постеры TMDB, rutor и rutracker. Торренты — напрямую.")
+        Text("Адрес и ключ прокси — в разделе «Ключи»", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
     }
-    SectionColumn(SettingsSection.OpenSubtitles.title, saveError) {
+}
+
+/** All keys, logins, passwords and addresses; written together on Back. */
+@Composable
+private fun KeysSection(viewModel: SettingsViewModel, onBack: () -> Unit) {
+    // Credentials persist only through SecretStore, never Activity saved state.
+    var poiskkinoKey by remember { mutableStateOf(viewModel.poiskkinoApiKey.value.orEmpty()) }
+    var kinopoiskKey by remember { mutableStateOf(viewModel.kinopoiskApiKey.value.orEmpty()) }
+    var tmdbKey by remember { mutableStateOf(viewModel.tmdbApiKey.value.orEmpty()) }
+    val trackerUrls = ProviderId.entries.associateWith { id ->
+        remember(id.name) { mutableStateOf(viewModel.tracker(id).value.baseUrl) }
+    }
+    var rutrackerUser by remember { mutableStateOf(viewModel.rutrackerUser.orEmpty()) }
+    var rutrackerPassword by remember { mutableStateOf(viewModel.rutrackerPassword.orEmpty()) }
+    var osKey by remember { mutableStateOf(viewModel.openSubtitlesKey.orEmpty()) }
+    var osUser by remember { mutableStateOf(viewModel.openSubtitlesUser.orEmpty()) }
+    var osPassword by remember { mutableStateOf(viewModel.openSubtitlesPassword.orEmpty()) }
+    var proxyUrl by remember { mutableStateOf(viewModel.proxyUrl.value.orEmpty()) }
+    var proxyKey by remember { mutableStateOf(viewModel.proxyKey.value.orEmpty()) }
+    var saveError by remember { mutableStateOf(false) }
+    val firstFocus = remember { FocusRequester() }
+    InitialFocus(firstFocus)
+    // While the IME is open the system closes it first, so this only runs on a real Back.
+    BackHandler {
+        val saved = viewModel.saveCatalogKeys(poiskkinoKey, kinopoiskKey, tmdbKey) &&
+            viewModel.saveTrackerUrls(ProviderId.entries.associateWith { trackerUrls.getValue(it).value }) &&
+            viewModel.saveRutracker(rutrackerUser, rutrackerPassword) &&
+            viewModel.saveOpenSubtitles(osKey, osUser, osPassword) &&
+            viewModel.saveNetwork(proxyUrl, proxyKey)
+        if (saved) onBack() else saveError = true
+    }
+    SectionColumn(SettingsSection.Keys.title, saveError) {
+        GroupHeading("Каталог")
+        TvTextField(
+            value = poiskkinoKey,
+            onValueChange = { poiskkinoKey = it },
+            label = "Ключ PoiskKino",
+            modifier = Modifier.focusRequester(firstFocus),
+            secret = true,
+        )
+        Text("Получить: poiskkino.dev → Telegram-бот")
+        TvTextField(
+            value = kinopoiskKey,
+            onValueChange = { kinopoiskKey = it },
+            label = "Ключ Кинопоиска",
+            secret = true,
+        )
+        Text("Получить: kinopoiskapiunofficial.tech → Профиль")
+        TvTextField(
+            value = tmdbKey,
+            onValueChange = { tmdbKey = it },
+            label = "Ключ TMDB API",
+            secret = true,
+        )
+        Text("Получить: themoviedb.org → Settings → API")
+
+        GroupHeading("Трекеры")
+        ProviderId.entries.forEach { id ->
+            TvTextField(
+                value = trackerUrls.getValue(id).value,
+                onValueChange = { trackerUrls.getValue(id).value = it },
+                label = "Адрес ${id.label}",
+            )
+        }
+        TvTextField(
+            value = rutrackerUser,
+            onValueChange = { rutrackerUser = it },
+            label = "Логин rutracker",
+        )
+        TvTextField(
+            value = rutrackerPassword,
+            onValueChange = { rutrackerPassword = it },
+            label = "Пароль rutracker",
+            secret = true,
+        )
+
+        GroupHeading("OpenSubtitles")
         TvTextField(
             value = osKey,
             onValueChange = { osKey = it },
             label = "OpenSubtitles ключ",
-            modifier = Modifier.focusRequester(firstFocus),
+            secret = true,
         )
         TvTextField(
             value = osUser,
@@ -313,27 +343,10 @@ private fun OpenSubtitlesSection(viewModel: SettingsViewModel, onBack: () -> Uni
             value = osPassword,
             onValueChange = { osPassword = it },
             label = "OpenSubtitles пароль",
-            visualTransformation = PasswordVisualTransformation(),
+            secret = true,
         )
-    }
-}
 
-@Composable
-private fun NetworkSection(viewModel: SettingsViewModel, onBack: () -> Unit) {
-    val enabled by viewModel.proxyEnabled.collectAsState()
-    // Credentials persist only through SecretStore, never Activity saved state.
-    var proxyUrl by remember { mutableStateOf(viewModel.proxyUrl.value.orEmpty()) }
-    var proxyKey by remember { mutableStateOf(viewModel.proxyKey.value.orEmpty()) }
-    var saveError by remember { mutableStateOf(false) }
-    val firstFocus = remember { FocusRequester() }
-    InitialFocus(firstFocus)
-    BackHandler {
-        if (viewModel.saveNetwork(proxyUrl, proxyKey)) onBack() else saveError = true
-    }
-    SectionColumn(SettingsSection.Network.title, saveError) {
-        SourceButton("Прокси через Cloudflare", enabled, firstFocus) {
-            if (!viewModel.toggleProxy()) saveError = true
-        }
+        GroupHeading("Прокси")
         TvTextField(
             value = proxyUrl,
             onValueChange = { proxyUrl = it },
@@ -344,10 +357,14 @@ private fun NetworkSection(viewModel: SettingsViewModel, onBack: () -> Unit) {
             value = proxyKey,
             onValueChange = { proxyKey = it },
             label = "Ключ прокси",
-            visualTransformation = PasswordVisualTransformation(),
+            secret = true,
         )
-        Text("Через прокси идут TMDB, постеры TMDB, rutor и rutracker. Торренты — напрямую.")
     }
+}
+
+@Composable
+private fun GroupHeading(text: String) {
+    Text(text, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
 }
 
 @Composable
@@ -383,26 +400,30 @@ private fun formatOffset(ms: Long): String {
     return "$sign${abs / 1000},${(abs % 1000) / 100} с"
 }
 
-/** Text field safe for D-pad: read-only until OK is pressed, so Up/Down never get trapped. */
+/**
+ * Text field safe for D-pad: read-only until OK is pressed, so Up/Down never get trapped.
+ * A [secret] value is masked unless the field has focus.
+ */
 @Composable
 private fun TvTextField(
     value: String,
     onValueChange: (String) -> Unit,
     label: String,
     modifier: Modifier = Modifier,
-    visualTransformation: VisualTransformation = VisualTransformation.None,
     placeholder: String? = null,
+    secret: Boolean = false,
 ) {
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
     var editing by remember { mutableStateOf(false) }
+    var focused by remember { mutableStateOf(false) }
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
         label = { Text(label) },
         placeholder = placeholder?.let { { Text(it) } },
         singleLine = true,
-        visualTransformation = visualTransformation,
+        visualTransformation = if (secret && !focused) PasswordVisualTransformation() else VisualTransformation.None,
         readOnly = !editing,
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
         keyboardActions = KeyboardActions(onDone = {
@@ -411,7 +432,10 @@ private fun TvTextField(
         }),
         modifier = modifier
             .fillMaxWidth()
-            .onFocusChanged { if (!it.hasFocus) editing = false }
+            .onFocusChanged {
+                focused = it.hasFocus
+                if (!it.hasFocus) editing = false
+            }
             .onPreviewKeyEvent { ev ->
                 if (editing) return@onPreviewKeyEvent false
                 val code = ev.nativeKeyEvent.keyCode

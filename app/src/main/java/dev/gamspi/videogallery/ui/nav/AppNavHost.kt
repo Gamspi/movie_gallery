@@ -57,7 +57,7 @@ fun AppNavHost() {
                 onContinue = { nav.navigateOnce(entry, it.streamRoute()) },
                 onOpenSearch = { nav.navigateOnce(entry, "search") },
                 onOpenSettings = { nav.navigateOnce(entry, SETTINGS_HOME_ROUTE) },
-                onOpenCatalogSettings = { nav.navigateOnce(entry, settingsRoute(SettingsSection.Catalog)) },
+                onOpenKeySettings = { nav.navigateOnce(entry, settingsRoute(SettingsSection.Keys)) },
             )
         }
         composable(SETTINGS_HOME_ROUTE) { entry ->
@@ -95,20 +95,20 @@ fun AppNavHost() {
         composable("search") { entry ->
             SearchScreen(
                 onOpenMovie = { nav.navigateOnce(entry, "movie/$it") },
-                onOpenCatalogSettings = { nav.navigateOnce(entry, settingsRoute(SettingsSection.Catalog)) },
+                onOpenKeySettings = { nav.navigateOnce(entry, settingsRoute(SettingsSection.Keys)) },
                 onOpenSettings = { nav.navigateOnce(entry, SETTINGS_HOME_ROUTE) },
             )
         }
         composable("movie/{id}", arguments = listOf(navArgument("id") { type = NavType.IntType })) { entry ->
             DetailsScreen(
-                onOpenCatalogSettings = { nav.navigateOnce(entry, settingsRoute(SettingsSection.Catalog)) },
+                onOpenKeySettings = { nav.navigateOnce(entry, settingsRoute(SettingsSection.Keys)) },
                 onOpenSettings = { nav.navigateOnce(entry, SETTINGS_HOME_ROUTE) },
                 onWatch = { nav.navigateOnce(entry, "releases/${entry.arguments?.getInt("id")}") },
             )
         }
         composable("releases/{id}", arguments = listOf(navArgument("id") { type = NavType.IntType })) { entry ->
             ReleasesScreen(
-                onOpenCatalogSettings = { nav.navigateOnce(entry, settingsRoute(SettingsSection.Catalog)) },
+                onOpenKeySettings = { nav.navigateOnce(entry, settingsRoute(SettingsSection.Keys)) },
                 onOpenSettings = { nav.navigateOnce(entry, SETTINGS_HOME_ROUTE) },
                 onPlay = { r, meta -> nav.navigateOnce(entry, streamRoute(r.title, meta)) },
             )

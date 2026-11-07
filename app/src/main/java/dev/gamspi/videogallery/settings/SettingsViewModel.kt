@@ -143,15 +143,20 @@ class SettingsViewModel @Inject constructor(
 
     fun tracker(id: ProviderId): StateFlow<TrackerConfig> = repository.tracker(id)
 
-    fun saveCatalog(
-        source: CatalogSource,
-        poiskkinoKey: String,
-        kinopoiskKey: String,
-        tmdbKey: String,
-    ): Boolean = runSave { repository.update(source, poiskkinoKey, kinopoiskKey, tmdbKey) }
+    /** Writes the selected catalog source only; false when the store write fails. */
+    fun saveCatalogSource(source: CatalogSource): Boolean = runSave { repository.setCatalogSource(source) }
 
-    fun saveTrackers(trackers: Map<ProviderId, TrackerConfig>): Boolean =
-        runSave { repository.setTrackers(trackers) }
+    /** Writes catalog API keys only; false when the store write fails (values are never logged). */
+    fun saveCatalogKeys(poiskkinoKey: String, kinopoiskKey: String, tmdbKey: String): Boolean =
+        runSave { repository.setCatalogKeys(poiskkinoKey, kinopoiskKey, tmdbKey) }
+
+    /** Writes tracker enabled flags only; addresses are untouched. */
+    fun saveTrackerEnabled(enabled: Map<ProviderId, Boolean>): Boolean =
+        runSave { repository.setTrackerEnabled(enabled) }
+
+    /** Writes tracker addresses only; enabled flags are untouched. */
+    fun saveTrackerUrls(urls: Map<ProviderId, String>): Boolean =
+        runSave { repository.setTrackerUrls(urls) }
 
     val rutrackerUser: String? get() = repository.rutrackerUser
     val rutrackerPassword: String? get() = repository.rutrackerPassword

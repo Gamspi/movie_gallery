@@ -1,6 +1,7 @@
 package dev.gamspi.videogallery.settings
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -17,8 +18,16 @@ class SettingsSectionTest {
     }
 
     @Test
-    fun networkSectionAutosaves() {
-        assertEquals("settings/network", settingsRoute(SettingsSection.Network))
-        assertTrue(SettingsSection.Network.autosaves)
+    fun keysSectionPrecedesDebugAndAutosaves() {
+        assertEquals(
+            listOf("Каталог", "Трекеры", "Хранение", "Субтитры", "Перевод", "Сеть", "Ключи", "Отладка"),
+            SettingsSection.entries.map { it.title },
+        )
+        assertEquals("settings/keys", settingsRoute(SettingsSection.Keys))
+        assertTrue(SettingsSection.Keys.autosaves)
+        assertTrue(SettingsSection.Catalog.autosaves)
+        assertTrue(SettingsSection.Trackers.autosaves)
+        // Network has only the proxy toggle, which applies immediately.
+        assertFalse(SettingsSection.Network.autosaves)
     }
 }

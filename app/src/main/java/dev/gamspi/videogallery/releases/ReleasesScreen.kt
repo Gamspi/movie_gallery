@@ -63,7 +63,7 @@ fun unavailableNote(id: ProviderId, reason: UnavailableReason?): String = when (
 
 @Composable
 fun ReleasesScreen(
-    onOpenCatalogSettings: () -> Unit,
+    onOpenKeySettings: () -> Unit,
     onOpenSettings: () -> Unit,
     onPlay: (TorrentResult, PlaybackMeta) -> Unit,
     viewModel: ReleasesViewModel = hiltViewModel(),
@@ -77,7 +77,7 @@ fun ReleasesScreen(
     }
     when (val s = state) {
         ReleasesUiState.Loading -> FullScreenLoader("Ищем раздачи…")
-        is ReleasesUiState.Error -> ErrorView(s.kind, onRetry = viewModel::retry, onOpenCatalogSettings = onOpenCatalogSettings, onOpenSettings = onOpenSettings)
+        is ReleasesUiState.Error -> ErrorView(s.kind, onRetry = viewModel::retry, onOpenKeySettings = onOpenKeySettings, onOpenSettings = onOpenSettings)
         is ReleasesUiState.Content -> ReleasesContent(s, viewModel::setFilter) {
             // Releases without a magnet are resolved first; the rest open directly.
             if (it.needsResolve) viewModel.resolve(it) else onPlay(it, s.metaFor(it))
