@@ -29,11 +29,13 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import dev.gamspi.videogallery.R
 import dev.gamspi.videogallery.catalog.model.Movie
 import dev.gamspi.videogallery.history.WatchEntry
 import dev.gamspi.videogallery.ui.components.CatLogo
@@ -183,7 +185,7 @@ private fun GalleryContent(
                 ) {
                     CatLogo()
                     Text(
-                        "VideoGallery",
+                        stringResource(R.string.app_name),
                         style = MaterialTheme.typography.headlineSmall,
                     )
                 }
