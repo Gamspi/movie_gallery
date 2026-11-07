@@ -6,7 +6,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import dev.gamspi.videogallery.catalog.model.MediaKind
+import dev.gamspi.videogallery.history.FINISHED_PROGRESS
 import dev.gamspi.videogallery.history.PlaybackMeta
+import dev.gamspi.videogallery.history.SeriesStore
+import dev.gamspi.videogallery.history.seriesKey
+import dev.gamspi.videogallery.stream.EpisodeFile
+import dev.gamspi.videogallery.stream.EpisodeRef
 import dev.gamspi.videogallery.history.WatchEntry
 import dev.gamspi.videogallery.history.WatchHistoryStore
 import dev.gamspi.videogallery.stream.StreamManager
@@ -82,6 +88,9 @@ class PlayerViewModel internal constructor(
     private val translationDispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val history: WatchHistoryStore? = null,
     private val saveSubtitlePrefs: (SubtitlePrefs) -> Unit = {},
+    private val seriesStore: SeriesStore? = null,
+    private val episodeFiles: () -> List<EpisodeFile> = manager::episodeFiles,
+    private val finishRelease: (Long) -> Unit = manager::finishRelease,
     private val wallClock: () -> Long = System::currentTimeMillis,
     private val clock: () -> Long,
 ) : ViewModel() {
@@ -90,11 +99,11 @@ class PlayerViewModel internal constructor(
         savedState: SavedStateHandle, store: PlaybackStore, manager: StreamManager,
         client: OpenSubtitlesClient, settings: SettingsRepository,
         models: TranslationModels, translator: SubtitleTranslator, cache: TranslationCache,
-        history: WatchHistoryStore,
+        history: WatchHistoryStore, seriesStore: SeriesStore,
     ) : this(savedState, store, manager, client, settings.subtitlePrefs, { url ->
         fetchHashOverHttp(subtitleHashHttp, url)
-    }, models, translator, cache, Dispatchers.Default, history, settings::setSubtitlePrefs, System::currentTimeMillis,
-        SystemClock::elapsedRealtime)
+    }, models, translator, cache, Dispatchers.Default, history, settings::setSubtitlePrefs,
+        seriesStore = seriesStore, clock = SystemClock::elapsedRealtime)
 
     companion object {
         private val subtitleHashHttp by lazy {
@@ -525,6 +534,79 @@ class PlayerViewModel internal constructor(
         lastSaveAt = clock()
         if (isFinished(positionMs, durationMs)) store.clearPosition(key) else store.savePosition(key, positionMs)
         recordHistory(positionMs, durationMs)
+        recordSeries(positionMs, durationMs)
+    }
+
+    private fun seriesRef(): EpisodeRef? {
+        if (meta.kind != MediaKind.Series) return null
+        return EpisodeRef(meta.season ?: return null, meta.episode ?: return null)
+    }
+
+    private fun seriesKeyOrNull(): String? =
+        if (meta.movieId > 0) meta.source?.let { seriesKey(it, meta.movieId) } else null
+
+    /** Episode files of this release: the live session first, then the saved season release. */
+    private fun releaseFiles(ref: EpisodeRef): List<EpisodeFile> {
+        episodeFiles().takeIf { it.isNotEmpty() }?.let { return it }
+        val key = seriesKeyOrNull() ?: return emptyList()
+        return seriesStore?.release(key, ref.season)?.files.orEmpty()
+    }
+
+    /** What follows the current series episode; null for movies. */
+    fun nextStep(): NextStep? {
+        val ref = seriesRef() ?: return null
+        return afterEpisode(ref, releaseFiles(ref), meta.seasonEpisodes, meta.seasonCount)
+    }
+
+    /** Route meta for [ref] in this release, resuming silently. */
+    fun metaFor(ref: EpisodeRef): PlaybackMeta = meta.copy(
+        autoResume = true,
+        season = ref.season,
+        episode = ref.episode,
+        seasonEpisodes = meta.seasonEpisodes.takeIf { ref.season == meta.season },
+        episodeTitle = "",
+    )
+
+    /** Saves episode progress; a watched episode moves history to the next one or ends the series. */
+    private fun recordSeries(positionMs: Long, durationMs: Long) {
+        val ref = seriesRef() ?: return
+        if (durationMs <= 0) return
+        val fraction = (positionMs.toDouble() / durationMs).coerceIn(0.0, 1.0).toFloat()
+        val seriesKey = seriesKeyOrNull() ?: return
+        seriesStore?.saveProgress(seriesKey, ref, fraction)
+        if (fraction < FINISHED_PROGRESS) return
+        val files = releaseFiles(ref)
+        if (files.none { it.ref > ref }) finishRelease(sessionId)
+        val history = history ?: return
+        when (val next = afterEpisode(ref, files, meta.seasonEpisodes, meta.seasonCount)) {
+            is NextStep.SeriesDone -> history.remove("${meta.source ?: "-"}:${MediaKind.Series}:${meta.movieId}")
+            is NextStep.PlayFile -> advanceHistory(history, next.ref, durationMs)
+            is NextStep.PickRelease -> advanceHistory(history, next.ref, durationMs)
+        }
+    }
+
+    private fun advanceHistory(history: WatchHistoryStore, next: EpisodeRef, durationMs: Long) {
+        if (meta.magnet.isBlank() && meta.torrent.isBlank()) return
+        history.upsert(WatchEntry(
+            movieId = meta.movieId,
+            title = meta.movieTitle.ifBlank { _state.value.title },
+            year = meta.movieYear,
+            posterUrl = meta.poster,
+            rating = meta.rating,
+            magnet = meta.magnet,
+            torrentUrl = meta.torrent,
+            imdb = meta.imdb,
+            positionKey = key,
+            positionMs = 0,
+            durationMs = durationMs,
+            updatedAt = wallClock(),
+            kind = MediaKind.Series,
+            source = meta.source,
+            season = next.season,
+            episode = next.episode,
+            seasonEpisodes = meta.seasonEpisodes.takeIf { next.season == meta.season },
+            seasonCount = meta.seasonCount,
+        ))
     }
 
     /** Keeps «continue watching» in sync; the store drops watched and duration-less entries. */

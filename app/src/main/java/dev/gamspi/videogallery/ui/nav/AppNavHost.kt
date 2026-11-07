@@ -110,10 +110,24 @@ fun AppNavHost() {
             popExitTransition = { ExitTransition.None },
         ) { entry ->
             val series = entry.arguments?.getString("kind") == MediaKind.Series.name
-            PlayerScreen(onBack = {
-                // A series episode returns to the card (focus on the episode), skipping the releases list.
-                if (!series || !nav.popBackStack(MOVIE_ROUTE, inclusive = false)) nav.popBackStack()
-            })
+            PlayerScreen(
+                onBack = {
+                    // A series episode returns to the card (focus on the episode), skipping the releases list.
+                    if (!series || !nav.popBackStack(MOVIE_ROUTE, inclusive = false)) nav.popBackStack()
+                },
+                onPlayEpisode = { title, meta ->
+                    nav.navigateOnce(entry, streamRoute(title, meta)) {
+                        popUpTo(PLAYER_ROUTE) { inclusive = true }
+                    }
+                },
+                onPickRelease = { meta ->
+                    // Back to the card, then the season's releases on top of it.
+                    val onCard = nav.popBackStack(MOVIE_ROUTE, inclusive = false)
+                    nav.navigate(releasesRoute(meta.movieId, MediaKind.Series, meta.season, meta.episode)) {
+                        if (!onCard) popUpTo(PLAYER_ROUTE) { inclusive = true }
+                    }
+                },
+            )
         }
         composable("search") { entry ->
             SearchScreen(

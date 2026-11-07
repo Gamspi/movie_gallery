@@ -53,6 +53,14 @@ class ContinueWatchingTest {
         assertEquals(listOf(legacy, other), historyForSource(listOf(legacy, movie, series, other), "Kinopoisk"))
     }
 
+    @Test fun seriesCaptionUsesSeasonAndEpisode() {
+        val series = entry(7).copy(kind = MediaKind.Series, season = 2, episode = 5)
+        assertEquals("S02E05", series.episodeCaption())
+        assertEquals("S12E105", series.copy(season = 12, episode = 105).episodeCaption())
+        assertNull(entry(7).episodeCaption())
+        assertNull(series.copy(episode = null).episodeCaption())
+    }
+
     @Test
     fun rowKeys_unique() {
         assertEquals("row-0", catalogRowKey(0))

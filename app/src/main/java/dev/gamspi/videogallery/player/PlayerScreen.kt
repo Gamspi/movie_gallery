@@ -19,6 +19,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,6 +46,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.Tracks
 import androidx.media3.common.TrackSelectionOverride
+import dev.gamspi.videogallery.history.PlaybackMeta
 import dev.gamspi.videogallery.subs.Layer
 import dev.gamspi.videogallery.BuildConfig
 import dev.gamspi.videogallery.stream.StreamStallNotice
@@ -65,6 +67,7 @@ import dev.gamspi.videogallery.ui.components.CatPose
 private const val OVERLAY_HIDE_MS = 3_000L
 private const val POLL_MS = 500L
 private const val END_EXIT_MS = 5_000L
+private const val NEXT_COUNTDOWN_S = 10
 
 private fun remoteKeyOf(keyCode: Int): RemoteKey? = when (keyCode) {
     KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> RemoteKey.Center
@@ -78,7 +81,11 @@ private fun remoteKeyOf(keyCode: Int): RemoteKey? = when (keyCode) {
 }
 
 @Composable
-fun PlayerScreen(onBack: () -> Unit) {
+fun PlayerScreen(
+    onBack: () -> Unit,
+    onPlayEpisode: (title: String, meta: PlaybackMeta) -> Unit = { _, _ -> },
+    onPickRelease: (PlaybackMeta) -> Unit = {},
+) {
     val vm = hiltViewModel<PlayerViewModel>()
     val state by vm.state.collectAsState()
     val terminalStreamError by vm.terminalStreamError.collectAsState(initial = null)
@@ -199,6 +206,19 @@ fun PlayerScreen(onBack: () -> Unit) {
         exited = true
         vm.onPauseOrExit(player.currentPosition, durationOrZero())
         onBack()
+    }
+
+    // The follow-up is decided once, when playback ends (history and release hold are settled by then).
+    val nextStep = remember(ended) { if (ended) vm.nextStep() else null }
+
+    fun goNext(step: NextStep) {
+        if (exited) return
+        exited = true
+        when (step) {
+            is NextStep.PlayFile -> onPlayEpisode(state.title, vm.metaFor(step.ref))
+            is NextStep.PickRelease -> onPickRelease(vm.metaFor(step.ref))
+            NextStep.SeriesDone -> onBack()
+        }
     }
 
     fun seekTo(position: Long) {
@@ -518,7 +538,7 @@ fun PlayerScreen(onBack: () -> Unit) {
         val offer = state.resumeOffer
         val error = playbackError
         when {
-            ended -> EndContent(onExit = ::exit)
+            ended -> EndContent(next = nextStep, onExit = ::exit, onNext = ::goNext)
             error != null && recoveryAudioOpen && terminalStreamError == null -> AudioRecoveryContent(
                 tracks = recoveryOptions,
                 onSelect = { track ->
@@ -683,17 +703,40 @@ private fun ResumeContent(
 }
 
 @Composable
-private fun EndContent(onExit: () -> Unit) {
+private fun EndContent(next: NextStep?, onExit: () -> Unit, onNext: (NextStep) -> Unit) {
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
     val exitNow by rememberUpdatedState(onExit)
+    val nextNow by rememberUpdatedState(onNext)
+    if (next != null && next != NextStep.SeriesDone) {
+        var left by remember { mutableIntStateOf(NEXT_COUNTDOWN_S) }
+        LaunchedEffect(Unit) {
+            while (left > 0) {
+                delay(1_000)
+                left--
+            }
+            nextNow(next)
+        }
+        Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
+            Column(verticalArrangement = Arrangement.spacedBy(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                CatMascot(CatPose.Wave, size = 160.dp, message = "Следующая серия через $left с")
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    AccentButton(onClick = { nextNow(next) }, modifier = Modifier.focusRequester(focus)) {
+                        Text("Смотреть сейчас")
+                    }
+                    AccentButton(onClick = onExit) { Text("Отмена") }
+                }
+            }
+        }
+        return
+    }
     LaunchedEffect(Unit) {
         delay(END_EXIT_MS)
         exitNow()
     }
     Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
         Column(verticalArrangement = Arrangement.spacedBy(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            CatMascot(CatPose.Wave, size = 160.dp, message = "Фильм закончился")
+            CatMascot(CatPose.Wave, size = 160.dp, message = if (next == NextStep.SeriesDone) "Сериал закончился" else "Фильм закончился")
             AccentButton(onClick = onExit, modifier = Modifier.focusRequester(focus)) { Text("Выйти") }
         }
     }

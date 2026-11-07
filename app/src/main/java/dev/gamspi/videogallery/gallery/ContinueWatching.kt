@@ -22,6 +22,13 @@ internal fun WatchEntry.toMovie(): Movie = Movie(
     kind = kind,
 )
 
+/** «S02E05» for a series entry with a known episode; null otherwise. */
+internal fun WatchEntry.episodeCaption(): String? {
+    val s = season ?: return null
+    val e = episode ?: return null
+    return if (kind == MediaKind.Series) dev.gamspi.videogallery.player.episodeCaption(s, e) else null
+}
+
 /** The active catalog's entries; legacy records belong to any source. */
 internal fun historyForSource(entries: List<WatchEntry>, source: String): List<WatchEntry> =
     entries.filter { it.source == null || it.source == source }.distinctBy { it.kind to it.movieId }

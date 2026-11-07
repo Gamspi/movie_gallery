@@ -306,7 +306,8 @@ private fun GalleryContent(
                         val onClick = remember(movie.id, movie.kind, entry) {
                             if (entry != null) { { continueWatch(entry) } } else { { openMovie(movie.id, movie.kind) } }
                         }
-                        MovieCard(movie = movie, onClick = onClick, modifier = cardModifier, progress = progress[movie.kind to movie.id])
+                        MovieCard(movie = movie, onClick = onClick, modifier = cardModifier, progress = progress[movie.kind to movie.id],
+                            caption = entry?.episodeCaption())
                     }
                 }
             }

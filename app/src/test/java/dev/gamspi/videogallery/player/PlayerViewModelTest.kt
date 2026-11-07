@@ -387,4 +387,89 @@ class PlayerViewModelTest {
         assertTrue(sm.state.value is StreamState.Buffering)
         sm.stop()
     }
+
+    private val seriesArgs = mapOf("movieId" to "7", "movieTitle" to "Сериал", "magnet" to "magnet:x",
+        "kind" to "Series", "source" to "Tmdb", "season" to "2", "episode" to "5",
+        "seasonEpisodes" to "10", "seasonCount" to "3")
+    private val seasonFiles = listOf(
+        dev.gamspi.videogallery.stream.EpisodeFile(dev.gamspi.videogallery.stream.EpisodeRef(2, 5), 0),
+        dev.gamspi.videogallery.stream.EpisodeFile(dev.gamspi.videogallery.stream.EpisodeRef(2, 6), 1),
+    )
+
+    private fun seriesVm(
+        history: WatchHistoryStore,
+        series: dev.gamspi.videogallery.history.SeriesStore,
+        files: List<dev.gamspi.videogallery.stream.EpisodeFile>,
+        finished: MutableList<Long> = mutableListOf(),
+        args: Map<String, String> = seriesArgs,
+    ) = PlayerViewModel(
+        SavedStateHandle(mapOf("url" to "http://x/a.mp4", "title" to "Release", "key" to "k") + args),
+        store,
+        StreamManager(
+            FakeTorrentEngine(),
+            StreamServer(CoroutineScope(Dispatchers.Unconfined)),
+            File("unused"),
+            CoroutineScope(Dispatchers.Unconfined),
+        ),
+        history = history, wallClock = { 42L }, clock = { now },
+        seriesStore = series, episodeFiles = { files }, finishRelease = { finished += it },
+    )
+
+    @Test
+    fun finishedEpisodeAdvancesHistoryToNextEpisode() {
+        val history = dev.gamspi.videogallery.history.FakeWatchHistoryStore()
+        seriesVm(history, dev.gamspi.videogallery.history.FakeSeriesStore(), seasonFiles)
+            .onPauseOrExit(3_300_000, 3_600_000)
+        val entry = history.entries.value.single()
+        assertEquals(2, entry.season)
+        assertEquals(6, entry.episode)
+        assertEquals(0L, entry.positionMs)
+        assertEquals("Tmdb:Series:7", entry.identity)
+    }
+
+    @Test
+    fun finishedLastEpisodeRemovesEntry() {
+        val history = dev.gamspi.videogallery.history.FakeWatchHistoryStore()
+        val vm = seriesVm(history, dev.gamspi.videogallery.history.FakeSeriesStore(), emptyList(),
+            args = seriesArgs + mapOf("season" to "3", "episode" to "10"))
+        vm.onPauseOrExit(1_000_000, 3_600_000)
+        assertEquals(1, history.entries.value.size)
+        vm.onPauseOrExit(3_550_000, 3_600_000)
+        assertTrue(history.entries.value.isEmpty())
+    }
+
+    @Test
+    fun seriesProgressIsSaved() {
+        val series = dev.gamspi.videogallery.history.FakeSeriesStore()
+        val vm = seriesVm(dev.gamspi.videogallery.history.FakeWatchHistoryStore(), series, seasonFiles)
+        vm.onPauseOrExit(900_000, 3_600_000)
+        val key = dev.gamspi.videogallery.history.seriesKey("Tmdb", 7)
+        val ref = dev.gamspi.videogallery.stream.EpisodeRef(2, 5)
+        assertEquals(0.25f, series.progress(key)[ref]!!, 0.001f)
+        vm.onPauseOrExit(3_550_000, 3_600_000)
+        assertEquals(1f, series.progress(key)[ref]!!, 0.02f)
+    }
+
+    @Test
+    fun finishRelease_onlyWhenNoLaterEpisodeInFiles() {
+        val finished = mutableListOf<Long>()
+        val history = dev.gamspi.videogallery.history.FakeWatchHistoryStore()
+        val series = dev.gamspi.videogallery.history.FakeSeriesStore()
+        seriesVm(history, series, seasonFiles, finished).onPauseOrExit(3_550_000, 3_600_000)
+        assertTrue(finished.isEmpty())
+        seriesVm(history, series, seasonFiles.take(1), finished).onPauseOrExit(1_000_000, 3_600_000)
+        assertTrue(finished.isEmpty())
+        seriesVm(history, series, seasonFiles.take(1), finished).onPauseOrExit(3_550_000, 3_600_000)
+        assertEquals(1, finished.size)
+    }
+
+    @Test
+    fun nextStep_fallsBackToSavedRelease() {
+        val series = dev.gamspi.videogallery.history.FakeSeriesStore()
+        series.saveRelease(dev.gamspi.videogallery.history.seriesKey("Tmdb", 7), 2,
+            dev.gamspi.videogallery.history.SeasonRelease("magnet:x", "", "R", seasonFiles))
+        val vm = seriesVm(dev.gamspi.videogallery.history.FakeWatchHistoryStore(), series, emptyList())
+        assertEquals(NextStep.PlayFile(dev.gamspi.videogallery.stream.EpisodeRef(2, 6)), vm.nextStep())
+        assertNull(metaVm(FakeHistory(), emptyMap()).nextStep())
+    }
 }
