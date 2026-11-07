@@ -32,7 +32,9 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -83,7 +85,7 @@ fun GalleryScreen(
                 is GalleryUiState.Error ->
                     ErrorView(s.kind, onRetry = viewModel::retry, onOpenKeySettings = onOpenKeySettings, onOpenSettings = onOpenSettings)
                 is GalleryUiState.Content -> key(s.tab) {
-                    GalleryContent(s, visibleHistory, memory, railEntry, railLinks, onOpenMovie, onContinue, onOpenSearch, onOpenSettings)
+                    GalleryContent(s, visibleHistory, memory, railEntry, railLinks, if (showRail) RailCollapsedWidth else 0.dp, onOpenMovie, onContinue, onOpenSearch, onOpenSettings)
                 }
             }
         }
@@ -175,6 +177,7 @@ private fun GalleryContent(
     memory: GalleryFocusMemory,
     railEntry: FocusRequester,
     railLinks: RailLinks,
+    railInset: Dp,
     onOpenMovie: (Int, MediaKind) -> Unit,
     onContinue: (WatchEntry) -> Unit,
     onOpenSearch: () -> Unit,
@@ -228,7 +231,20 @@ private fun GalleryContent(
     ) {
         item {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 48.dp),
+                modifier = Modifier
+                    // Header ignores the rail inset: widen by it and shift back left.
+                    .layout { measurable, constraints ->
+                        val extra = railInset.roundToPx()
+                        val p = measurable.measure(
+                            constraints.copy(
+                                minWidth = constraints.minWidth + extra,
+                                maxWidth = constraints.maxWidth + extra,
+                            ),
+                        )
+                        layout(constraints.maxWidth, p.height) { p.place(-extra, 0) }
+                    }
+                    .fillMaxWidth()
+                    .padding(horizontal = 48.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Row(
