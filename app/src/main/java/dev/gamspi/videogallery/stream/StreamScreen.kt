@@ -41,6 +41,7 @@ import dev.gamspi.videogallery.ui.components.CatPose
 fun StreamScreen(
     onReady: (url: String, key: String, title: String, meta: PlaybackMeta) -> Unit,
     onBack: () -> Unit,
+    onEpisodeMissing: (season: Int) -> Unit,
     viewModel: StreamViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -66,6 +67,15 @@ fun StreamScreen(
         }
     }
 
+    val missing = state as? StreamState.EpisodeMissing
+    if (missing != null) {
+        // The release lacks the episode: let the user pick another release for the season.
+        LaunchedEffect(missing) {
+            lifecycleOwner.lifecycle.currentStateFlow.first { it.isAtLeast(Lifecycle.State.RESUMED) }
+            onEpisodeMissing(viewModel.meta.season ?: 1)
+        }
+    }
+
     Box(Modifier.fillMaxSize().padding(48.dp), contentAlignment = Alignment.Center) {
         when (val s = state) {
             StreamState.Idle, StreamState.FetchingMetadata, is StreamState.Ready ->
@@ -88,6 +98,7 @@ fun StreamScreen(
                 }
             }
             is StreamState.ChooseFile -> ChooseFileList(s.files, viewModel::chooseFile)
+            is StreamState.EpisodeMissing -> FullScreenLoader("Получаем данные раздачи…")
             is StreamState.Failed -> FailedContent(s.message, ::back)
         }
     }

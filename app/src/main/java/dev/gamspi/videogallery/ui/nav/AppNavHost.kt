@@ -154,6 +154,16 @@ fun AppNavHost() {
                     }
                 },
                 onBack = { nav.popBackStack() },
+                onEpisodeMissing = { season ->
+                    val id = entry.arguments?.getString("movieId")?.toIntOrNull() ?: 0
+                    if (id > 0) {
+                        nav.navigateOnce(entry, releasesRoute(id, MediaKind.Series, season)) {
+                            popUpTo(STREAM_ROUTE) { inclusive = true }
+                        }
+                    } else {
+                        nav.popBackStack()
+                    }
+                },
             )
         }
     }

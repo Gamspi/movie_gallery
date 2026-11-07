@@ -1,6 +1,16 @@
 package dev.gamspi.videogallery.stream
 
 import androidx.lifecycle.SavedStateHandle
+import dev.gamspi.videogallery.history.FakeSeriesStore
+import dev.gamspi.videogallery.history.SeasonRelease
+import dev.gamspi.videogallery.history.SeriesStore
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.setMain
 import java.io.File
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -42,6 +52,7 @@ class StreamViewModelTest {
     private fun vm(sm: StreamManager) = StreamViewModel(
         SavedStateHandle(mapOf("magnet" to "magnet:abc", "title" to "Film")),
         sm,
+        FakeSeriesStore(),
     )
 
     @Test
@@ -86,7 +97,7 @@ class StreamViewModelTest {
         val savedState = SavedStateHandle(mapOf("magnet" to "magnet:abc", "title" to "Film"))
         if (torrent != null) savedState["torrent"] = torrent
         try {
-            StreamViewModel(savedState, sm)
+            StreamViewModel(savedState, sm, FakeSeriesStore())
             val state = withTimeout(5_000) {
                 sm.state.first { it is StreamState.Buffering || it is StreamState.Failed }
             }
@@ -104,6 +115,7 @@ class StreamViewModelTest {
         val withImdb = StreamViewModel(
             SavedStateHandle(mapOf("magnet" to "magnet:abc", "title" to "Film", "imdb" to "tt1")),
             sm,
+            FakeSeriesStore(),
         )
         assertEquals("tt1", withImdb.imdb)
         assertEquals("", vm(sm).imdb)
@@ -117,6 +129,7 @@ class StreamViewModelTest {
             SavedStateHandle(mapOf("magnet" to "magnet:abc", "title" to "Film", "movieId" to "301",
                 "movieTitle" to "Матрица", "movieYear" to "1999", "rating" to "8.5", "autoResume" to "true")),
             sm,
+            FakeSeriesStore(),
         )
         assertEquals(dev.gamspi.videogallery.history.PlaybackMeta(301, "Матрица", 1999, null, 8.5, "magnet:abc",
             autoResume = true), v.meta)
@@ -201,5 +214,62 @@ class StreamViewModelTest {
         assertNull(old.stallWarning.first())
         assertEquals(sm.currentSessionId(), fresh.stallWarning.first()?.sessionId)
         sm.stop()
+    }
+    private val episodes = listOf(TorrentFile(0, "S.S01E01.mkv", 60 * mib), TorrentFile(1, "S.S01E02.mkv", 60 * mib))
+
+    private fun seriesState(source: String?) = SavedStateHandle(buildMap {
+        putAll(mapOf("magnet" to "magnet:abc", "title" to "Rel", "torrent" to "https://x/t", "movieId" to "7",
+            "kind" to "Series", "season" to "1", "episode" to "2"))
+        if (source != null) put("source", source)
+    })
+
+    private class SignalStore(val fake: FakeSeriesStore = FakeSeriesStore()) : SeriesStore by fake {
+        val saved = CompletableDeferred<Unit>()
+        override fun saveRelease(seriesKey: String, season: Int, r: SeasonRelease) {
+            fake.saveRelease(seriesKey, season, r)
+            saved.complete(Unit)
+        }
+    }
+
+    @Test
+    fun series_startsEpisode_andSavesSeasonReleaseOnReady() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        try {
+            engine.files = episodes
+            engine.have += 0..200
+            val store = SignalStore()
+            val sm = manager()
+            StreamViewModel(seriesState("tmdb"), sm, store)
+            runCurrent()
+            assertEquals("bt:abc:1", (sm.state.value as StreamState.Ready).key)
+            withContext(Dispatchers.Default) { withTimeout(5_000) { store.saved.await() } }
+            assertEquals(
+                SeasonRelease("magnet:abc", "https://x/t", "Rel",
+                    listOf(EpisodeFile(EpisodeRef(1, 1), 0), EpisodeFile(EpisodeRef(1, 2), 1))),
+                store.fake.release("tmdb:Series:7", 1),
+            )
+            sm.stop()
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun series_withoutSource_skipsSeasonRelease() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        try {
+            engine.files = episodes
+            engine.have += 0..200
+            val store = SignalStore()
+            val sm = manager()
+            StreamViewModel(seriesState(null), sm, store)
+            runCurrent()
+            assertTrue(sm.state.value is StreamState.Ready)
+            withContext(Dispatchers.Default) { delay(300) }
+            assertTrue(!store.saved.isCompleted)
+            sm.stop()
+        } finally {
+            Dispatchers.resetMain()
+        }
     }
 }

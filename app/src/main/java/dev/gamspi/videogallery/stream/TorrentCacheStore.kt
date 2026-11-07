@@ -26,7 +26,13 @@ class TorrentCacheStore(
     private data class SelectedFile(val index: Int, val path: String, val size: Long)
 
     @Serializable
-    private data class Entry(val hash: String, val files: List<SelectedFile>, val lastUsed: Long)
+    private data class Entry(
+        val hash: String,
+        val files: List<SelectedFile>,
+        val lastUsed: Long,
+        /** Kept only until another release starts (series season). */
+        val held: Boolean = false,
+    )
 
     private val mutex = Mutex()
     private val retained = mutableMapOf<String, Entry>()
@@ -77,18 +83,31 @@ class TorrentCacheStore(
         ensureFree(0)
     }
 
-    /** The engine must have acknowledged removal before this is called. */
-    suspend fun release(hash: String, keep: Boolean, limitBytes: Long) = access {
+    /**
+     * The engine must have acknowledged removal before this is called.
+     * [hold] without [keep] retains the files until [discardHeld]; [keep] wins over [hold].
+     */
+    suspend fun release(hash: String, keep: Boolean, limitBytes: Long, hold: Boolean = false) = access {
         initializeLocked()
         val entry = active.remove(hash) ?: return@access
-        if (keep && entry.files.isNotEmpty()) {
-            retained[hash] = entry.copy(lastUsed = now())
+        if ((keep || hold) && entry.files.isNotEmpty()) {
+            retained[hash] = entry.copy(lastUsed = now(), held = !keep)
             saveIndex()
             enforceLimit(limitBytes)
         } else {
             retained.remove(hash)
             saveIndex()
             deleteTree(directory(hash))
+        }
+    }
+
+    /** Deletes inactive held entries except [except]. */
+    suspend fun discardHeld(except: String?) = access {
+        initializeLocked()
+        for (entry in retained.values.filter { it.held && it.hash != except && it.hash !in active }.toList()) {
+            deleteTree(directory(entry.hash))
+            retained.remove(entry.hash)
+            saveIndex()
         }
     }
 

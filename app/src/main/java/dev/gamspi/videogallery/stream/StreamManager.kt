@@ -49,8 +49,11 @@ class StreamManager(
     private val torrentFiles: TorrentFileSource? = null,
     private val log: (String) -> Unit = {},
 ) {
-    private class Session(val id: Long, val title: String, val predecessor: Job?) {
+    private class Session(val id: Long, val title: String, val predecessor: Job?, val episode: EpisodeRef?) {
         private var hashValue: String? = null
+        @Volatile var episodeFiles: List<EpisodeFile> = emptyList()
+        /** Series sessions keep their files after exit until another release starts. */
+        @Volatile var hold: Boolean = episode != null
         @Volatile var job: Job? = null
         @Volatile var files: List<TorrentFile> = emptyList()
         @Volatile var source: EnginePieceSource? = null
@@ -114,10 +117,10 @@ class StreamManager(
         _stallWarning.value = null
     }
 
-    fun start(magnet: String, title: String, torrentUrl: String? = null) {
+    fun start(magnet: String, title: String, torrentUrl: String? = null, episode: EpisodeRef? = null) {
         val s = synchronized(lock) {
             stopLocked()
-            Session(++counter, title, cleanupTail).also { session = it; _state.value = StreamState.FetchingMetadata }
+            Session(++counter, title, cleanupTail, episode).also { session = it; _state.value = StreamState.FetchingMetadata }
         }
         val worker = scope.launch(start = CoroutineStart.LAZY) {
                 guarded(s) {
@@ -132,6 +135,8 @@ class StreamManager(
                             if (!isCurrent(s)) throw CancellationException("Session replaced")
                             cache?.initialize()
                             if (expectedHash != null) {
+                                // Another release starts: drop held season files, keep this one's.
+                                cache?.discardHeld(except = expectedHash)
                                 cache?.acquire(expectedHash)
                                 s.acquired = cache != null
                                 s.setHash(expectedHash)
@@ -154,6 +159,7 @@ class StreamManager(
                                 check(expectedHash == null || expectedHash == it) { "Torrent hash changed" }
                                 s.setHash(it)
                                 if (!s.acquired) {
+                                    cache?.discardHeld(except = it)
                                     cache?.acquire(it)
                                     s.acquired = cache != null
                                 }
@@ -169,6 +175,20 @@ class StreamManager(
                     }
                     val videos = videoFiles(all)
                     s.files = videos
+                    val episode = s.episode
+                    if (episode != null) {
+                        val found = dev.gamspi.videogallery.stream.episodeFiles(all, episode.season)
+                        s.episodeFiles = found
+                        val match = found.firstOrNull { it.ref == episode }
+                        if (match != null) {
+                            buffer(s, hash, match.fileIndex)
+                        } else {
+                            synchronized(lock) {
+                                if (session === s) _state.value = StreamState.EpisodeMissing(found)
+                            }
+                        }
+                        return@guarded
+                    }
                     when {
                         videos.isEmpty() -> fail(s, "Видеофайлы не найдены")
                         videos.size == 1 -> buffer(s, hash, videos[0].index)
@@ -255,6 +275,14 @@ class StreamManager(
         null
     }
 
+    /** Episode files of the current session (empty for movies or before metadata). */
+    fun episodeFiles(): List<EpisodeFile> = synchronized(lock) { session?.episodeFiles.orEmpty() }
+
+    /** Releases the season hold; on exit the files follow the normal retention rules. */
+    fun finishRelease(sessionId: Long) {
+        synchronized(lock) { session?.takeIf { it.id == sessionId }?.hold = false }
+    }
+
     fun chooseFile(index: Int) {
         synchronized(lock) {
             val s = session ?: return
@@ -322,7 +350,8 @@ class StreamManager(
                         engine.removeAndAwait(hash, deleteFiles = cache == null)
                         if (s.acquired) {
                             val prefs = storagePrefs()
-                            cache?.release(hash, prefs.keepAfterPlayback, prefs.limitBytes)
+                            val hold = s.episode != null && s.hold
+                            cache?.release(hash, prefs.keepAfterPlayback, prefs.limitBytes, hold)
                         }
                     } catch (e: CancellationException) {
                         cleanupFailure = TorrentStorageException("Не удалось остановить раздачу. Перезапустите приложение", e)

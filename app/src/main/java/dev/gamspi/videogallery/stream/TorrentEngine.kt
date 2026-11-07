@@ -48,6 +48,8 @@ sealed interface StreamState {
     data object Idle : StreamState
     data object FetchingMetadata : StreamState
     data class ChooseFile(val files: List<TorrentFile>) : StreamState
+    /** The requested episode is not in this release; [files] are the episodes it has. */
+    data class EpisodeMissing(val files: List<EpisodeFile>) : StreamState
     data class Buffering(val percent: Int, val status: String) : StreamState
     data class Ready(val url: String, val key: String, val title: String) : StreamState
     data class Failed(val message: String) : StreamState

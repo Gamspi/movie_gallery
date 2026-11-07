@@ -224,6 +224,75 @@ class TorrentCacheStoreTest {
         cache.acquire(b)
     }
 
+    private suspend fun hold(store: TorrentCacheStore, root: File, hash: String, size: Int, limitBytes: Long = limit) {
+        store.acquire(hash)
+        store.select(hash, 0, "movie.mkv", size.toLong(), limitBytes)
+        File(root, "$hash/movie.mkv").writeBytes(ByteArray(size))
+        store.release(hash, false, limitBytes, hold = true)
+    }
+
+    @Test fun held_entry_survives_release_and_is_discarded_except_named_hash() = runTest {
+        val root = temp.newFolder()
+        val cache = store(root)
+        hold(cache, root, a, 100)
+        hold(cache, root, b, 100)
+        retain(cache, root, c, 100)
+        assertTrue(File(root, "$a/movie.mkv").exists())
+        cache.discardHeld(except = a)
+        assertTrue(File(root, "$a/movie.mkv").exists())
+        assertFalse(File(root, b).exists())
+        assertTrue(File(root, "$c/movie.mkv").exists())
+        cache.discardHeld(except = null)
+        assertFalse(File(root, a).exists())
+        assertTrue(File(root, "$c/movie.mkv").exists())
+    }
+
+    @Test fun keep_wins_over_hold_and_reacquired_held_entry_is_reused() = runTest {
+        val root = temp.newFolder()
+        val cache = store(root)
+        hold(cache, root, a, 100)
+        cache.acquire(a)
+        cache.select(a, 0, "movie.mkv", 100, limit)
+        cache.release(a, true, limit, hold = true)
+        cache.discardHeld(except = null)
+        assertTrue(File(root, "$a/movie.mkv").exists())
+    }
+
+    @Test fun heldIsEvictedByLimitButNotWhileActive() = runTest {
+        val root = temp.newFolder()
+        var clock = 1L
+        val cache = store(root, now = { clock++ })
+        hold(cache, root, a, 100)
+        cache.acquire(a)
+        cache.acquire(b)
+        expectStorageFailure { cache.select(b, 0, "movie.mkv", 100, 150) }
+        assertTrue(File(root, "$a/movie.mkv").exists())
+        cache.release(a, false, limit, hold = true)
+        cache.select(b, 0, "movie.mkv", 100, 150)
+        assertFalse(File(root, a).exists())
+        assertTrue(File(root, b).exists())
+    }
+
+    @Test fun heldFlagSurvivesIndexReload() = runTest {
+        val root = temp.newFolder()
+        hold(store(root), root, a, 100)
+        assertTrue(File(root, ".cache-index.json").readText().contains("\"held\":true"))
+        val reloaded = store(root)
+        reloaded.initialize()
+        assertTrue(File(root, "$a/movie.mkv").exists())
+        reloaded.discardHeld(except = null)
+        assertFalse(File(root, a).exists())
+
+        val legacyRoot = temp.newFolder()
+        File(legacyRoot, "$b/movie.mkv").apply { requireNotNull(parentFile).mkdirs(); writeBytes(ByteArray(10)) }
+        File(legacyRoot, ".cache-index.json")
+            .writeText("""[{"hash":"$b","files":[{"index":0,"path":"movie.mkv","size":10}],"lastUsed":1}]""")
+        val legacy = store(legacyRoot)
+        legacy.discardHeld(except = null)
+        assertTrue(File(legacyRoot, "$b/movie.mkv").exists())
+        assertEquals(10L, legacy.usedBytes())
+    }
+
     private suspend fun expectStorageFailure(block: suspend () -> Unit) {
         try {
             block()

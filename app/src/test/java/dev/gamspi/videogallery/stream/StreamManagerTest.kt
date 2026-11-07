@@ -1,10 +1,19 @@
 package dev.gamspi.videogallery.stream
 
+import dev.gamspi.videogallery.settings.TorrentStoragePrefs
 import java.io.File
 import java.net.Socket
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.job
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
@@ -15,6 +24,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -257,6 +267,138 @@ class StreamManagerTest {
         assertTrue(sm.state.value is StreamState.Ready)
         assertTrue(engine.removed.isEmpty())
         sm.stop()
+    }
+
+    private val episodes = listOf(
+        TorrentFile(0, "Show/Show.S01E01.mkv", 60 * mib),
+        TorrentFile(1, "Show/Show.S01E02.mkv", 60 * mib),
+    )
+
+    @Test fun episodeStartPicksMatchingFile() = runTest {
+        engine.files = episodes
+        val sm = manager()
+        sm.start("magnet:ser", "Show", episode = EpisodeRef(1, 2))
+        runCurrent()
+        assertTrue("was ${sm.state.value}", sm.state.value is StreamState.Buffering)
+        assertEquals(listOf("ser" to 1), engine.selected)
+        assertEquals(listOf(EpisodeFile(EpisodeRef(1, 1), 0), EpisodeFile(EpisodeRef(1, 2), 1)), sm.episodeFiles())
+        sm.stop()
+    }
+
+    @Test fun episodeMissingEmitsState() = runTest {
+        engine.files = episodes
+        val sm = manager()
+        sm.start("magnet:ser", "Show", episode = EpisodeRef(1, 5))
+        runCurrent()
+        assertEquals(
+            StreamState.EpisodeMissing(listOf(EpisodeFile(EpisodeRef(1, 1), 0), EpisodeFile(EpisodeRef(1, 2), 1))),
+            sm.state.value,
+        )
+        assertTrue(engine.selected.isEmpty())
+        engine.files = listOf(TorrentFile(0, "a.rar", 10 * mib))
+        sm.start("magnet:nov", "Show", episode = EpisodeRef(1, 1))
+        runCurrent()
+        assertEquals(StreamState.EpisodeMissing(emptyList()), sm.state.value)
+        sm.stop()
+    }
+
+    private val heldHash = "a".repeat(40)
+    private val otherHash = "b".repeat(40)
+
+    /** Real dispatchers: the cache does its file work on IO. */
+    private inner class CacheFixture(keep: Boolean = false) {
+        val root = File(dir, "torrents")
+        val cache = TorrentCacheStore(root)
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val manager = StreamManager(engine, StreamServer(scope), dir, scope, tickMs = 20,
+            cache = cache, storagePrefs = { TorrentStoragePrefs(keep, 100) })
+
+        init {
+            engine.files = episodes
+            engine.have += 0..200
+        }
+
+        fun payload(hash: String) = File(root, "$hash/Show/Show.S01E01.mkv")
+
+        suspend fun play(hash: String, title: String, episode: EpisodeRef?) {
+            manager.start("magnet:$hash", title, episode = episode)
+            // A movie with several videos stops at ChooseFile; the cache work is already done.
+            withTimeout(5_000) {
+                manager.state.first { (it is StreamState.Ready && it.title == title) || it is StreamState.ChooseFile }
+            }
+        }
+
+        suspend fun playHeld() {
+            play(heldHash, "Ep1", EpisodeRef(1, 1))
+            payload(heldHash).apply { requireNotNull(parentFile).mkdirs(); writeText("ep") }
+            manager.stop()
+            drain()
+        }
+
+        suspend fun drain() = withTimeout(5_000) {
+            while (scope.coroutineContext.job.children.any()) {
+                scope.coroutineContext.job.children.toList().forEach { it.join() }
+            }
+        }
+
+        suspend fun close() {
+            manager.stop()
+            try { drain() } finally { scope.cancel() }
+        }
+    }
+
+    @Test fun seriesSessionIsHeldOnExit() = runBlocking<Unit> {
+        val f = CacheFixture()
+        try {
+            f.playHeld()
+            assertTrue(f.payload(heldHash).exists())
+            assertTrue(File(f.root, ".cache-index.json").readText().contains("\"held\":true"))
+        } finally { f.close() }
+    }
+
+    @Test fun keepAfterPlaybackSessionIsRetainedNotHeld() = runBlocking<Unit> {
+        val f = CacheFixture(keep = true)
+        try {
+            f.playHeld()
+            assertTrue(f.payload(heldHash).exists())
+            assertFalse(File(f.root, ".cache-index.json").readText().contains("held"))
+        } finally { f.close() }
+    }
+
+    @Test fun startingOtherHashDiscardsHeld() = runBlocking<Unit> {
+        for (episode in listOf(null, EpisodeRef(1, 1))) {
+            val f = CacheFixture()
+            try {
+                f.playHeld()
+                f.play(otherHash, "Other", episode)
+                assertFalse("episode=$episode", File(f.root, heldHash).exists())
+            } finally { f.close() }
+            dir.listFiles()?.forEach { it.deleteRecursively() }
+        }
+    }
+
+    @Test fun sameHashKeepsHeld() = runBlocking<Unit> {
+        val f = CacheFixture()
+        try {
+            f.playHeld()
+            f.play(heldHash, "Ep2", EpisodeRef(1, 2))
+            assertTrue(f.payload(heldHash).exists())
+            f.manager.stop()
+            f.drain()
+            assertTrue(f.payload(heldHash).exists())
+        } finally { f.close() }
+    }
+
+    @Test fun finishReleaseDeletesOnExit() = runBlocking<Unit> {
+        val f = CacheFixture()
+        try {
+            f.play(heldHash, "Ep2", EpisodeRef(1, 2))
+            f.payload(heldHash).apply { requireNotNull(parentFile).mkdirs(); writeText("ep") }
+            f.manager.finishRelease(f.manager.currentSessionId())
+            f.manager.stop()
+            f.drain()
+            assertFalse(File(f.root, heldHash).exists())
+        } finally { f.close() }
     }
 
     private fun source(span: FileSpan = FileSpan(3 * mib, 100 * mib, 1024 * 1024)) =
