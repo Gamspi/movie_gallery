@@ -107,9 +107,15 @@ class ReleasesViewModel @Inject constructor(
     private val season = savedStateHandle.get<String>("season")?.toIntOrNull()
     private val episode = savedStateHandle.get<String>("episode")?.toIntOrNull()
     /** «В раздаче нет SxxEyy» when the screen was reached because the episode was missing from a release. */
-    val missingNote: StateFlow<String?> = savedStateHandle.getStateFlow("missing", "")
-        .map { if (it == "1" && season != null && episode != null) missingEpisodeNote(season, episode) else null }
+    private val missing = MutableStateFlow(savedStateHandle.get<String>("missing") == "1")
+    val missingNote: StateFlow<String?> = missing
+        .map { if (it && season != null && episode != null) missingEpisodeNote(season, episode) else null }
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /** Turns the missing-episode note on when the screen is revealed by popping back from the stream. */
+    fun markEpisodeMissing() {
+        missing.value = true
+    }
     private val _state = MutableStateFlow<ReleasesUiState>(ReleasesUiState.Loading)
     val state: StateFlow<ReleasesUiState> = _state
     private var job: Job? = null

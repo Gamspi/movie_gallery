@@ -27,6 +27,7 @@ import dev.gamspi.videogallery.details.DetailsScreen
 import dev.gamspi.videogallery.gallery.GalleryScreen
 import dev.gamspi.videogallery.player.PlayerScreen
 import dev.gamspi.videogallery.releases.ReleasesScreen
+import dev.gamspi.videogallery.releases.ReleasesViewModel
 import dev.gamspi.videogallery.search.SearchScreen
 import dev.gamspi.videogallery.settings.KEY_SERVICE_ROUTE
 import dev.gamspi.videogallery.settings.KeyServiceScreen
@@ -162,7 +163,18 @@ fun AppNavHost() {
             navArgument("episode") { type = NavType.StringType; defaultValue = "" },
             navArgument("missing") { type = NavType.StringType; defaultValue = "" },
         )) { entry ->
+            val viewModel = hiltViewModel<ReleasesViewModel>()
+            LaunchedEffect(entry) {
+                // The stream screen flags the entry handle; the ViewModel has its own handle.
+                entry.savedStateHandle.getStateFlow("missing", "").collect {
+                    if (it == "1") {
+                        viewModel.markEpisodeMissing()
+                        entry.savedStateHandle["missing"] = ""
+                    }
+                }
+            }
             ReleasesScreen(
+                viewModel = viewModel,
                 onOpenKeySettings = { nav.navigateOnce(entry, settingsRoute(SettingsSection.Keys)) },
                 onOpenSettings = { nav.navigateOnce(entry, SETTINGS_HOME_ROUTE) },
                 onPlay = { r, meta -> nav.navigateOnce(entry, streamRoute(r.title, meta)) },

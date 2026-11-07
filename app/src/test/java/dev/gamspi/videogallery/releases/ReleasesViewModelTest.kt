@@ -424,4 +424,26 @@ class ReleasesViewModelTest {
         )
         assertNull(plain.missingNote.value)
     }
+
+    @Test fun markEpisodeMissing_turnsNoteOn() = runTest {
+        val vm = ReleasesViewModel(
+            repo, TorrentSearch({ emptyList() }), settings(),
+            SavedStateHandle(mapOf("id" to 5, "kind" to "Series", "season" to "2", "episode" to "1")),
+        )
+        advanceUntilIdle()
+        assertNull(vm.missingNote.value)
+        vm.markEpisodeMissing()
+        advanceUntilIdle()
+        assertEquals("В раздаче нет S02E01", vm.missingNote.value)
+    }
+
+    @Test fun markEpisodeMissing_withoutEpisode_staysNull() = runTest {
+        val vm = ReleasesViewModel(
+            repo, TorrentSearch({ emptyList() }), settings(),
+            SavedStateHandle(mapOf("id" to 5, "kind" to "Series", "season" to "2")),
+        )
+        vm.markEpisodeMissing()
+        advanceUntilIdle()
+        assertNull(vm.missingNote.value)
+    }
 }
