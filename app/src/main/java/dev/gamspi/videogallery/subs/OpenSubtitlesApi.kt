@@ -40,6 +40,14 @@ data class SubtitleAttributesDto(
     @SerialName("download_count") val downloadCount: Int = 0,
     @SerialName("moviehash_match") val moviehashMatch: Boolean = false,
     val files: List<SubtitleFileDto> = emptyList(),
+    @SerialName("feature_details") val featureDetails: FeatureDetailsDto? = null,
+)
+
+/** Feature the subtitle belongs to; parent ids are set for episodes. */
+@Serializable
+data class FeatureDetailsDto(
+    @SerialName("imdb_id") val imdbId: Long? = null,
+    @SerialName("parent_imdb_id") val parentImdbId: Long? = null,
 )
 
 @Serializable

@@ -29,4 +29,14 @@ class CardBadgesTest {
         assertNull(visibleProgress(1f))
         assertNull(visibleProgress(-0.1f))
     }
+
+    @Test
+    fun cardProgressFill_raisesSmallProgressToMinimum() {
+        // 1:30 of 2:32:13 is about 1%: still drawn with the minimum share.
+        assertEquals(MIN_CARD_PROGRESS, cardProgressFill(90f / 9133f))
+        assertEquals(0.5f, cardProgressFill(0.5f))
+        assertNull(cardProgressFill(null))
+        assertNull(cardProgressFill(0f))
+        assertNull(cardProgressFill(1f))
+    }
 }

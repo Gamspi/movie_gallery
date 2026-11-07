@@ -29,6 +29,8 @@ data class RemoteSubtitle(
     val release: String,
     val hashMatch: Boolean,
     val downloads: Int,
+    /** IMDb ids (numeric) of the subtitle's feature and its parent; empty when unknown. */
+    val featureImdbIds: Set<Long> = emptySet(),
 )
 
 interface SubtitleSettingsSource {
@@ -83,7 +85,9 @@ class OpenSubtitlesClient(
 
         val exactResult = searchRequest(fileHash, null, requested)
         if (exactResult !is SubsResult.Ok) return exactResult
-        val exact = exactResult.value.filter { it.hashMatch }
+        // A hash collision can return another movie: drop exact matches whose feature IMDb id is known and differs.
+        val expected = imdb?.toLongOrNull()
+        val exact = exactResult.value.filter { it.hashMatch && sameFeature(it, expected) }
         val missing = requested.filter { language -> exact.none { sameLanguage(language, it.language) } }
         if (missing.isEmpty() || imdb == null) return SubsResult.Ok(exact)
 
@@ -114,10 +118,16 @@ class OpenSubtitlesClient(
             val a = item.attributes
             if (languages.none { sameLanguage(it, a.language) }) return@mapNotNull null
             val file = a.files.firstOrNull() ?: return@mapNotNull null
-            RemoteSubtitle(file.fileId, a.language.orEmpty(), a.release.orEmpty(), a.moviehashMatch, a.downloadCount)
+            val feature = listOfNotNull(a.featureDetails?.imdbId, a.featureDetails?.parentImdbId)
+                .filter { it > 0 }.toSet()
+            RemoteSubtitle(file.fileId, a.language.orEmpty(), a.release.orEmpty(), a.moviehashMatch, a.downloadCount, feature)
         }
         SubsResult.Ok(sortSubtitles(list))
     }
+
+    /** True when the feature IMDb id is unknown on either side or matches the movie (or its parent). */
+    private fun sameFeature(subtitle: RemoteSubtitle, expected: Long?): Boolean =
+        expected == null || subtitle.featureImdbIds.isEmpty() || expected in subtitle.featureImdbIds
 
     private fun sortSubtitles(list: List<RemoteSubtitle>): List<RemoteSubtitle> = list
         .sortedWith(compareByDescending<RemoteSubtitle> { it.hashMatch }.thenByDescending { it.downloads })

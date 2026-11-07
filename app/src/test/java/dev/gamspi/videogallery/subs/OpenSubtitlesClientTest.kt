@@ -132,6 +132,46 @@ class OpenSubtitlesClientTest {
         assertEquals("en", result.value.first().language)
     }
 
+    private fun featureJson(id: Long, match: Boolean, imdb: Long?) =
+        """{"attributes":{"language":"en","moviehash_match":$match,"download_count":$id,"files":[{"file_id":$id}]""" +
+            (imdb?.let { ""","feature_details":{"imdb_id":$it}""" } ?: "") + "}}"
+
+    @Test fun search_hash_match_of_other_imdb_is_dropped_and_falls_back() = runBlocking {
+        // Collision: Doctor Strange (3498820) and Maze Runner (4046784) for The Dark Knight (468569).
+        server.enqueue(MockResponse.Builder().body(
+            """{"data":[${featureJson(500, true, 3498820)},${featureJson(400, true, 4046784)}]}""").build())
+        server.enqueue(MockResponse.Builder().body(
+            """{"data":[${featureJson(2, false, 468569)},${featureJson(1, false, 468569)}]}""").build())
+        val result = client().search("abc", "tt0468569", listOf("en")) as SubsResult.Ok
+        assertEquals(listOf(2L, 1L), result.value.map { it.fileId })
+        server.takeRequest()
+        assertEquals("468569", server.takeRequest().url.queryParameter("imdb_id"))
+    }
+
+    @Test fun search_hash_match_of_same_imdb_still_wins() = runBlocking {
+        server.enqueue(MockResponse.Builder().body(
+            """{"data":[${featureJson(500, true, 3498820)},${featureJson(3, true, 468569)}]}""").build())
+        val result = client().search("abc", "tt0468569", listOf("en")) as SubsResult.Ok
+        assertEquals(listOf(3L), result.value.map { it.fileId })
+        assertTrue(result.value.first().hashMatch)
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test fun search_hash_match_with_unknown_imdb_is_kept() = runBlocking {
+        server.enqueue(MockResponse.Builder().body(
+            """{"data":[${featureJson(5, true, null)}]}""").build())
+        val result = client().search("abc", "tt0468569", listOf("en")) as SubsResult.Ok
+        assertEquals(listOf(5L), result.value.map { it.fileId })
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test fun search_without_movie_imdb_keeps_any_hash_match() = runBlocking {
+        server.enqueue(MockResponse.Builder().body(
+            """{"data":[${featureJson(5, true, 3498820)}]}""").build())
+        val result = client().search("abc", null, listOf("en")) as SubsResult.Ok
+        assertEquals(listOf(5L), result.value.map { it.fileId })
+    }
+
     @Test fun search_first_request_limit_does_not_retry_imdb() = runBlocking {
         server.enqueue(MockResponse.Builder().code(429).build())
         assertEquals(SubsResult.LimitReached, client().search("abc", "tt1", listOf("en", "ru")))

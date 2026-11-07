@@ -18,6 +18,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -98,10 +100,13 @@ fun MovieCard(movie: Movie, onClick: () -> Unit, modifier: Modifier = Modifier, 
                             .padding(horizontal = 6.dp, vertical = 2.dp),
                     )
                 }
-                visibleProgress(progress)?.let { share ->
-                    Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(4.dp).background(ProgressTrack)) {
-                        Box(Modifier.fillMaxWidth(share).height(4.dp).background(AppColors.Accent))
-                    }
+                cardProgressFill(progress)?.let { share ->
+                    // Fill is drawn in the draw phase; the minimum share keeps ~1% progress visible.
+                    Box(
+                        Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(4.dp)
+                            .background(ProgressTrack)
+                            .drawBehind { drawRect(AppColors.Accent, size = Size(size.width * share, size.height)) },
+                    )
                 }
             }
         }
