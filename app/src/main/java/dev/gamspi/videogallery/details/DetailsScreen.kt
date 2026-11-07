@@ -28,6 +28,8 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
 import dev.gamspi.videogallery.catalog.model.MovieDetails
+import dev.gamspi.videogallery.history.PlaybackMeta
+import dev.gamspi.videogallery.stream.EpisodeRef
 import dev.gamspi.videogallery.ui.components.ErrorView
 import dev.gamspi.videogallery.ui.components.FullScreenLoader
 import dev.gamspi.videogallery.ui.components.AccentButton
@@ -37,13 +39,31 @@ fun DetailsScreen(
     onOpenKeySettings: () -> Unit,
     onOpenSettings: () -> Unit,
     onWatch: () -> Unit,
+    onStream: (releaseTitle: String, meta: PlaybackMeta) -> Unit = { _, _ -> },
+    onPickRelease: (season: Int, episode: Int) -> Unit = { _, _ -> },
     viewModel: DetailsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     when (val s = state) {
         DetailsUiState.Loading -> FullScreenLoader()
         is DetailsUiState.Error -> ErrorView(s.kind, onRetry = viewModel::retry, onOpenKeySettings = onOpenKeySettings, onOpenSettings = onOpenSettings)
-        is DetailsUiState.Content -> DetailsContent(s.details, onWatch)
+        is DetailsUiState.Content -> if (s.seasons.isEmpty()) {
+            DetailsContent(s.details, onWatch)
+        } else {
+            val play = { ref: EpisodeRef ->
+                when (val t = viewModel.playTarget(ref)) {
+                    is PlayTarget.Stream -> onStream(t.releaseTitle, t.meta)
+                    is PlayTarget.PickRelease -> onPickRelease(ref.season, ref.episode)
+                }
+            }
+            SeriesDetailsContent(
+                s,
+                onSelectSeason = viewModel::selectSeason,
+                onRetryEpisodes = viewModel::retryEpisodes,
+                onPlay = play,
+                onPickSeason = { season -> onPickRelease(season, viewModel.releaseEpisode(season)) },
+            )
+        }
     }
 }
 

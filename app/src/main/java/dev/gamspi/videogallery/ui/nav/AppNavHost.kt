@@ -108,7 +108,13 @@ fun AppNavHost() {
             exitTransition = { ExitTransition.None },
             popEnterTransition = { EnterTransition.None },
             popExitTransition = { ExitTransition.None },
-        ) { PlayerScreen(onBack = { nav.popBackStack() }) }
+        ) { entry ->
+            val series = entry.arguments?.getString("kind") == MediaKind.Series.name
+            PlayerScreen(onBack = {
+                // A series episode returns to the card (focus on the episode), skipping the releases list.
+                if (!series || !nav.popBackStack(MOVIE_ROUTE, inclusive = false)) nav.popBackStack()
+            })
+        }
         composable("search") { entry ->
             SearchScreen(
                 onOpenMovie = { nav.navigateOnce(entry, movieRoute(it)) },
@@ -128,12 +134,18 @@ fun AppNavHost() {
                         ?: MediaKind.Movie
                     nav.navigateOnce(entry, releasesRoute(checkNotNull(entry.arguments).getInt("id"), kind))
                 },
+                onStream = { title, meta -> nav.navigateOnce(entry, streamRoute(title, meta)) },
+                onPickRelease = { season, episode ->
+                    val id = checkNotNull(entry.arguments).getInt("id")
+                    nav.navigateOnce(entry, releasesRoute(id, MediaKind.Series, season, episode))
+                },
             )
         }
         composable(RELEASES_ROUTE, arguments = listOf(
             navArgument("id") { type = NavType.IntType },
             navArgument("kind") { type = NavType.StringType; defaultValue = MediaKind.Movie.name },
             navArgument("season") { type = NavType.StringType; defaultValue = "" },
+            navArgument("episode") { type = NavType.StringType; defaultValue = "" },
         )) { entry ->
             ReleasesScreen(
                 onOpenKeySettings = { nav.navigateOnce(entry, settingsRoute(SettingsSection.Keys)) },
@@ -156,9 +168,23 @@ fun AppNavHost() {
                 onBack = { nav.popBackStack() },
                 onEpisodeMissing = { season ->
                     val id = entry.arguments?.getString("movieId")?.toIntOrNull() ?: 0
+                    val episode = entry.arguments?.getString("episode")?.toIntOrNull()
                     if (id > 0) {
-                        nav.navigateOnce(entry, releasesRoute(id, MediaKind.Series, season)) {
-                            popUpTo(STREAM_ROUTE) { inclusive = true }
+                        // Reuse the releases entry already below the stream instead of stacking a duplicate.
+                        val below = runCatching { nav.getBackStackEntry(RELEASES_ROUTE) }.getOrNull()?.takeIf {
+                            val a = it.arguments
+                            a != null && a.getInt("id") == id &&
+                                a.getString("season").orEmpty() == season?.toString().orEmpty() &&
+                                a.getString("episode").orEmpty() == episode?.toString().orEmpty()
+                        }
+                        if (below != null) {
+                            if (entry.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                                nav.popBackStack(RELEASES_ROUTE, inclusive = false)
+                            }
+                        } else {
+                            nav.navigateOnce(entry, releasesRoute(id, MediaKind.Series, season, episode)) {
+                                popUpTo(STREAM_ROUTE) { inclusive = true }
+                            }
                         }
                     } else {
                         nav.popBackStack()

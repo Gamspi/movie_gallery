@@ -144,6 +144,67 @@ class ReleasesViewModelTest {
         assertEquals(listOf(MediaKind.Series), repo.kindCalls)
     }
 
+    private fun seriesVm(
+        vararg results: TorrentResult,
+        extra: Map<String, Any> = emptyMap(),
+    ): ReleasesViewModel {
+        repo.detailsResult = {
+            details.copy(
+                movie = movie.copy(kind = MediaKind.Series),
+                seasons = listOf(
+                    dev.gamspi.videogallery.catalog.model.SeasonInfo(1, 8),
+                    dev.gamspi.videogallery.catalog.model.SeasonInfo(2, 10),
+                ),
+            )
+        }
+        return ReleasesViewModel(
+            repo, TorrentSearch({ listOf(Fake(ProviderId.Apibay) { results.toList() }) }), settings(),
+            SavedStateHandle(mapOf("id" to 5, "kind" to "Series", "season" to "2") + extra),
+        )
+    }
+
+    @Test
+    fun seasonSortsBySeasonRankThenSeeds() = runTest {
+        fun t(title: String, seeds: Int, hash: String) = r(hash, seeds, null).copy(title = title)
+        val vm = seriesVm(
+            t("Show S01", 90, "a"), t("Show", 50, "b"), t("Show S02", 5, "c"), t("Show S02 1080p", 7, "d"),
+        )
+        vm.state.test {
+            assertEquals(ReleasesUiState.Loading, awaitItem())
+            val c = awaitItem() as ReleasesUiState.Content
+            assertEquals(listOf("Show S02 1080p", "Show S02", "Show", "Show S01"), c.all.map { it.title })
+        }
+    }
+
+    @Test
+    fun seasonFilterWorksOnTopOfSorting() = runTest {
+        fun t(title: String, seeds: Int, hash: String, q: Quality) = r(hash, seeds, q).copy(title = title)
+        val vm = seriesVm(t("Show S02", 5, "a", Quality.Hd), t("Show S02 1080p", 7, "b", Quality.FullHd), t("Show", 50, "c", Quality.FullHd))
+        vm.state.test {
+            awaitItem()
+            awaitItem()
+            vm.setQuality(Quality.FullHd)
+            val c = awaitItem() as ReleasesUiState.Content
+            assertEquals(listOf("Show S02 1080p", "Show"), c.visible.map { it.title })
+        }
+    }
+
+    @Test
+    fun seriesMetaCarriesEpisodeAndCounts() = runTest {
+        val vm = seriesVm(r("a", 3, null), extra = mapOf("episode" to "4"))
+        vm.state.test {
+            awaitItem()
+            val c = awaitItem() as ReleasesUiState.Content
+            val meta = c.metaFor(c.all.single())
+            assertEquals(MediaKind.Series, meta.kind)
+            assertEquals("PoiskKino", meta.source)
+            assertEquals(2, meta.season)
+            assertEquals(4, meta.episode)
+            assertEquals(10, meta.seasonEpisodes)
+            assertEquals(2, meta.seasonCount)
+        }
+    }
+
     @Test
     fun filter_showsOnlyQuality() = runTest {
         val p = Fake(ProviderId.Apibay) {

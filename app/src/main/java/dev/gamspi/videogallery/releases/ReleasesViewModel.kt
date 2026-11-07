@@ -16,6 +16,7 @@ import dev.gamspi.videogallery.torrents.TorrentResult
 import dev.gamspi.videogallery.torrents.TorrentSearch
 import dev.gamspi.videogallery.torrents.UnavailableReason
 import dev.gamspi.videogallery.torrents.key
+import dev.gamspi.videogallery.torrents.seasonRank
 import dev.gamspi.videogallery.torrents.needsResolve
 import dev.gamspi.videogallery.ui.components.ErrorKind
 import dev.gamspi.videogallery.ui.components.toErrorKind
@@ -46,7 +47,10 @@ sealed interface ReleasesUiState {
         val message: String? = null,
         val source: String? = null,
         val season: Int? = null,
-    ) :ReleasesUiState {
+        val episode: Int? = null,
+        val seasonEpisodes: Int? = null,
+        val seasonCount: Int? = null,
+    ) : ReleasesUiState {
         val visible: List<TorrentResult>
             get() = all.applyFilter(filter, limitBytes)
 
@@ -63,6 +67,9 @@ sealed interface ReleasesUiState {
             kind = movie?.kind ?: MediaKind.Movie,
             source = source,
             season = season,
+            episode = episode,
+            seasonEpisodes = seasonEpisodes,
+            seasonCount = seasonCount,
         )
     }
 
@@ -71,6 +78,10 @@ sealed interface ReleasesUiState {
 
 /** Navigation request to the stream screen with a playable release. */
 data class PlayRequest(val release: TorrentResult, val meta: PlaybackMeta)
+
+/** Releases covering [season] first, then unmarked ones, then other seasons; seeds break ties. */
+internal fun List<TorrentResult>.sortedForSeason(season: Int): List<TorrentResult> =
+    sortedWith(compareBy<TorrentResult> { seasonRank(it.title, season) }.thenByDescending { it.seeders })
 
 const val RESOLVE_ERROR = "Не удалось открыть раздачу"
 
@@ -85,6 +96,7 @@ class ReleasesViewModel @Inject constructor(
     private val kind = MediaKind.entries.firstOrNull { it.name == savedStateHandle.get<String>("kind") }
         ?: MediaKind.Movie
     private val season = savedStateHandle.get<String>("season")?.toIntOrNull()
+    private val episode = savedStateHandle.get<String>("episode")?.toIntOrNull()
     private val _state = MutableStateFlow<ReleasesUiState>(ReleasesUiState.Loading)
     val state: StateFlow<ReleasesUiState> = _state
     private var job: Job? = null
@@ -173,7 +185,7 @@ class ReleasesViewModel @Inject constructor(
                 val outcome = search.search(details, season)
                 ReleasesUiState.Content(
                     movieTitle = details.movie.title,
-                    all = outcome.results,
+                    all = if (season == null) outcome.results else outcome.results.sortedForSeason(season),
                     filter = if (settings.rememberReleaseFilter.value) settings.savedReleaseFilter() else ReleaseFilter(),
                     limitBytes = settings.torrentStoragePrefs.value.limitBytes,
                     unavailable = outcome.unavailable,
@@ -183,6 +195,9 @@ class ReleasesViewModel @Inject constructor(
                     movie = details.movie,
                     source = source,
                     season = season,
+                    episode = episode,
+                    seasonEpisodes = details.seasons.firstOrNull { it.number == season }?.episodeCount,
+                    seasonCount = details.seasons.count { it.episodeCount > 0 }.takeIf { season != null },
                 )
             } catch (e: CancellationException) {
                 throw e
