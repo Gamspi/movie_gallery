@@ -131,7 +131,7 @@ fun AppNavHost() {
         }
         composable("search") { entry ->
             SearchScreen(
-                onOpenMovie = { nav.navigateOnce(entry, movieRoute(it)) },
+                onOpenMovie = { id, kind -> nav.navigateOnce(entry, movieRoute(id, kind)) },
                 onOpenKeySettings = { nav.navigateOnce(entry, settingsRoute(SettingsSection.Keys)) },
                 onOpenSettings = { nav.navigateOnce(entry, SETTINGS_HOME_ROUTE) },
             )

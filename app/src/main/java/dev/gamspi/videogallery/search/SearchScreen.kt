@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -34,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
@@ -42,6 +44,8 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import dev.gamspi.videogallery.catalog.model.MediaKind
+import dev.gamspi.videogallery.ui.components.AccentButton
 import dev.gamspi.videogallery.ui.components.CatMascot
 import dev.gamspi.videogallery.ui.components.CatPose
 import dev.gamspi.videogallery.ui.components.ErrorView
@@ -51,13 +55,16 @@ import dev.gamspi.videogallery.ui.components.SkeletonGrid
 
 @Composable
 fun SearchScreen(
-    onOpenMovie: (Int) -> Unit,
+    onOpenMovie: (Int, MediaKind) -> Unit,
     onOpenKeySettings: () -> Unit,
     onOpenSettings: () -> Unit,
     viewModel: SearchViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val kind by viewModel.kind.collectAsStateWithLifecycle()
+    val filterFocus = remember { FocusRequester() }
     var text by rememberSaveable { mutableStateOf("") }
+    var savedKind by rememberSaveable { mutableStateOf(KindFilter.All.name) }
     val fieldFocus = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     // Survives navigation: the last focused result card. Plain holder, so focus moves
@@ -76,6 +83,7 @@ fun SearchScreen(
     }
     LaunchedEffect(Unit) {
         viewModel.onQueryChange(text) // restore the query after process/back-stack restore
+        viewModel.setKind(KindFilter.valueOf(savedKind)) // restore the filter after process death
         // No card to restore (first entry, or return from Settings/Error): focus the field.
         if (restore.movieId == -1) fieldFocus.requestFocus()
     }
@@ -94,18 +102,37 @@ fun SearchScreen(
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { focusFirstCard() }),
             modifier = Modifier.fillMaxWidth().padding(horizontal = 48.dp).focusRequester(fieldFocus).onPreviewKeyEvent {
-                // The field swallows DPAD_DOWN; send it to the first result or the error buttons.
-                val s = state
-                if (it.key == Key.DirectionDown && (s is SearchUiState.Results || s is SearchUiState.Error)) {
-                    if (it.type == KeyEventType.KeyDown) {
-                        if (s is SearchUiState.Error) runCatching { errorFocus.requestFocus() } else focusFirstCard()
-                    }
+                // The field swallows DPAD_DOWN; send it to the filter row.
+                if (it.key == Key.DirectionDown) {
+                    if (it.type == KeyEventType.KeyDown) runCatching { filterFocus.requestFocus() }
                     true
                 } else {
                     false
                 }
             },
         )
+        Row(
+            modifier = Modifier.padding(horizontal = 48.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            for ((filter, label) in FILTERS) {
+                AccentButton(
+                    modifier = (if (kind == filter) Modifier.focusRequester(filterFocus) else Modifier).focusProperties {
+                        up = fieldFocus
+                        down = when (state) {
+                            is SearchUiState.Results -> firstCardFocus
+                            is SearchUiState.Error -> errorFocus
+                            else -> FocusRequester.Cancel
+                        }
+                    },
+                    onClick = {
+                        savedKind = filter.name
+                        viewModel.setKind(filter)
+                    },
+                    selected = kind == filter,
+                ) { Text(label) }
+            }
+        }
         ShimmerHost {
         Box(Modifier.fillMaxSize(), Alignment.Center) {
             // Non-grid states keep the screen gutter; the grid puts it into contentPadding.
@@ -134,7 +161,7 @@ fun SearchScreen(
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    items(s.movies, key = { it.id }) { movie ->
+                    items(s.movies, key = { "${it.kind}-${it.id}" }) { movie ->
                         val ownRequester = remember { FocusRequester() }
                         val requester = if (movie.id == s.movies.first().id) firstCardFocus else ownRequester
                         if (movie.id == restore.movieId && !restore.handled) {
@@ -150,7 +177,7 @@ fun SearchScreen(
                                 .focusRequester(requester)
                                 .onFocusChanged { if (it.hasFocus) memory.movieId = movie.id }
                         }
-                        val onClick = remember(movie.id) { { openMovie(movie.id) } }
+                        val onClick = remember(movie.id, movie.kind) { { openMovie(movie.id, movie.kind) } }
                         MovieCard(movie = movie, onClick = onClick, modifier = cardModifier)
                     }
                 }
@@ -159,6 +186,12 @@ fun SearchScreen(
         }
     }
 }
+
+private val FILTERS = listOf(
+    KindFilter.All to "Все",
+    KindFilter.Movies to "Фильмы",
+    KindFilter.Series to "Сериалы",
+)
 
 /** Last focused result card; plain fields so focus writes stay outside the snapshot system. */
 private class SearchFocusMemory(var movieId: Int = -1) {

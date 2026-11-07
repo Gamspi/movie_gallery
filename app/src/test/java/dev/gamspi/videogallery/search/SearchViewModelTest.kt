@@ -3,6 +3,7 @@ package dev.gamspi.videogallery.search
 import app.cash.turbine.test
 import dev.gamspi.videogallery.catalog.CatalogException
 import dev.gamspi.videogallery.catalog.FakeCatalogRepository
+import dev.gamspi.videogallery.catalog.model.MediaKind
 import dev.gamspi.videogallery.catalog.model.Movie
 import dev.gamspi.videogallery.settings.CatalogSource
 import dev.gamspi.videogallery.settings.FakeSecretStore
@@ -179,6 +180,73 @@ class SearchViewModelTest {
             vm.onQueryChange("")
             advanceTimeBy(500)
             assertEquals(SearchUiState.Idle, awaitItem())
+        }
+        assertEquals(listOf("abc"), repo.searchCalls)
+    }
+
+    private fun series(id: Int) = movie(id).copy(kind = MediaKind.Series)
+
+    @Test
+    fun allShowsMixed() = runTest {
+        repo.searchResult = { listOf(movie(1), series(2)) }
+        val vm = SearchViewModel(repo, settings())
+        assertEquals(KindFilter.All, vm.kind.value)
+        vm.state.test {
+            assertEquals(SearchUiState.Idle, awaitItem())
+            vm.onQueryChange("abc")
+            advanceTimeBy(500)
+            assertEquals(SearchUiState.Loading, awaitItem())
+            assertEquals(SearchUiState.Results(listOf(movie(1), series(2))), awaitItem())
+        }
+    }
+
+    @Test
+    fun seriesFilterKeepsSeriesOnly() = runTest {
+        repo.searchResult = { listOf(movie(1), series(2)) }
+        val vm = SearchViewModel(repo, settings())
+        vm.setKind(KindFilter.Series)
+        vm.state.test {
+            assertEquals(SearchUiState.Idle, awaitItem())
+            vm.onQueryChange("abc")
+            advanceTimeBy(500)
+            assertEquals(SearchUiState.Loading, awaitItem())
+            assertEquals(SearchUiState.Results(listOf(series(2))), awaitItem())
+            vm.setKind(KindFilter.Movies)
+            advanceTimeBy(1)
+            assertEquals(SearchUiState.Results(listOf(movie(1))), awaitItem())
+        }
+    }
+
+    @Test
+    fun filterWithNoMatchesIsEmpty() = runTest {
+        repo.searchResult = { listOf(movie(1)) }
+        val vm = SearchViewModel(repo, settings())
+        vm.setKind(KindFilter.Series)
+        vm.state.test {
+            assertEquals(SearchUiState.Idle, awaitItem())
+            vm.onQueryChange("abc")
+            advanceTimeBy(500)
+            assertEquals(SearchUiState.Loading, awaitItem())
+            assertEquals(SearchUiState.Empty, awaitItem())
+        }
+    }
+
+    @Test
+    fun changingFilterDoesNotRefetch() = runTest {
+        repo.searchResult = { listOf(movie(1), series(2)) }
+        val vm = SearchViewModel(repo, settings())
+        vm.state.test {
+            assertEquals(SearchUiState.Idle, awaitItem())
+            vm.onQueryChange("abc")
+            advanceTimeBy(500)
+            assertEquals(SearchUiState.Loading, awaitItem())
+            assertEquals(SearchUiState.Results(listOf(movie(1), series(2))), awaitItem())
+            vm.setKind(KindFilter.Series)
+            advanceTimeBy(1_000)
+            assertEquals(SearchUiState.Results(listOf(series(2))), awaitItem())
+            vm.setKind(KindFilter.All)
+            advanceTimeBy(1_000)
+            assertEquals(SearchUiState.Results(listOf(movie(1), series(2))), awaitItem())
         }
         assertEquals(listOf("abc"), repo.searchCalls)
     }
