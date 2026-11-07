@@ -80,6 +80,7 @@ fun ReleasesScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val play by viewModel.play.collectAsStateWithLifecycle()
+    val missingNote by viewModel.missingNote.collectAsStateWithLifecycle()
     LaunchedEffect(play) {
         val request = play ?: return@LaunchedEffect
         viewModel.onPlayHandled()
@@ -90,6 +91,7 @@ fun ReleasesScreen(
         is ReleasesUiState.Error -> ErrorView(s.kind, onRetry = viewModel::retry, onOpenKeySettings = onOpenKeySettings, onOpenSettings = onOpenSettings)
         is ReleasesUiState.Content -> ReleasesContent(
             s,
+            missingNote,
             FilterActions(
                 viewModel::setQuality,
                 viewModel::toggleProvider,
@@ -113,6 +115,7 @@ private class FilterActions(
 @Composable
 private fun ReleasesContent(
     content: ReleasesUiState.Content,
+    missingNote: String?,
     actions: FilterActions,
     onPlay: (TorrentResult) -> Unit,
 ) {
@@ -174,6 +177,9 @@ private fun ReleasesContent(
                     content.unavailable.joinToString(", ") { unavailableNote(it, content.reasons[it]) },
                     style = MaterialTheme.typography.bodyMedium,
                 )
+            }
+            missingNote?.let {
+                Text(it, style = MaterialTheme.typography.bodyMedium, color = AppColors.Accent)
             }
             content.message?.let {
                 Text(it, style = MaterialTheme.typography.bodyMedium, color = Color(0xFFFF8A80))

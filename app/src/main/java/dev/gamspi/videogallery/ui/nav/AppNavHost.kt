@@ -160,6 +160,7 @@ fun AppNavHost() {
             navArgument("kind") { type = NavType.StringType; defaultValue = MediaKind.Movie.name },
             navArgument("season") { type = NavType.StringType; defaultValue = "" },
             navArgument("episode") { type = NavType.StringType; defaultValue = "" },
+            navArgument("missing") { type = NavType.StringType; defaultValue = "" },
         )) { entry ->
             ReleasesScreen(
                 onOpenKeySettings = { nav.navigateOnce(entry, settingsRoute(SettingsSection.Keys)) },
@@ -193,10 +194,11 @@ fun AppNavHost() {
                         }
                         if (below != null) {
                             if (entry.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                                below.savedStateHandle["missing"] = "1"
                                 nav.popBackStack(RELEASES_ROUTE, inclusive = false)
                             }
                         } else {
-                            nav.navigateOnce(entry, releasesRoute(id, MediaKind.Series, season, episode)) {
+                            nav.navigateOnce(entry, releasesRoute(id, MediaKind.Series, season, episode, missing = true)) {
                                 popUpTo(STREAM_ROUTE) { inclusive = true }
                             }
                         }

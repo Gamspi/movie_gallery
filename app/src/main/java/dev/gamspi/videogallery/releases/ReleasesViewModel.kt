@@ -27,7 +27,10 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -86,6 +89,9 @@ data class PlayRequest(val release: TorrentResult, val meta: PlaybackMeta)
 internal fun List<TorrentResult>.sortedForSeason(season: Int): List<TorrentResult> =
     sortedWith(compareBy<TorrentResult> { seasonRank(it.title, season) }.thenByDescending { it.seeders })
 
+internal fun missingEpisodeNote(season: Int, episode: Int): String =
+    "В раздаче нет S%02dE%02d".format(season, episode)
+
 const val RESOLVE_ERROR = "Не удалось открыть раздачу"
 
 @HiltViewModel
@@ -100,6 +106,10 @@ class ReleasesViewModel @Inject constructor(
         ?: MediaKind.Movie
     private val season = savedStateHandle.get<String>("season")?.toIntOrNull()
     private val episode = savedStateHandle.get<String>("episode")?.toIntOrNull()
+    /** «В раздаче нет SxxEyy» when the screen was reached because the episode was missing from a release. */
+    val missingNote: StateFlow<String?> = savedStateHandle.getStateFlow("missing", "")
+        .map { if (it == "1" && season != null && episode != null) missingEpisodeNote(season, episode) else null }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
     private val _state = MutableStateFlow<ReleasesUiState>(ReleasesUiState.Loading)
     val state: StateFlow<ReleasesUiState> = _state
     private var job: Job? = null

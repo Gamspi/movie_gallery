@@ -410,4 +410,18 @@ class ReleasesViewModelTest {
         assertEquals(listOf(ProviderId.Rutracker), c.unavailable)
         assertEquals(mapOf(ProviderId.Rutracker to UnavailableReason.BadCredentials), c.reasons)
     }
+
+    @Test fun missingNoteShownOnlyWhenFlagged() = runTest {
+        val flagged = ReleasesViewModel(
+            repo, TorrentSearch({ emptyList() }), settings(),
+            SavedStateHandle(mapOf("id" to 5, "kind" to "Series", "season" to "2", "episode" to "5", "missing" to "1")),
+        )
+        advanceUntilIdle()
+        assertEquals("В раздаче нет S02E05", flagged.missingNote.value)
+        val plain = ReleasesViewModel(
+            repo, TorrentSearch({ emptyList() }), settings(),
+            SavedStateHandle(mapOf("id" to 5, "kind" to "Series", "season" to "2", "episode" to "5")),
+        )
+        assertNull(plain.missingNote.value)
+    }
 }
