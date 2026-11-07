@@ -3,9 +3,6 @@ package dev.gamspi.videogallery.settings
 import android.view.KeyEvent
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -37,15 +34,19 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import dev.gamspi.videogallery.torrents.ProviderId
 import dev.gamspi.videogallery.ui.components.AccentButton
+import kotlinx.coroutines.delay
 
 @Composable
 fun SettingsSectionScreen(
@@ -292,9 +293,8 @@ private fun formatOffset(ms: Long): String {
 
 /**
  * Text field safe for D-pad: read-only until OK is pressed, so Up/Down never get trapped.
- * A [secret] value is masked unless the field has focus.
+ * A [secret] value is masked unless being edited.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun TvTextField(
     value: String,
@@ -306,10 +306,28 @@ internal fun TvTextField(
 ) {
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
+    val view = LocalView.current
     var editing by remember { mutableStateOf(false) }
-    // Back closes the IME without onDone; leave edit mode so secrets mask again.
-    val imeVisible = WindowInsets.isImeVisible
-    LaunchedEffect(imeVisible) { if (!imeVisible) editing = false }
+    // Back up of a Back press that ended editing; swallowed so the screen stays open.
+    var swallowBackUp by remember { mutableStateOf(false) }
+    // Back closes the IME without onDone. Compose IME insets need an edge-to-edge window,
+    // so read the root insets directly while editing.
+    LaunchedEffect(editing) {
+        if (!editing) return@LaunchedEffect
+        val tracker = ImeDismissTracker()
+        while (true) {
+            val visible = ViewCompat.getRootWindowInsets(view)?.isVisible(WindowInsetsCompat.Type.ime()) == true
+            if (tracker.onVisibility(visible)) {
+                editing = false
+                break
+            }
+            delay(IME_POLL_MS)
+        }
+    }
+    fun endEdit() {
+        editing = false
+        keyboard?.hide()
+    }
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
@@ -329,30 +347,43 @@ internal fun TvTextField(
                 if (!it.hasFocus) editing = false
             }
             .onPreviewKeyEvent { ev ->
-                if (editing) return@onPreviewKeyEvent false
                 val code = ev.nativeKeyEvent.keyCode
-                val isDown = ev.type == KeyEventType.KeyDown
-                when (code) {
-                    KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> {
-                        if (isDown) {
-                            focusManager.moveFocus(
-                                if (code == KeyEvent.KEYCODE_DPAD_UP) FocusDirection.Up else FocusDirection.Down,
-                            )
-                        }
-                        true
+                if (ev.type == KeyEventType.KeyUp) {
+                    if (code == KeyEvent.KEYCODE_BACK && swallowBackUp) {
+                        swallowBackUp = false
+                        return@onPreviewKeyEvent true
                     }
-                    KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> {
-                        if (isDown) {
-                            editing = true
-                            keyboard?.show()
-                        }
-                        true
-                    }
-                    else -> false
+                    // Up halves of keys handled on down are swallowed too.
+                    return@onPreviewKeyEvent !editing && tvFieldKeyAction(false, code) != TvFieldKeyAction.Pass
                 }
+                if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                when (tvFieldKeyAction(editing, code)) {
+                    TvFieldKeyAction.MoveUp -> focusManager.moveFocus(FocusDirection.Up)
+                    TvFieldKeyAction.MoveDown -> focusManager.moveFocus(FocusDirection.Down)
+                    TvFieldKeyAction.StartEdit -> {
+                        editing = true
+                        keyboard?.show()
+                    }
+                    TvFieldKeyAction.EndEdit -> {
+                        swallowBackUp = true
+                        endEdit()
+                    }
+                    TvFieldKeyAction.EndEditMoveUp -> {
+                        endEdit()
+                        focusManager.moveFocus(FocusDirection.Up)
+                    }
+                    TvFieldKeyAction.EndEditMoveDown -> {
+                        endEdit()
+                        focusManager.moveFocus(FocusDirection.Down)
+                    }
+                    TvFieldKeyAction.Pass -> return@onPreviewKeyEvent false
+                }
+                true
             },
     )
 }
+
+private const val IME_POLL_MS = 150L
 
 @Composable
 private fun SourceButton(

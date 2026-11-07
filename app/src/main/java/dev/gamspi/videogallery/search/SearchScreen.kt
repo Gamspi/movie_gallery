@@ -68,6 +68,7 @@ fun SearchScreen(
     val openMovie by rememberUpdatedState(onOpenMovie)
     val gridState = rememberLazyGridState()
     val firstCardFocus = remember { FocusRequester() }
+    val errorFocus = remember { FocusRequester() }
     // First card if composed, else the nearest focusable below.
     fun focusFirstCard() {
         runCatching { firstCardFocus.requestFocus() }
@@ -93,9 +94,12 @@ fun SearchScreen(
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { focusFirstCard() }),
             modifier = Modifier.fillMaxWidth().padding(horizontal = 48.dp).focusRequester(fieldFocus).onPreviewKeyEvent {
-                // The field swallows DPAD_DOWN; send it to the first result instead.
-                if (it.key == Key.DirectionDown && state is SearchUiState.Results) {
-                    if (it.type == KeyEventType.KeyDown) focusFirstCard()
+                // The field swallows DPAD_DOWN; send it to the first result or the error buttons.
+                val s = state
+                if (it.key == Key.DirectionDown && (s is SearchUiState.Results || s is SearchUiState.Error)) {
+                    if (it.type == KeyEventType.KeyDown) {
+                        if (s is SearchUiState.Error) runCatching { errorFocus.requestFocus() } else focusFirstCard()
+                    }
                     true
                 } else {
                     false
@@ -118,6 +122,8 @@ fun SearchScreen(
                         onOpenSettings = onOpenSettings,
                         autoFocus = false, // do not steal focus from the text field while typing
                         catSize = 88.dp,
+                        entryFocus = errorFocus,
+                        upFocus = fieldFocus,
                     )
                 }
                 is SearchUiState.Results -> LazyVerticalGrid(
