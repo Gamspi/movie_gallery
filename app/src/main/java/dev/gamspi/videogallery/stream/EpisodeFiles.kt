@@ -22,6 +22,7 @@ private val EPISODE_ONLY = listOf(
     Regex("(?<![A-Za-z])E(\\d{1,3})(?!\\d)", CI),
     Regex("(?:\u0441\u0435\u0440\u0438\u044f|\u0441\u0435\u0440\u0438\u0438|episode)[ ._]*(\\d{1,3})(?!\\d)", CI),
 )
+private val BARE_NUMBER = Regex("\\s*(\\d{1,3})\\s*")
 private val FOLDER_SEASON = listOf(
     Regex("(?:season|\u0441\u0435\u0437\u043e\u043d)[ ._]*(\\d{1,2})(?!\\d)", CI),
     Regex("(\\d{1,2})[ ._]*\u0441\u0435\u0437\u043e\u043d", CI),
@@ -51,6 +52,11 @@ private fun refOf(name: String, folders: List<String>, defaultSeason: Int): Epis
     for (re in EPISODE_ONLY) {
         val m = re.find(name) ?: continue
         return EpisodeRef(folderSeason(folders) ?: defaultSeason, m.groupValues[1].toInt())
+    }
+    // A bare number name («01.mkv») counts only when a folder names the season.
+    BARE_NUMBER.matchEntire(name.substringBeforeLast('.'))?.let { m ->
+        val season = folderSeason(folders) ?: return null
+        return EpisodeRef(season, m.groupValues[1].toInt())
     }
     return null
 }

@@ -23,6 +23,23 @@ class EpisodeFilesTest {
         assertEquals(listOf(0, 1, 2, 3), r.map { it.fileIndex })
     }
 
+    @Test fun bareNumberNamesUseSeasonFolder() {
+        val r = episodeFiles(
+            listOf(
+                f(0, "Сезон 2/01.mkv"),
+                f(1, "Show/Season 2/02 .avi"),
+                f(2, "S02/3.mkv"),
+                f(3, "2 сезон/04.mkv"),
+            ),
+            defaultSeason = 1,
+        )
+        assertEquals(listOf(2 to 1, 2 to 2, 2 to 3, 2 to 4), refs(r))
+    }
+
+    @Test fun bareNumberWithoutSeasonFolderIsSkipped() {
+        assertTrue(episodeFiles(listOf(f(0, "01.mkv"), f(1, "Extras/02.mkv")), 1).isEmpty())
+    }
+
     @Test fun skipsSampleAndSmallFiles() {
         val r = episodeFiles(
             listOf(
