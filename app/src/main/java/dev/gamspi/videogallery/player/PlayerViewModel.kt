@@ -558,12 +558,15 @@ class PlayerViewModel internal constructor(
         return afterEpisode(ref, releaseFiles(ref), meta.seasonEpisodes, meta.seasonCount)
     }
 
+    private fun seasonSize(season: Int): Int? =
+        if (season == meta.season) meta.seasonEpisodes ?: meta.sizeOf(season) else meta.sizeOf(season)
+
     /** Route meta for [ref] in this release, resuming silently. */
     fun metaFor(ref: EpisodeRef): PlaybackMeta = meta.copy(
         autoResume = true,
         season = ref.season,
         episode = ref.episode,
-        seasonEpisodes = meta.seasonEpisodes.takeIf { ref.season == meta.season },
+        seasonEpisodes = seasonSize(ref.season),
         episodeTitle = "",
     )
 
@@ -576,7 +579,7 @@ class PlayerViewModel internal constructor(
         seriesStore?.saveProgress(seriesKey, ref, fraction)
         if (fraction < FINISHED_PROGRESS) return
         val files = releaseFiles(ref)
-        if (files.none { it.ref > ref }) finishRelease(sessionId)
+        if (files.isNotEmpty() && files.none { it.ref > ref }) finishRelease(sessionId)
         val history = history ?: return
         when (val next = afterEpisode(ref, files, meta.seasonEpisodes, meta.seasonCount)) {
             is NextStep.SeriesDone -> history.remove("${meta.source ?: "-"}:${MediaKind.Series}:${meta.movieId}")
@@ -604,8 +607,9 @@ class PlayerViewModel internal constructor(
             source = meta.source,
             season = next.season,
             episode = next.episode,
-            seasonEpisodes = meta.seasonEpisodes.takeIf { next.season == meta.season },
+            seasonEpisodes = seasonSize(next.season),
             seasonCount = meta.seasonCount,
+            seasonSizes = meta.seasonSizes,
         ))
     }
 
@@ -632,6 +636,7 @@ class PlayerViewModel internal constructor(
             episode = meta.episode,
             seasonEpisodes = meta.seasonEpisodes,
             seasonCount = meta.seasonCount,
+            seasonSizes = meta.seasonSizes,
         ))
     }
 

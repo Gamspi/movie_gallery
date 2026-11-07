@@ -6,6 +6,7 @@ import dev.gamspi.videogallery.history.WatchEntry
 import java.net.URLDecoder
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -25,10 +26,16 @@ class RoutesTest {
             seasonEpisodes = 8, seasonCount = 4, episodeTitle = "Серия & + ?")
         val streamed = PlaybackMeta.from(query(streamRoute("Сезон", series))::get)
         assertEquals(series, streamed)
+        val sized = series.copy(seasonSizes = "10,8,12")
+        assertEquals(sized, PlaybackMeta.from(query(streamRoute("Сезон", sized))::get))
+        assertEquals(8, sized.sizeOf(2))
+        assertNull(sized.sizeOf(4))
+        assertNull(PlaybackMeta(seasonSizes = "x,,3").sizeOf(1))
+        assertEquals(3, PlaybackMeta(seasonSizes = "x,,3").sizeOf(3))
         assertEquals(series, PlaybackMeta.from(query(playerRoute("url", "title", "key", streamed))::get))
         val entry = WatchEntry(301, "Сериал", positionKey = "bt:x:0", positionMs = 1, durationMs = 10,
             updatedAt = 1, kind = series.kind, source = series.source, season = series.season,
-            episode = series.episode, seasonEpisodes = series.seasonEpisodes, seasonCount = series.seasonCount)
+            episode = series.episode, seasonEpisodes = series.seasonEpisodes, seasonCount = series.seasonCount, seasonSizes = "6,10,8,12")
         val resumed = PlaybackMeta.from(query(entry.streamRoute())::get)
         assertEquals(MediaKind.Series, resumed.kind)
         assertEquals("Tmdb", resumed.source)
@@ -36,6 +43,7 @@ class RoutesTest {
         assertEquals(2, resumed.episode)
         assertEquals(8, resumed.seasonEpisodes)
         assertEquals(4, resumed.seasonCount)
+        assertEquals("6,10,8,12", resumed.seasonSizes)
         assertTrue(resumed.autoResume)
     }
 

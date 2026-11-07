@@ -29,6 +29,11 @@ class NextEpisodeTest {
         assertEquals(NextStep.PickRelease(EpisodeRef(2, 6)), step)
     }
 
+    @Test fun lastFileOfThirdSeasonOfFourPicksSeasonFour() {
+        val step = afterEpisode(EpisodeRef(3, 12), files(3 to 12), 12, 4)
+        assertEquals(NextStep.PickRelease(EpisodeRef(4, 1)), step)
+    }
+
     @Test fun lastEpisodeOfLastSeasonIsDone() {
         assertEquals(NextStep.SeriesDone, afterEpisode(EpisodeRef(3, 10), files(3 to 10), 10, 3))
     }

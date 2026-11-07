@@ -32,6 +32,7 @@ data class WatchEntry(
     val episode: Int? = null,
     val seasonEpisodes: Int? = null,
     val seasonCount: Int? = null,
+    val seasonSizes: String = "",
 ) {
     val identity: String get() = "${source ?: "-"}:${kind}:${movieId}"
 

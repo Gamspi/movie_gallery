@@ -22,7 +22,12 @@ data class PlaybackMeta(
     val seasonEpisodes: Int? = null,
     val seasonCount: Int? = null,
     val episodeTitle: String = "",
+    /** Episode counts of seasons 1..N, comma-separated ("10,8,12"); empty when unknown. */
+    val seasonSizes: String = "",
 ) {
+    /** Episode count of [season] from [seasonSizes]; null when unknown. */
+    fun sizeOf(season: Int): Int? = sizeOfSeason(seasonSizes, season)
+
     /** Query part with every arg, URL-encoded; absent values are empty. */
     fun query(): String = listOf(
         "movieId" to if (movieId > 0) movieId.toString() else "",
@@ -41,12 +46,13 @@ data class PlaybackMeta(
         "seasonEpisodes" to seasonEpisodes?.toString().orEmpty(),
         "seasonCount" to seasonCount?.toString().orEmpty(),
         "episodeTitle" to episodeTitle,
+        "seasonSizes" to seasonSizes,
     ).joinToString("&") { (k, v) -> "$k=${encodeArg(v)}" }
 
     companion object {
         val ARGS = listOf(
             "movieId", "movieTitle", "movieYear", "poster", "rating", "magnet", "torrent", "imdb", "autoResume",
-            "kind", "source", "season", "episode", "seasonEpisodes", "seasonCount", "episodeTitle",
+            "kind", "source", "season", "episode", "seasonEpisodes", "seasonCount", "episodeTitle", "seasonSizes",
         )
 
         /** Reads args by name (e.g. from SavedStateHandle); blanks become defaults. */
@@ -69,6 +75,7 @@ data class PlaybackMeta(
                 seasonEpisodes = s("seasonEpisodes").toIntOrNull(),
                 seasonCount = s("seasonCount").toIntOrNull(),
                 episodeTitle = s("episodeTitle"),
+                seasonSizes = s("seasonSizes"),
             )
         }
     }
@@ -76,3 +83,15 @@ data class PlaybackMeta(
 
 /** Percent-encodes a route arg; spaces become %20, never '+'. */
 fun encodeArg(value: String): String = URLEncoder.encode(value, "UTF-8").replace("+", "%20")
+
+/** Encodes episode counts by season number (1-based position); gaps become 0. */
+fun encodeSeasonSizes(seasons: List<dev.gamspi.videogallery.catalog.model.SeasonInfo>): String {
+    val top = seasons.maxOfOrNull { it.number } ?: return ""
+    if (top <= 0) return ""
+    val bySeason = seasons.associate { it.number to it.episodeCount }
+    return (1..top).joinToString(",") { (bySeason[it] ?: 0).toString() }
+}
+
+/** Tolerant parse of [encodeSeasonSizes]; null for unknown or non-positive entries. */
+fun sizeOfSeason(sizes: String, season: Int): Int? =
+    sizes.split(',').getOrNull(season - 1)?.trim()?.toIntOrNull()?.takeIf { it > 0 }

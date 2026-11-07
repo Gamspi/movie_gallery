@@ -12,6 +12,7 @@ import dev.gamspi.videogallery.catalog.model.MovieDetails
 import dev.gamspi.videogallery.catalog.model.SeasonInfo
 import dev.gamspi.videogallery.history.FINISHED_PROGRESS
 import dev.gamspi.videogallery.history.PlaybackMeta
+import dev.gamspi.videogallery.history.encodeSeasonSizes
 import dev.gamspi.videogallery.history.SeriesStore
 import dev.gamspi.videogallery.history.WatchEntry
 import dev.gamspi.videogallery.history.WatchHistoryStore
@@ -190,6 +191,7 @@ class DetailsViewModel @Inject constructor(
             episode = ref.episode,
             seasonEpisodes = c.seasons.firstOrNull { it.number == ref.season }?.episodeCount,
             seasonCount = c.seasons.size,
+            seasonSizes = encodeSeasonSizes(c.seasons),
             episodeTitle = c.episodes.firstOrNull { it.season == ref.season && it.number == ref.episode }?.title.orEmpty(),
         )
         return PlayTarget.Stream(meta, release.title)

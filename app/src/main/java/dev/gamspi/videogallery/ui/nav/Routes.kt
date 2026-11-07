@@ -36,6 +36,6 @@ fun WatchEntry.streamRoute(): String = streamRoute(
         movieId = movieId, movieTitle = title, movieYear = year, poster = posterUrl, rating = rating,
         magnet = magnet, torrent = torrentUrl, imdb = imdb, autoResume = true,
         kind = kind, source = source, season = season, episode = episode,
-        seasonEpisodes = seasonEpisodes, seasonCount = seasonCount,
+        seasonEpisodes = seasonEpisodes, seasonCount = seasonCount, seasonSizes = seasonSizes,
     ),
 )

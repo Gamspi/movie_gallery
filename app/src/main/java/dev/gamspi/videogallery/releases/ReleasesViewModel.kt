@@ -9,6 +9,7 @@ import dev.gamspi.videogallery.catalog.CatalogRepository
 import dev.gamspi.videogallery.catalog.model.Movie
 import dev.gamspi.videogallery.catalog.model.MediaKind
 import dev.gamspi.videogallery.history.PlaybackMeta
+import dev.gamspi.videogallery.history.encodeSeasonSizes
 import dev.gamspi.videogallery.settings.SettingsRepository
 import dev.gamspi.videogallery.torrents.ProviderId
 import dev.gamspi.videogallery.torrents.Quality
@@ -50,6 +51,7 @@ sealed interface ReleasesUiState {
         val episode: Int? = null,
         val seasonEpisodes: Int? = null,
         val seasonCount: Int? = null,
+        val seasonSizes: String = "",
     ) : ReleasesUiState {
         val visible: List<TorrentResult>
             get() = all.applyFilter(filter, limitBytes)
@@ -70,6 +72,7 @@ sealed interface ReleasesUiState {
             episode = episode,
             seasonEpisodes = seasonEpisodes,
             seasonCount = seasonCount,
+            seasonSizes = seasonSizes,
         )
     }
 
@@ -198,6 +201,7 @@ class ReleasesViewModel @Inject constructor(
                     episode = episode,
                     seasonEpisodes = details.seasons.firstOrNull { it.number == season }?.episodeCount,
                     seasonCount = details.seasons.count { it.episodeCount > 0 }.takeIf { season != null },
+                    seasonSizes = encodeSeasonSizes(details.seasons),
                 )
             } catch (e: CancellationException) {
                 throw e

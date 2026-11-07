@@ -472,4 +472,33 @@ class PlayerViewModelTest {
         assertEquals(NextStep.PlayFile(dev.gamspi.videogallery.stream.EpisodeRef(2, 6)), vm.nextStep())
         assertNull(metaVm(FakeHistory(), emptyMap()).nextStep())
     }
+
+    @Test
+    fun historyAdvanceAcrossSeasonKeepsSeasonSizes() {
+        val history = dev.gamspi.videogallery.history.FakeWatchHistoryStore()
+        val files = listOf(
+            dev.gamspi.videogallery.stream.EpisodeFile(dev.gamspi.videogallery.stream.EpisodeRef(2, 10), 0),
+            dev.gamspi.videogallery.stream.EpisodeFile(dev.gamspi.videogallery.stream.EpisodeRef(3, 1), 1),
+        )
+        val args = seriesArgs + mapOf("episode" to "10", "seasonSizes" to "6,10,8,12")
+        val vm = seriesVm(history, dev.gamspi.videogallery.history.FakeSeriesStore(), files, args = args)
+        vm.onPauseOrExit(3_550_000, 3_600_000)
+        val entry = history.entries.value.single()
+        assertEquals(3, entry.season)
+        assertEquals(1, entry.episode)
+        assertEquals(8, entry.seasonEpisodes)
+        assertEquals("6,10,8,12", entry.seasonSizes)
+        val next = vm.metaFor(dev.gamspi.videogallery.stream.EpisodeRef(3, 1))
+        assertEquals(8, next.seasonEpisodes)
+        assertEquals("6,10,8,12", next.seasonSizes)
+    }
+
+    @Test
+    fun finishRelease_notCalledWithoutFiles() {
+        val finished = mutableListOf<Long>()
+        seriesVm(dev.gamspi.videogallery.history.FakeWatchHistoryStore(),
+            dev.gamspi.videogallery.history.FakeSeriesStore(), emptyList(), finished)
+            .onPauseOrExit(3_550_000, 3_600_000)
+        assertTrue(finished.isEmpty())
+    }
 }
