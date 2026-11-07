@@ -11,7 +11,7 @@ class ProviderUnavailableException(
 
 interface TorrentProvider {
     val id: ProviderId
-    suspend fun search(movie: MovieDetails): List<TorrentResult>
+    suspend fun search(movie: MovieDetails, season: Int? = null): List<TorrentResult>
 
     /** Fills in infoHash and magnet for results found without them; throws when impossible. */
     suspend fun resolve(result: TorrentResult): TorrentResult =

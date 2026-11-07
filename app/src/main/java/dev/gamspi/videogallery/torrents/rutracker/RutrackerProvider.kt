@@ -22,9 +22,10 @@ class RutrackerProvider(
 ) : TorrentProvider {
     override val id = ProviderId.Rutracker
 
-    override suspend fun search(movie: MovieDetails): List<TorrentResult> = withContext(Dispatchers.IO) {
+    override suspend fun search(movie: MovieDetails, season: Int?): List<TorrentResult> = withContext(Dispatchers.IO) {
         val m = movie.movie
-        val year = m.year?.toString()
+        // Series are searched by title only; releases rarely carry the first-air year.
+        val year = if (season == null) m.year?.toString() else null
         var results = fetch(listOfNotNull(m.title, year).joinToString(" "), year)
         val original = m.originalTitle
         if (results.isEmpty() && !original.isNullOrBlank() && original != m.title) {

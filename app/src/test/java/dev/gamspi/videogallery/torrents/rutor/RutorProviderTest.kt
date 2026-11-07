@@ -37,6 +37,23 @@ class RutorProviderTest {
     }
 
     @Test
+    fun season_searchesTitleOnly_noYearFilter() = runBlocking {
+        enqueue(fixture())
+        val r = provider().search(movie(1999), season = 2)
+        assertEquals("/search/0/0/000/0/%D0%9C%D0%B0%D1%82%D1%80%D0%B8%D1%86%D0%B0", server.takeRequest().url.encodedPath)
+        assertTrue(r.size > 2)
+    }
+
+    @Test
+    fun season_emptyFallsBackToOriginalWithoutYear() = runBlocking {
+        enqueue("<html><body></body></html>")
+        enqueue(fixture())
+        provider().search(movie(1999), season = 2)
+        server.takeRequest()
+        assertEquals("/search/0/0/000/0/The%20Matrix", server.takeRequest().url.encodedPath)
+    }
+
+    @Test
     fun filtersByYear() = runBlocking {
         enqueue(fixture())
         val r = provider().search(movie(1999))

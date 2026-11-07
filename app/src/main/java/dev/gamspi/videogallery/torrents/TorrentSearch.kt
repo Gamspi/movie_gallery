@@ -21,11 +21,11 @@ class TorrentSearch(
     /** Providers asked to resolve selected results; independent of the enabled set. */
     private val resolvers: () -> List<TorrentProvider> = providers,
 ) {
-    suspend fun search(movie: MovieDetails): SearchOutcome = coroutineScope {
+    suspend fun search(movie: MovieDetails, season: Int? = null): SearchOutcome = coroutineScope {
         val answers = providers().map { p ->
             async {
                 try {
-                    Answer(p.id, withTimeout(timeoutMs) { p.search(movie) }, null)
+                    Answer(p.id, withTimeout(timeoutMs) { p.search(movie, season) }, null)
                 } catch (e: TimeoutCancellationException) {
                     Answer(p.id, null, UnavailableReason.Unavailable)
                 } catch (e: CancellationException) {

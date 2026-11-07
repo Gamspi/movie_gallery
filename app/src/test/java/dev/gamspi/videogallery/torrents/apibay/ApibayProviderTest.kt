@@ -45,6 +45,13 @@ class ApibayProviderTest {
     }
 
     @Test
+    fun season_queryIsOriginalWithSeasonNumber() = runBlocking {
+        enqueue(fixture("apibay_empty.json"))
+        provider().search(movie(), season = 2)
+        assertEquals("The Matrix S02", server.takeRequest().url.queryParameter("q"))
+    }
+
+    @Test
     fun sendsTitleYearAndCategory() = runBlocking {
         enqueue(fixture("apibay_empty.json"))
         provider().search(movie())

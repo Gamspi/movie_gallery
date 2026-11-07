@@ -46,7 +46,8 @@ class YtsProvider(
 ) : TorrentProvider {
     override val id = ProviderId.Yts
 
-    override suspend fun search(movie: MovieDetails): List<TorrentResult> {
+    override suspend fun search(movie: MovieDetails, season: Int?): List<TorrentResult> {
+        if (season != null) return emptyList()
         val imdb = movie.imdbId ?: return emptyList()
         val movies = withContext(Dispatchers.IO) {
             try {

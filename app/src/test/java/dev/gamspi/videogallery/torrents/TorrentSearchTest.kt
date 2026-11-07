@@ -27,7 +27,7 @@ class TorrentSearchTest {
         val resolver: (suspend (TorrentResult) -> TorrentResult)? = null,
         val block: suspend () -> List<TorrentResult>,
     ) : TorrentProvider {
-        override suspend fun search(movie: MovieDetails) = block()
+        override suspend fun search(movie: MovieDetails, season: Int?) = block()
         override suspend fun resolve(result: TorrentResult): TorrentResult =
             resolver?.invoke(result) ?: super.resolve(result)
     }

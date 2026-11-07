@@ -31,6 +31,12 @@ class YtsProviderTest {
     )
 
     @Test
+    fun season_returnsEmptyWithoutRequest() = runBlocking {
+        assertTrue(provider().search(movie(), season = 1).isEmpty())
+        assertEquals(0, server.requestCount)
+    }
+
+    @Test
     fun parsesTorrents() = runBlocking {
         enqueue(fixture("yts.json"))
         val list = provider().search(movie())

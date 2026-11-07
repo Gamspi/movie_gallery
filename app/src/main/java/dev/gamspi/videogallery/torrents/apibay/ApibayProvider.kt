@@ -35,8 +35,13 @@ class ApibayProvider(
 ) : TorrentProvider {
     override val id = ProviderId.Apibay
 
-    override suspend fun search(movie: MovieDetails): List<TorrentResult> = withContext(Dispatchers.IO) {
-        val query = listOfNotNull(movie.movie.originalTitle, movie.movie.year?.toString()).joinToString(" ")
+    override suspend fun search(movie: MovieDetails, season: Int?): List<TorrentResult> = withContext(Dispatchers.IO) {
+        val query = if (season == null) {
+            listOfNotNull(movie.movie.originalTitle, movie.movie.year?.toString()).joinToString(" ")
+        } else {
+            val title = movie.movie.originalTitle?.takeIf { it.isNotBlank() } ?: movie.movie.title
+            "$title S${season.toString().padStart(2, '0')}"
+        }
         val items = try {
             val url = baseUrl().toHttpUrl().newBuilder()
                 .addPathSegment("q.php")
@@ -54,7 +59,8 @@ class ApibayProvider(
         } catch (e: Exception) {
             throw ProviderUnavailableException()
         }
-        items.filter { it.id != "0" && it.category in categories && it.info_hash.isNotBlank() }
+        val allowed = if (season == null) categories else categories + tvCategories
+        items.filter { it.id != "0" && it.category in allowed && it.info_hash.isNotBlank() }
             .filter { movie.imdbId == null || it.imdb.isEmpty() || it.imdb == movie.imdbId }
             .map {
                 TorrentResult(
@@ -72,6 +78,7 @@ class ApibayProvider(
 
     private companion object {
         val categories = setOf("201", "202", "207", "211")
+        val tvCategories = setOf("205", "208")
         val json = Json { ignoreUnknownKeys = true }
     }
 }

@@ -77,6 +77,17 @@ class RutrackerProviderTest {
     }
 
     @Test
+    fun season_queryHasNoYear_andNoYearFilter() = runBlocking {
+        loginOk()
+        page(fixture("rutracker_search.html"))
+        val results = provider().search(movie(), season = 2)
+        server.takeRequest()
+        val q = server.takeRequest().url.encodedQuery!!
+        assertTrue(q, q.contains("nm=%CC%E0%F2%F0%E8%F6%E0&") || q.endsWith("nm=%CC%E0%F2%F0%E8%F6%E0"))
+        assertTrue(results.isNotEmpty())
+    }
+
+    @Test
     fun session_reusedAcrossSearches() = runBlocking {
         loginOk()
         page(fixture("rutracker_search.html"))
