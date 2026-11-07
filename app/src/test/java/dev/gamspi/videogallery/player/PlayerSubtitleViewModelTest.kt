@@ -35,7 +35,7 @@ class PlayerSubtitleViewModelTest {
     private class FakeClient : SubtitleClient {
         var searchCall: suspend () -> SubsResult<List<RemoteSubtitle>> = { SubsResult.Ok(emptyList()) }
         var downloadCall: suspend (Long) -> SubsResult<ByteArray> = { SubsResult.Ok(byteArrayOf()) }
-        override suspend fun search(hash: String?, imdbId: String?, languages: List<String>) = searchCall()
+        override suspend fun search(hash: String?, imdbId: String?, languages: List<String>, season: Int?, episode: Int?) = searchCall()
         override suspend fun download(fileId: Long) = downloadCall(fileId)
     }
 

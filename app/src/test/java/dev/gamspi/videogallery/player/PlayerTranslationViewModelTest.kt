@@ -48,7 +48,7 @@ class PlayerTranslationViewModelTest {
         "%02d:%02d:%02d,%03d".format(ms / 3_600_000, ms / 60_000 % 60, ms / 1000 % 60, ms % 1000)
 
     private class FakeClient(val files: Map<Long, ByteArray>) : SubtitleClient {
-        override suspend fun search(hash: String?, imdbId: String?, languages: List<String>) =
+        override suspend fun search(hash: String?, imdbId: String?, languages: List<String>, season: Int?, episode: Int?) =
             SubsResult.Ok(emptyList<RemoteSubtitle>())
         override suspend fun download(fileId: Long) = SubsResult.Ok(files.getValue(fileId))
     }

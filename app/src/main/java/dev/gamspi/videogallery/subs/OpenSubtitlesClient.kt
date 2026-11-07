@@ -31,6 +31,8 @@ data class RemoteSubtitle(
     val downloads: Int,
     /** IMDb ids (numeric) of the subtitle's feature and its parent; empty when unknown. */
     val featureImdbIds: Set<Long> = emptySet(),
+    /** IMDb id (numeric) of the parent series for an episode; null when unknown. */
+    val parentImdbId: Long? = null,
 )
 
 interface SubtitleSettingsSource {
@@ -75,24 +77,26 @@ class OpenSubtitlesClient(
         hash: String?,
         imdbId: String?,
         languages: List<String>,
+        season: Int?,
+        episode: Int?,
     ): SubsResult<List<RemoteSubtitle>> {
         val imdb = imdbId?.removePrefix("tt")?.trimStart('0')?.takeIf { it.isNotEmpty() && it.all(Char::isDigit) }
         val fileHash = hash?.takeIf { it.isNotBlank() }
         val requested = languages.map { it.trim().lowercase(java.util.Locale.ROOT) }
             .filter { subtitleLanguage(it) != null }.distinct().sorted()
         if ((fileHash == null && imdb == null) || requested.isEmpty()) return SubsResult.Ok(emptyList())
-        if (fileHash == null) return searchRequest(null, imdb, requested)
+        if (fileHash == null) return searchRequest(null, imdb, requested, season, episode)
 
-        val exactResult = searchRequest(fileHash, null, requested)
+        val exactResult = searchRequest(fileHash, null, requested, season, episode)
         if (exactResult !is SubsResult.Ok) return exactResult
         // A hash collision can return another movie: drop exact matches whose feature IMDb id is known and differs.
         val expected = imdb?.toLongOrNull()
-        val exact = exactResult.value.filter { it.hashMatch && sameFeature(it, expected) }
+        val exact = exactResult.value.filter { it.hashMatch && sameFeature(it, expected, episode != null) }
         val missing = requested.filter { language -> exact.none { sameLanguage(language, it.language) } }
         if (missing.isEmpty() || imdb == null) return SubsResult.Ok(exact)
 
         currentCoroutineContext().ensureActive()
-        return when (val fallback = searchRequest(null, imdb, missing)) {
+        return when (val fallback = searchRequest(null, imdb, missing, season, episode)) {
             is SubsResult.Ok -> SubsResult.Ok(sortSubtitles(exact + fallback.value))
             // Keep the usable language and report why the other language could not be fetched.
             else -> if (exact.isNotEmpty()) {
@@ -112,22 +116,41 @@ class OpenSubtitlesClient(
         hash: String?,
         imdb: String?,
         languages: List<String>,
+        season: Int?,
+        episode: Int?,
     ): SubsResult<List<RemoteSubtitle>> = guarded {
-        val response = api.search(hash, imdb, languages.joinToString(","), if (hash != null) "only" else null)
+        val isEpisode = episode != null
+        val response = api.search(
+            hash,
+            imdb.takeIf { !isEpisode },
+            languages.joinToString(","),
+            if (hash != null) "only" else null,
+            // for an episode imdb is the series id
+            imdb.takeIf { isEpisode },
+            season.takeIf { isEpisode },
+            episode,
+        )
         val list = response.data.mapNotNull { item ->
             val a = item.attributes
             if (languages.none { sameLanguage(it, a.language) }) return@mapNotNull null
             val file = a.files.firstOrNull() ?: return@mapNotNull null
             val feature = listOfNotNull(a.featureDetails?.imdbId, a.featureDetails?.parentImdbId)
                 .filter { it > 0 }.toSet()
-            RemoteSubtitle(file.fileId, a.language.orEmpty(), a.release.orEmpty(), a.moviehashMatch, a.downloadCount, feature)
+            RemoteSubtitle(
+                file.fileId, a.language.orEmpty(), a.release.orEmpty(), a.moviehashMatch, a.downloadCount, feature,
+                a.featureDetails?.parentImdbId?.takeIf { it > 0 },
+            )
         }
         SubsResult.Ok(sortSubtitles(list))
     }
 
     /** True when the feature IMDb id is unknown on either side or matches the movie (or its parent). */
-    private fun sameFeature(subtitle: RemoteSubtitle, expected: Long?): Boolean =
-        expected == null || subtitle.featureImdbIds.isEmpty() || expected in subtitle.featureImdbIds
+    private fun sameFeature(subtitle: RemoteSubtitle, expected: Long?, episode: Boolean): Boolean {
+        if (expected == null) return true
+        // an episode result is compared by its parent series id only
+        if (episode) return subtitle.parentImdbId == null || subtitle.parentImdbId == expected
+        return subtitle.featureImdbIds.isEmpty() || expected in subtitle.featureImdbIds
+    }
 
     private fun sortSubtitles(list: List<RemoteSubtitle>): List<RemoteSubtitle> = list
         .sortedWith(compareByDescending<RemoteSubtitle> { it.hashMatch }.thenByDescending { it.downloads })

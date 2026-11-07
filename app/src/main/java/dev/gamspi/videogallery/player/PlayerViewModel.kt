@@ -163,7 +163,8 @@ class PlayerViewModel internal constructor(
         searchStarted = true
         viewModelScope.launch {
             val result = client.search(hashFetcher(url), imdbId,
-                listOf(initialSubtitlePrefs.languageA, initialSubtitlePrefs.languageB).distinct())
+                listOf(initialSubtitlePrefs.languageA, initialSubtitlePrefs.languageB).distinct(),
+                seriesRef()?.season, seriesRef()?.episode)
             ensureActive()
             if (cleared) return@launch
             when (result) {

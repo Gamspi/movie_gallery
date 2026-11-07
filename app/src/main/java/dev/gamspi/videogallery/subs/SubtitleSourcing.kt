@@ -7,7 +7,14 @@ import java.util.Locale
 import java.util.MissingResourceException
 
 interface SubtitleClient {
-    suspend fun search(hash: String?, imdbId: String?, languages: List<String>): SubsResult<List<RemoteSubtitle>>
+    /** For an episode pass the series IMDb id as [imdbId] together with [season] and [episode]. */
+    suspend fun search(
+        hash: String?,
+        imdbId: String?,
+        languages: List<String>,
+        season: Int? = null,
+        episode: Int? = null,
+    ): SubsResult<List<RemoteSubtitle>>
     suspend fun download(fileId: Long): SubsResult<ByteArray>
 }
 

@@ -306,4 +306,37 @@ class OpenSubtitlesClientTest {
         assertEquals("Bearer TOK", paths[1].headers["Authorization"])
         assertEquals("Bearer TOK", paths[3].headers["Authorization"])
     }
+
+    private fun episodeJson(id: Long, match: Boolean, parent: Long?) =
+        """{"attributes":{"language":"en","moviehash_match":$match,"download_count":$id,"files":[{"file_id":$id}]""" +
+            (parent?.let { ""","feature_details":{"imdb_id":999,"parent_imdb_id":$it}""" } ?: "") + "}}"
+
+    @Test fun episode_search_uses_parent_season_episode_and_no_imdb_id() = runBlocking {
+        server.enqueue(MockResponse.Builder().body("""{"data":[${episodeJson(1, false, 903747)}]}""").build())
+        val result = client().search(null, "tt0903747", listOf("en"), 2, 5) as SubsResult.Ok
+        assertEquals(listOf(1L), result.value.map { it.fileId })
+        val url = server.takeRequest().url
+        assertEquals("903747", url.queryParameter("parent_imdb_id"))
+        assertEquals("2", url.queryParameter("season_number"))
+        assertEquals("5", url.queryParameter("episode_number"))
+        assertNull(url.queryParameter("imdb_id"))
+    }
+
+    @Test fun episode_hash_match_with_other_parent_is_dropped() = runBlocking {
+        server.enqueue(MockResponse.Builder().body(
+            """{"data":[${episodeJson(500, true, 111)},${episodeJson(3, true, 903747)}]}""").build())
+        val result = client().search("abc", "tt0903747", listOf("en"), 1, 1) as SubsResult.Ok
+        assertEquals(listOf(3L), result.value.map { it.fileId })
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test fun movie_search_has_no_episode_params() = runBlocking {
+        server.enqueue(MockResponse.Builder().body("""{"data":[]}""").build())
+        client().search(null, "tt0468569", listOf("en"))
+        val url = server.takeRequest().url
+        assertEquals("468569", url.queryParameter("imdb_id"))
+        assertNull(url.queryParameter("parent_imdb_id"))
+        assertNull(url.queryParameter("season_number"))
+        assertNull(url.queryParameter("episode_number"))
+    }
 }
