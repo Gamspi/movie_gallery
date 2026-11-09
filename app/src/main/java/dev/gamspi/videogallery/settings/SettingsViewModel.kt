@@ -27,7 +27,13 @@ class SettingsViewModel @Inject constructor(
     private val torrentCache: TorrentCacheStore? = null,
     private val models: TranslationModels? = null,
     private val translationCache: TranslationCache? = null,
+    private val listSync: dev.gamspi.videogallery.watchlist.ListSyncService? = null,
 ) : ViewModel() {
+    val listSyncEnabled = listSync?.enabled ?: MutableStateFlow(false)
+    val listSyncStatus = listSync?.status ?: MutableStateFlow<dev.gamspi.videogallery.watchlist.ListSyncStatus>(dev.gamspi.videogallery.watchlist.ListSyncStatus.Disabled)
+    val listSyncError = listSync?.error ?: MutableStateFlow<String?>(null)
+    fun toggleListSync() { viewModelScope.launch { listSync?.toggle() } }
+    fun syncListNow() { listSync?.retryNow() }
     /** Translation model state; NotDownloaded when translation is unavailable. */
     val modelState: StateFlow<ModelState> = models?.state ?: MutableStateFlow(ModelState.NotDownloaded)
     val modelStatus: StateFlow<String> = models?.state?.map { it.status() }

@@ -104,6 +104,8 @@ class ReleasesViewModel @Inject constructor(
     private val id: Int = checkNotNull(savedStateHandle["id"])
     private val kind = MediaKind.entries.firstOrNull { it.name == savedStateHandle.get<String>("kind") }
         ?: MediaKind.Movie
+    private val pinnedSource = dev.gamspi.videogallery.settings.CatalogSource.entries
+        .firstOrNull { it.name == savedStateHandle.get<String>("source") }
     private val season = savedStateHandle.get<String>("season")?.toIntOrNull()
     private val episode = savedStateHandle.get<String>("episode")?.toIntOrNull()
     /** «В раздаче нет SxxEyy» when the screen was reached because the episode was missing from a release. */
@@ -198,8 +200,8 @@ class ReleasesViewModel @Inject constructor(
         _state.value = ReleasesUiState.Loading
         job = viewModelScope.launch {
             _state.value = try {
-                val source = settings.catalogSource.value.name
-                val details = catalog.details(id, kind)
+                val source = (pinnedSource ?: settings.catalogSource.value).name
+                val details = (pinnedSource?.let(catalog::forSource) ?: catalog).details(id, kind)
                 val noProviders = ProviderId.entries.none { settings.tracker(it).value.enabled }
                 val outcome = search.search(details, season)
                 ReleasesUiState.Content(

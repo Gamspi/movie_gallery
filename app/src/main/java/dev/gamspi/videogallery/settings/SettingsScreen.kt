@@ -248,6 +248,9 @@ private fun TranslationSection(viewModel: SettingsViewModel) {
 @Composable
 private fun NetworkSection(viewModel: SettingsViewModel) {
     val enabled by viewModel.proxyEnabled.collectAsState()
+    val listEnabled by viewModel.listSyncEnabled.collectAsState()
+    val listStatus by viewModel.listSyncStatus.collectAsState()
+    val listError by viewModel.listSyncError.collectAsState()
     var saveError by remember { mutableStateOf(false) }
     val firstFocus = remember { FocusRequester() }
     InitialFocus(firstFocus)
@@ -257,6 +260,15 @@ private fun NetworkSection(viewModel: SettingsViewModel) {
         }
         Text("Через прокси идут TMDB, постеры TMDB, rutor и rutracker. Торренты — напрямую.")
         Text("Адрес и ключ прокси — в разделе «Ключи»", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+        SourceButton("Синхронизация личного списка", listEnabled, null) { viewModel.toggleListSync() }
+        Text(when (val status = listStatus) {
+            dev.gamspi.videogallery.watchlist.ListSyncStatus.Disabled -> "Синхронизация выключена"
+            dev.gamspi.videogallery.watchlist.ListSyncStatus.Idle -> "Список синхронизирован"
+            dev.gamspi.videogallery.watchlist.ListSyncStatus.Running -> "Синхронизация…"
+            is dev.gamspi.videogallery.watchlist.ListSyncStatus.Unavailable -> "Сервер недоступен с " + java.text.DateFormat.getDateTimeInstance().format(java.util.Date(status.since))
+        })
+        listError?.let { Text(it) }
+        if (listEnabled) AccentButton(onClick = viewModel::syncListNow) { Text("Синхронизировать сейчас") }
     }
 }
 

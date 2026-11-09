@@ -26,7 +26,7 @@ import kotlinx.coroutines.launch
 
 data class MovieRow(val title: String, val movies: List<Movie>)
 
-enum class HomeTab { All, Movies, Series }
+enum class HomeTab { All, Movies, Series, Watchlist, Watched }
 
 /** Alternates items of [a] and [b] starting with [a]; the longer tail is appended. */
 internal fun <T> interleave(a: List<T>, b: List<T>): List<T> = buildList(a.size + b.size) {
@@ -47,7 +47,16 @@ class GalleryViewModel @Inject constructor(
     private val catalog: CatalogRepository,
     settings: SettingsRepository,
     history: WatchHistoryStore,
+    private val listSync: dev.gamspi.videogallery.watchlist.ListSyncService? = null,
 ) : ViewModel() {
+    val listSnapshot = listSync?.store?.snapshots ?: MutableStateFlow(dev.gamspi.videogallery.watchlist.ListSnapshot())
+    val listError = listSync?.error ?: MutableStateFlow<String?>(null)
+    fun changeList(row: dev.gamspi.videogallery.watchlist.ListRecord, field: String, value: kotlinx.serialization.json.JsonElement) = listSync?.changeTitle(row, field, value)
+    /** The title's source goes to its card only; the selected catalog stays as it is. */
+    fun openSaved(row: dev.gamspi.videogallery.watchlist.ListRecord, open: (dev.gamspi.videogallery.watchlist.SavedTarget) -> Unit) {
+        val target = dev.gamspi.videogallery.watchlist.savedTarget(row)
+        if (target == null) listSync?.report("Карточка этого тайтла недоступна") else open(target)
+    }
     /** «Продолжить просмотр» entries; separate from [state] so history updates keep catalog rows. */
     val history: StateFlow<List<WatchEntry>> = history.entries
     private val _state = MutableStateFlow<GalleryUiState>(GalleryUiState.Loading(initial = true))
@@ -80,6 +89,7 @@ class GalleryViewModel @Inject constructor(
 
     fun selectTab(t: HomeTab) {
         _tab.value = t
+        if (t == HomeTab.Watchlist || t == HomeTab.Watched) { listSync?.loadLocal(); listSync?.request() }
     }
 
     private suspend fun load(tab: HomeTab) {
@@ -94,6 +104,7 @@ class GalleryViewModel @Inject constructor(
                 HomeTab.Movies -> fetchRows(MediaKind.Movie, "Популярное")
                 HomeTab.Series -> fetchRows(MediaKind.Series, "Популярные сериалы")
                 HomeTab.All -> fetchAllRows()
+                HomeTab.Watchlist, HomeTab.Watched -> emptyList()
             }
             cache[tab] = rows
             GalleryUiState.Content(rows, tab)

@@ -59,6 +59,7 @@ data class PlayerUiState(
 )
 
 private const val SAVE_INTERVAL_MS = 10_000L
+private const val LIST_INTERVAL_MS = 60_000L
 
 /** Forward position jump between subtitle frames that reorders the background translation. */
 private const val TRANSLATION_SEEK_JUMP_MS = 5_000L
@@ -92,6 +93,7 @@ class PlayerViewModel internal constructor(
     private val episodeFiles: () -> List<EpisodeFile> = manager::episodeFiles,
     private val finishRelease: (Long) -> Unit = manager::finishRelease,
     private val wallClock: () -> Long = System::currentTimeMillis,
+    private val listSync: dev.gamspi.videogallery.watchlist.PlaybackList? = null,
     private val clock: () -> Long,
 ) : ViewModel() {
     @Inject
@@ -100,10 +102,11 @@ class PlayerViewModel internal constructor(
         client: OpenSubtitlesClient, settings: SettingsRepository,
         models: TranslationModels, translator: SubtitleTranslator, cache: TranslationCache,
         history: WatchHistoryStore, seriesStore: SeriesStore,
+        listSync: dev.gamspi.videogallery.watchlist.ListSyncService,
     ) : this(savedState, store, manager, client, settings.subtitlePrefs, { url ->
         fetchHashOverHttp(subtitleHashHttp, url)
     }, models, translator, cache, Dispatchers.Default, history, settings::setSubtitlePrefs,
-        seriesStore = seriesStore, clock = SystemClock::elapsedRealtime)
+        seriesStore = seriesStore, listSync = listSync, clock = SystemClock::elapsedRealtime)
 
     companion object {
         private val subtitleHashHttp by lazy {
@@ -501,6 +504,42 @@ class PlayerViewModel internal constructor(
 
     private var resumeComputed = false
     private var lastSaveAt: Long? = null
+    private var actuallyPlayed = false
+    private var cloudPosition: Long? = null
+
+    suspend fun prepareCloudResume() {
+        try { cloudPosition = listSync?.savedPosition(listEntry(0, 0)) }
+        catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+        catch (_: Exception) { cloudPosition = null }
+    }
+
+    private fun listEntry(positionMs: Long, durationMs: Long) = WatchEntry(
+        movieId = meta.movieId, title = meta.movieTitle.ifBlank { _state.value.title },
+        year = meta.movieYear, posterUrl = meta.poster, imdb = meta.imdb,
+        positionKey = key, positionMs = positionMs, durationMs = durationMs,
+        updatedAt = wallClock(), kind = meta.kind, source = meta.source,
+        season = meta.season, episode = meta.episode,
+    )
+
+    private var lastListAt: Long? = null
+    private var listStage = 0
+
+    /** Routine ticks are thinned out; pause, exit, first play and crossing a finish threshold are not. */
+    private fun recordList(positionMs: Long, durationMs: Long, leaving: Boolean) {
+        if (!actuallyPlayed || durationMs <= 0 || meta.movieId <= 0) return
+        val entry = listEntry(positionMs, durationMs)
+        val stage = if (isFinished(positionMs, durationMs)) 2 else if (entry.progress >= FINISHED_PROGRESS) 1 else 0
+        val now = clock()
+        val last = lastListAt
+        val urgent = leaving || last == null || stage > listStage
+        if (!urgent && now - last!! < LIST_INTERVAL_MS) return
+        lastListAt = now
+        listStage = stage
+        listSync?.record(entry,
+            isFinished(positionMs, durationMs) && meta.seasonCount != null &&
+                meta.season != null && meta.season >= meta.seasonCount && nextStep() is NextStep.SeriesDone,
+            syncNow = urgent)
+    }
 
     /**
      * Computes the resume point once. With autoResume returns the position to seek to silently;
@@ -509,7 +548,7 @@ class PlayerViewModel internal constructor(
     fun onDuration(durationMs: Long): Long? {
         if (resumeComputed || durationMs <= 0) return null
         resumeComputed = true
-        val saved = store.position(key)
+        val saved = cloudPosition ?: store.position(key)
         if (meta.autoResume) return saved?.takeIf { it > 0 && !isFinished(it, durationMs) }
         _state.value = _state.value.copy(resumeOffer = resumeFrom(saved, durationMs))
         return null
@@ -520,6 +559,7 @@ class PlayerViewModel internal constructor(
     }
 
     fun onProgress(positionMs: Long, durationMs: Long) {
+        actuallyPlayed = true
         lastPositionMs = positionMs
         val now = clock()
         val last = lastSaveAt
@@ -527,6 +567,7 @@ class PlayerViewModel internal constructor(
         if (positionMs <= 0) return
         lastSaveAt = now
         store.savePosition(key, positionMs)
+        recordList(positionMs, durationMs, leaving = false)
     }
 
     fun onPauseOrExit(positionMs: Long, durationMs: Long) {
@@ -536,6 +577,7 @@ class PlayerViewModel internal constructor(
         if (isFinished(positionMs, durationMs)) store.clearPosition(key) else store.savePosition(key, positionMs)
         recordHistory(positionMs, durationMs)
         recordSeries(positionMs, durationMs)
+        recordList(positionMs, durationMs, leaving = true)
     }
 
     private fun seriesRef(): EpisodeRef? {

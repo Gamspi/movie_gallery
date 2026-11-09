@@ -16,4 +16,6 @@ interface CatalogRepository {
     suspend fun details(id: Int, kind: MediaKind = MediaKind.Movie): MovieDetails
     /** Series only. */
     suspend fun season(id: Int, number: Int): List<Episode>
+    /** Repository of one catalog regardless of the selected one; single-source repositories return themselves. */
+    fun forSource(source: dev.gamspi.videogallery.settings.CatalogSource): CatalogRepository = this
 }

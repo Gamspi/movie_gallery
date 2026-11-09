@@ -7,10 +7,14 @@ import dev.gamspi.videogallery.history.encodeArg
 
 private val META_PATTERN = PlaybackMeta.ARGS.joinToString("&") { "$it={$it}" }
 
-internal const val MOVIE_ROUTE = "movie/{id}?kind={kind}"
-internal const val RELEASES_ROUTE = "releases/{id}?kind={kind}&season={season}&episode={episode}&missing={missing}"
+internal const val MOVIE_ROUTE = "movie/{id}?kind={kind}&source={source}"
+internal const val RELEASES_ROUTE = "releases/{id}?kind={kind}&season={season}&episode={episode}&missing={missing}&source={source}"
 
-fun movieRoute(id: Int, kind: MediaKind = MediaKind.Movie): String = "movie/$id?kind=${kind.name}"
+/** [source] pins the card to one catalog; blank follows the selected catalog. */
+fun movieRoute(id: Int, kind: MediaKind = MediaKind.Movie, source: String? = null): String =
+    "movie/$id?kind=${kind.name}" + sourceArg(source)
+
+private fun sourceArg(source: String?): String = if (source.isNullOrBlank()) "" else "&source=$source"
 
 fun releasesRoute(
     id: Int,
@@ -18,9 +22,10 @@ fun releasesRoute(
     season: Int? = null,
     episode: Int? = null,
     missing: Boolean = false,
+    source: String? = null,
 ): String =
     "releases/$id?kind=${kind.name}&season=${season?.toString().orEmpty()}&episode=${episode?.toString().orEmpty()}" +
-        if (missing) "&missing=1" else ""
+        (if (missing) "&missing=1" else "") + sourceArg(source)
 
 /** All stream/player args are optional strings with "" default. */
 internal const val STREAM_BASE = "stream?title={title}"

@@ -1,0 +1,14 @@
+{
+  "name": "vg-list-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "1.6.0",
+    "vitest": "5.1.0",
+    "wrangler": "4.158.0"
+  }
+}

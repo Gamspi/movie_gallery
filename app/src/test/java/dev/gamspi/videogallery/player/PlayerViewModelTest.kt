@@ -131,7 +131,7 @@ class PlayerViewModelTest {
         override suspend fun awaitLoaded() = Unit
     }
 
-    private fun metaVm(history: WatchHistoryStore, args: Map<String, String>) = PlayerViewModel(
+    private fun metaVm(history: WatchHistoryStore, args: Map<String, String>, list: dev.gamspi.videogallery.watchlist.PlaybackList? = null) = PlayerViewModel(
         SavedStateHandle(mapOf("url" to "http://x/a.mp4", "title" to "Release", "key" to "k") + args),
         store,
         StreamManager(
@@ -140,8 +140,41 @@ class PlayerViewModelTest {
             File("unused"),
             CoroutineScope(Dispatchers.Unconfined),
         ),
-        history = history, wallClock = { 42L }, clock = { now },
+        history = history, wallClock = { 42L }, clock = { now }, listSync = list,
     )
+
+    @Test fun cloudResumeAndRealPlaybackEvents() = runTest {
+        val recorded = mutableListOf<WatchEntry>()
+        val list = object : dev.gamspi.videogallery.watchlist.PlaybackList {
+            override suspend fun savedPosition(entry: WatchEntry): Long? = 60_000
+            override fun record(entry: WatchEntry, seriesDone: Boolean, syncNow: Boolean) { recorded += entry }
+        }
+        val vm = metaVm(FakeHistory(), mapOf("movieId" to "7", "source" to "Tmdb", "autoResume" to "true"), list)
+        vm.prepareCloudResume()
+        assertEquals(60_000L, vm.onDuration(600_000))
+        vm.onPauseOrExit(60_000, 600_000)
+        assertTrue(recorded.isEmpty())
+        now = 20_000
+        vm.onProgress(61_000, 600_000)
+        vm.onPauseOrExit(62_000, 600_000)
+        assertEquals(listOf(61_000L, 62_000L), recorded.map { it.positionMs })
+    }
+
+    @Test fun listTicksAreThrottledButUrgentEventsAreNot() = runTest {
+        val recorded = mutableListOf<Pair<Long, Boolean>>()
+        val list = object : dev.gamspi.videogallery.watchlist.PlaybackList {
+            override suspend fun savedPosition(entry: WatchEntry): Long? = null
+            override fun record(entry: WatchEntry, seriesDone: Boolean, syncNow: Boolean) { recorded += entry.positionMs to syncNow }
+        }
+        val vm = metaVm(FakeHistory(), mapOf("movieId" to "7", "source" to "Tmdb"), list)
+        now = 20_000; vm.onProgress(100_000, 1_000_000)
+        now = 30_000; vm.onProgress(110_000, 1_000_000)
+        now = 80_000; vm.onProgress(160_000, 1_000_000)
+        now = 90_000; vm.onProgress(900_000, 1_000_000)
+        now = 100_000; vm.onProgress(910_000, 1_000_000)
+        now = 110_000; vm.onPauseOrExit(920_000, 1_000_000)
+        assertEquals(listOf(100_000L to true, 160_000L to false, 900_000L to true, 920_000L to true), recorded)
+    }
 
     @Test
     fun autoResume_seeksSilentlyFromStore() {

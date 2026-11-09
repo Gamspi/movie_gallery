@@ -1,0 +1,8 @@
+CREATE TABLE titles (key TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at INTEGER NOT NULL, deleted INTEGER NOT NULL DEFAULT 0, seq INTEGER NOT NULL);
+CREATE TABLE episodes (title_key TEXT NOT NULL, season INTEGER NOT NULL, episode INTEGER NOT NULL, watched INTEGER NOT NULL, updated_at INTEGER NOT NULL, deleted INTEGER NOT NULL DEFAULT 0, seq INTEGER NOT NULL, PRIMARY KEY(title_key, season, episode));
+CREATE TABLE positions (title_key TEXT NOT NULL, season INTEGER NOT NULL, episode INTEGER NOT NULL, position_ms INTEGER NOT NULL, duration_ms INTEGER NOT NULL, updated_at INTEGER NOT NULL, deleted INTEGER NOT NULL DEFAULT 0, seq INTEGER NOT NULL, PRIMARY KEY(title_key, season, episode));
+CREATE TABLE meta (k TEXT PRIMARY KEY, v INTEGER NOT NULL);
+INSERT INTO meta VALUES ('seq', 0);
+CREATE INDEX titles_seq ON titles(seq);
+CREATE INDEX episodes_seq ON episodes(seq);
+CREATE INDEX positions_seq ON positions(seq);

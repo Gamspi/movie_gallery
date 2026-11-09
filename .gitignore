@@ -10,3 +10,5 @@ local.properties
 
 # Local secrets
 .env
+cloud/list-worker/node_modules/
+cloud/list-worker/.wrangler/

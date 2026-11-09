@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-Дата: 2026-11-07. Статус: план, не начат.
+Дата: 2026-11-07. Статус: начат 2026-11-08; задачи 1–3 реализованы и проверены (30 тестов в Docker). Задача 4: развёртывание и живая приёмка пройдены 2026-11-08. Этап 1 принят; нагрузочная проверка CPU Free остаётся отдельным ограничением.
 
 **Goal:** отдельный Cloudflare Worker с базой D1, который хранит тайтлы, серии и места остановки и отдаёт изменения клиентам (ТВ, iPhone, позже PWA) по правилу «свежая правка побеждает».
 
@@ -49,15 +49,15 @@
   - `meta(k TEXT PRIMARY KEY, v INTEGER NOT NULL)` со строкой `('seq', 0)`
   - индексы по `seq` во всех трёх таблицах
 
-- [ ] **Step 1: Стенд.** `package.json` с точными версиями `wrangler`, `vitest`, `@cloudflare/vitest-pool-workers` (совместимая тройка из документации пула; сверить через context7). `wrangler.toml`: `main = "src/worker.js"`, `compatibility_date`, `[[d1_databases]] binding = "DB"`, `migrations_dir = "migrations"`. `vitest.config.js` применяет миграции к тестовому D1 и задаёт `LIST_KEY = "test-key"` через `miniflare.bindings`.
-- [ ] **Step 2: Тесты `test/auth.test.js`:**
+- [x] **Step 1: Стенд.** `package.json` с точными версиями `wrangler`, `vitest`, `@cloudflare/vitest-pool-workers` (совместимая тройка из документации пула; сверить через context7). `wrangler.toml`: `main = "src/worker.js"`, `compatibility_date`, `[[d1_databases]] binding = "DB"`, `migrations_dir = "migrations"`. `vitest.config.js` применяет миграции к тестовому D1 и задаёт `LIST_KEY = "test-key"` через `miniflare.bindings`.
+- [x] **Step 2: Тесты `test/auth.test.js`:**
   - `GET /v1/health` с верным ключом → 200, `{"ok":true,"seq":0}`
   - без заголовка → 403 `{"error":"bad_key"}`; неверный ключ → 403
   - `LIST_KEY` не задан (env без ключа) → 500 `{"error":"not_configured"}`
   - неизвестный путь → 404 `{"error":"not_found"}`; `PUT /v1/health` → 405
 - [ ] **Step 3:** `scripts/list-worker-test.ps1` → тесты падают (нет обработчиков).
-- [ ] **Step 4:** Реализовать маршрутизацию, проверку ключа (сравнение SHA-256 за постоянное время — перенести `keyMatches` из `proxy/cloudflare-worker/worker.js`), `/v1/health` читает `meta.seq`.
-- [ ] **Step 5:** Тесты зелёные.
+- [x] **Step 4:** Реализовать маршрутизацию, проверку ключа (сравнение SHA-256 за постоянное время — перенести `keyMatches` из `proxy/cloudflare-worker/worker.js`), `/v1/health` читает `meta.seq`.
+- [x] **Step 5:** Тесты зелёные.
 - [ ] **Step 6: Commit** `feat(cloud): list worker skeleton with D1 schema and auth`
 
 ### Task 2: Запись пачки `POST /v1/batch`
@@ -76,7 +76,7 @@
   ```
   ответ `200 {"seq": <текущий seq после записи>, "applied": <число принятых строк>}`. Любой из трёх массивов можно опустить.
 
-- [ ] **Step 1: Тесты `test/batch.test.js`:**
+- [x] **Step 1: Тесты `test/batch.test.js`:**
   - новая строка тайтла → `applied: 1`, `seq: 1`; `data` возвращается тем же объектом через `GET /v1/changes` (после задачи 3 — до неё проверять прямым `env.DB` запросом)
   - правка с бо́льшим `updated_at` заменяет строку целиком; с равным или меньшим — `applied: 0`, строка и `seq` не меняются
   - повтор той же пачки → `applied: 0`, `seq` прежний (Review Focus 2)
@@ -85,8 +85,8 @@
   - серии и позиции: те же правила независимо от тайтла; правка тайтла не трогает серии
   - ошибки без частичной записи (Review Focus 4): тело не JSON → 400 `bad_json`; `key` не по шаблону → 400 `bad_key_format`; `data` не объект → 400 `bad_data`; `season`/`episode` не целые 0..9999 → 400 `bad_episode`; `position_ms`/`duration_ms` отрицательные → 400 `bad_position`; больше 500 строк суммарно → 413 `too_many`; тело > 1 МБ или `data` одной строки > 16 КБ в JSON → 413 `too_large`. После любой ошибки `seq` = 0 и таблицы пусты.
 - [ ] **Step 2:** Тесты падают.
-- [ ] **Step 3:** Реализовать: сначала полная проверка всей пачки, затем один `env.DB.batch([...])`. Условная вставка `INSERT … ON CONFLICT … DO UPDATE … WHERE excluded.updated_at > <table>.updated_at`; строке, которая реально изменилась, — следующий `seq` из `meta` (счётчик увеличивается в той же транзакции только для применённых строк). `applied` — сумма `meta.changes` по операциям.
-- [ ] **Step 4:** Тесты зелёные.
+- [x] **Step 3:** Реализовать: сначала полная проверка всей пачки, затем один `env.DB.batch([...])`. Условная вставка `INSERT … ON CONFLICT … DO UPDATE … WHERE excluded.updated_at > <table>.updated_at`; строке, которая реально изменилась, — следующий `seq` из `meta` (счётчик увеличивается в той же транзакции только для применённых строк). `applied` — сумма `meta.changes` по операциям.
+- [x] **Step 4:** Тесты зелёные.
 - [ ] **Step 5: Commit** `feat(cloud): batch upsert with last-write-wins`
 
 ### Task 3: Лента изменений `GET /v1/changes`
@@ -105,14 +105,14 @@
   ```
   Строки всех трёх таблиц с `seq > since`, вместе не больше `limit`, по возрастанию `seq`; `deleted` — boolean, `data` — объект.
 
-- [ ] **Step 1: Тесты:**
+- [x] **Step 1: Тесты:**
   - пустая база → пустые массивы, `next: 0`, `more: false`
   - `since` отсекает уже виденное; удалённые строки приходят с `deleted: true`
   - 1200 строк вперемешку по таблицам, `limit=500`: три страницы по `next`, объединение = все 1200 без повторов, на последней `more: false` (Review Focus 3)
   - `since=-1`, `since=abc`, `limit=0`, `limit=5000` → 400 `bad_query`
 - [ ] **Step 2:** Тесты падают.
-- [ ] **Step 3:** Реализовать: `UNION ALL` трёх таблиц по `seq > ?` с `ORDER BY seq LIMIT ?+1` (лишняя строка → `more`).
-- [ ] **Step 4:** Тесты зелёные; весь набор `scripts/list-worker-test.ps1` зелёный.
+- [x] **Step 3:** Реализовать: `UNION ALL` трёх таблиц по `seq > ?` с `ORDER BY seq LIMIT ?+1` (лишняя строка → `more`).
+- [x] **Step 4:** Тесты зелёные; весь набор `scripts/list-worker-test.ps1` зелёный.
 - [ ] **Step 5: Commit** `feat(cloud): changes feed with seq cursor`
 
 ### Task 4: Развёртывание и приёмка
@@ -122,8 +122,12 @@
 - Create: `docs/verification/2026-11-07-list-cloud.md`
 - Modify: `docs/STATUS.md`, `docs/BACKLOG.md`, этот план (статус)
 
-- [ ] **Step 1: README** (по образцу `proxy/cloudflare-worker/README.md`): создать D1 `vg-list` в панели; в консоли D1 выполнить `schema.sql`; создать воркер, вставить `src/worker.js`; Settings → Bindings → D1 `DB` → `vg-list`; секрет `LIST_KEY` (длинная случайная строка); Deploy. Проверки `curl` с `<ключ>`-заглушкой: health, пачка из одного тайтла, changes. Лимиты бесплатного тарифа D1 и Workers — сверить с документацией Cloudflare и вписать с датой проверки.
-- [ ] **Step 2: Пользователь** разворачивает и кладёт адрес и ключ в `.env` как `LIST_URL`, `LIST_KEY` (значения не печатать).
-- [ ] **Step 3: Приёмка** с хоста `curl`: health → `seq`; запись тайтла → `applied: 1`; повтор → `applied: 0`; changes → строка видна; без ключа → 403. Тестовую строку затем пометить удалённой. Записать в протокол итог без секретов.
-- [ ] **Step 4:** STATUS, BACKLOG, статус плана; `git diff --check`.
+- [x] **Step 1: README** (по образцу `proxy/cloudflare-worker/README.md`): создать D1 `vg-list` в панели; в консоли D1 выполнить `schema.sql`; создать воркер, вставить `src/worker.js`; Settings → Bindings → D1 `DB` → `vg-list`; секрет `LIST_KEY` (длинная случайная строка); Deploy. Проверки `curl` с `<ключ>`-заглушкой: health, пачка из одного тайтла, changes. Лимиты бесплатного тарифа D1 и Workers — сверить с документацией Cloudflare и вписать с датой проверки.
+- [x] **Step 2: Пользователь** разворачивает и кладёт адрес и ключ в `.env` как `LIST_URL`, `LIST_KEY` (значения не печатать).
+- [x] **Step 3: Приёмка** с хоста `curl`: health → `seq`; запись тайтла → `applied: 1`; повтор → `applied: 0`; changes → строка видна; без ключа → 403. Тестовую строку затем пометить удалённой. Записать в протокол итог без секретов.
+- [x] **Step 4:** STATUS, BACKLOG, статус плана; `git diff --check`.
 - [ ] **Step 5: Commit** `docs: list cloud deploy and acceptance`
+
+Проверка задачи 1: [протокол](../../verification/2026-11-07-list-cloud.md). Вместо устаревшего пула используется @cloudflare/vitest-plugin 1.6.0, Vitest 5.1.0, Wrangler 4.158.0. Исторический red-прогон не выполнялся; коммиты автоматически не создаются по AGENTS.md.
+
+Уточнение задач 2–3: тесты объединены в test/sync.test.js. Миграция 0002 добавляет client_updated_at для повторов правок с будущим временем; schema.sql = 0001 + 0002. Проверка атомарности включает ошибку БД и конкурирующие запросы. Red-прогон не выполнялся.

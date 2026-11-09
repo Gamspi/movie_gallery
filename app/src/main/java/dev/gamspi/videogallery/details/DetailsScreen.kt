@@ -44,11 +44,18 @@ fun DetailsScreen(
     viewModel: DetailsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val listSnapshot by viewModel.listSnapshot.collectAsStateWithLifecycle()
+    val listError by viewModel.listError.collectAsStateWithLifecycle()
+    val actions: @Composable () -> Unit = {
+        val record = remember(state, listSnapshot) { viewModel.listRecord() }
+        record?.let { dev.gamspi.videogallery.watchlist.ListActionButton(it, change = viewModel::changeList) }
+        listError?.let { Text(it) }
+    }
     when (val s = state) {
         DetailsUiState.Loading -> FullScreenLoader()
         is DetailsUiState.Error -> ErrorView(s.kind, onRetry = viewModel::retry, onOpenKeySettings = onOpenKeySettings, onOpenSettings = onOpenSettings)
         is DetailsUiState.Content -> if (!s.series) {
-            DetailsContent(s.details, onWatch)
+            DetailsContent(s.details, onWatch, actions)
         } else {
             val play = { ref: EpisodeRef ->
                 when (val t = viewModel.playTarget(ref)) {
@@ -62,13 +69,14 @@ fun DetailsScreen(
                 onRetryEpisodes = viewModel::retryEpisodes,
                 onPlay = play,
                 onPickSeason = { season -> onPickRelease(season, viewModel.releaseEpisode(season)) },
+                listActions = actions,
             )
         }
     }
 }
 
 @Composable
-private fun DetailsContent(details: MovieDetails, onWatch: () -> Unit) {
+private fun DetailsContent(details: MovieDetails, onWatch: () -> Unit, listActions: @Composable () -> Unit) {
     val movie = details.movie
     val watchFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) {
@@ -127,6 +135,7 @@ private fun DetailsContent(details: MovieDetails, onWatch: () -> Unit) {
                 ) {
                     Text("Смотреть")
                 }
+                listActions()
             }
         }
     }

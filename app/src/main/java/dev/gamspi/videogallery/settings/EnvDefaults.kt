@@ -14,6 +14,8 @@ internal fun buildEnvDefaults(
     proxyKey: String,
     rutrackerUser: String,
     rutrackerPassword: String,
+    listUrl: String = "",
+    listKey: String = "",
 ): Map<String, String> = mapOf(
     SettingsRepository.KEY_KINOPOISK to kinopoisk,
     SettingsRepository.KEY_TMDB to tmdb,
@@ -25,6 +27,8 @@ internal fun buildEnvDefaults(
     SettingsRepository.KEY_PROXY_KEY to proxyKey,
     SettingsRepository.KEY_RUTRACKER_USER to rutrackerUser,
     SettingsRepository.KEY_RUTRACKER_PASSWORD to rutrackerPassword,
+    dev.gamspi.videogallery.watchlist.ListSyncService.URL to listUrl,
+    dev.gamspi.videogallery.watchlist.ListSyncService.KEY to listKey,
 ).filterValues { it.isNotBlank() }
 
 /** Fallback defaults baked from the root .env at build time. */
@@ -39,4 +43,6 @@ internal fun envDefaults(): Map<String, String> = buildEnvDefaults(
     proxyKey = BuildConfig.ENV_PROXY_KEY,
     rutrackerUser = BuildConfig.ENV_RUTRACKER_USERNAME,
     rutrackerPassword = BuildConfig.ENV_RUTRACKER_PASSWORD,
+    listUrl = BuildConfig.ENV_LIST_URL,
+    listKey = BuildConfig.ENV_LIST_KEY,
 )

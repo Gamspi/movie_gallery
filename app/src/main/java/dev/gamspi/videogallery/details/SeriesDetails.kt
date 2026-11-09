@@ -80,6 +80,7 @@ internal fun SeriesDetailsContent(
     onRetryEpisodes: () -> Unit,
     onPlay: (EpisodeRef) -> Unit,
     onPickSeason: (Int) -> Unit,
+    listActions: @Composable () -> Unit = {},
 ) {
     val details = c.details
     val movie = details.movie
@@ -198,6 +199,7 @@ internal fun SeriesDetailsContent(
                             onClick = { onPickSeason(c.selectedSeason) },
                             modifier = Modifier.focusRequester(pickFocus),
                         ) { Text("Раздачи сезона") }
+                        listActions()
                     }
                 }
             }

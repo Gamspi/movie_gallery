@@ -14,6 +14,12 @@ import okhttp3.OkHttpClient
 @HiltAndroidApp
 class App : Application(), SingletonImageLoader.Factory {
     @Inject lateinit var proxy: ProxyInterceptor
+    @Inject lateinit var listSync: dev.gamspi.videogallery.watchlist.ListSyncService
+
+    override fun onCreate() {
+        super.onCreate()
+        listSync.start()
+    }
 
     // Default caches; only the network client changes so TMDB posters can use the proxy.
     override fun newImageLoader(context: PlatformContext): ImageLoader {

@@ -76,7 +76,30 @@ class DetailsViewModel @Inject constructor(
     private val history: WatchHistoryStore,
     private val series: SeriesStore,
     savedStateHandle: SavedStateHandle,
+    private val listSync: dev.gamspi.videogallery.watchlist.ListSyncService? = null,
 ) : ViewModel() {
+    val listSnapshot = listSync?.store?.snapshots ?: MutableStateFlow(dev.gamspi.videogallery.watchlist.ListSnapshot())
+    val listError = listSync?.error ?: MutableStateFlow<String?>(null)
+    fun listRecord(): dev.gamspi.videogallery.watchlist.ListRecord? {
+        val details = content()?.details ?: return null
+        val movie = details.movie
+        val seed = dev.gamspi.videogallery.watchlist.importWatchEntry(WatchEntry(
+            movieId = movie.id, title = movie.title, year = movie.year, posterUrl = movie.posterUrl,
+            imdb = details.imdbId.orEmpty(), positionKey = "list", positionMs = 0, durationMs = 0,
+            updatedAt = System.currentTimeMillis(), kind = movie.kind, source = source.name,
+        )).firstOrNull() ?: return null
+        return listSnapshot.value.records[seed.identity]?.takeUnless { it.deleted }
+            ?: dev.gamspi.videogallery.watchlist.listCardSeed(seed)
+    }
+    fun changeList(field: String, value: kotlinx.serialization.json.JsonElement) {
+        val record = listRecord() ?: return
+        val listed = listSnapshot.value.records[record.identity]?.deleted == false
+        listSync?.changeTitle(if (listed) record else dev.gamspi.videogallery.watchlist.firstEditSeed(record, field), field, value)
+    }
+    private val pinnedSource = dev.gamspi.videogallery.settings.CatalogSource.entries
+        .firstOrNull { it.name == savedStateHandle.get<String>("source") }
+    private val source get() = pinnedSource ?: settings.catalogSource.value
+    private val cards get() = pinnedSource?.let(catalog::forSource) ?: catalog
     private val id: Int = checkNotNull(savedStateHandle["id"])
     private val kind = MediaKind.entries.firstOrNull { it.name == savedStateHandle.get<String>("kind") }
         ?: MediaKind.Movie
@@ -86,6 +109,8 @@ class DetailsViewModel @Inject constructor(
     private var episodesJob: Job? = null
 
     init {
+        listSync?.loadLocal()
+        viewModelScope.launch { listSnapshot.collect { refreshProgress() } }
         viewModelScope.launch {
             combine(settings.activeCatalog, retryTick) { active, tick -> active to tick }
                 .collectLatest { load() }
@@ -97,14 +122,14 @@ class DetailsViewModel @Inject constructor(
         retryTick.value++
     }
 
-    private fun key() = seriesKey(settings.catalogSource.value.name, id)
+    private fun key() = seriesKey(source.name, id)
 
     private fun content() = _state.value as? DetailsUiState.Content
 
     private fun historyEntry(): WatchEntry? {
-        val source = settings.catalogSource.value.name
+        val name = source.name
         return history.entries.value.firstOrNull {
-            it.kind == MediaKind.Series && it.movieId == id && (it.source == null || it.source == source) &&
+            it.kind == MediaKind.Series && it.movieId == id && (it.source == null || it.source == name) &&
                 it.season != null && it.episode != null
         }
     }
@@ -112,7 +137,10 @@ class DetailsViewModel @Inject constructor(
     /** Re-reads progress and the resume episode: history changes while the card is open. */
     private fun refreshProgress() {
         val c = content()?.takeIf { it.seasons.isNotEmpty() } ?: return
-        val progress = series.progress(key())
+        val progress = series.progress(key()).toMutableMap()
+        val titleKey = listRecord()?.titleKey
+        listSnapshot.value.records.values.filter { it.table == dev.gamspi.videogallery.watchlist.ListTable.Episodes && it.titleKey == titleKey }
+            .forEach { progress[EpisodeRef(it.season, it.episode)] = if (!it.deleted && it.watched) 1f else 0f }
         val (resume, started) = resumeOf(c.seasons, progress)
         _state.value = c.copy(progress = progress, resume = resume, started = started)
     }
@@ -148,7 +176,7 @@ class DetailsViewModel @Inject constructor(
         }
         episodesJob = viewModelScope.launch {
             val result = try {
-                catalog.season(id, season)
+                cards.season(id, season)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: CatalogException) {
@@ -190,7 +218,7 @@ class DetailsViewModel @Inject constructor(
             imdb = c.details.imdbId.orEmpty(),
             autoResume = true,
             kind = MediaKind.Series,
-            source = settings.catalogSource.value.name,
+            source = source.name,
             season = ref.season,
             episode = ref.episode,
             seasonEpisodes = c.seasons.firstOrNull { it.number == ref.season }?.episodeCount,
@@ -205,7 +233,7 @@ class DetailsViewModel @Inject constructor(
         episodesJob?.cancel()
         _state.value = DetailsUiState.Loading
         val details = try {
-            catalog.details(id, kind)
+            cards.details(id, kind)
         } catch (e: CancellationException) {
             throw e
         } catch (e: CatalogException) {
@@ -222,7 +250,7 @@ class DetailsViewModel @Inject constructor(
             }
             // No season list: probe season 1 so a series is never shown as a movie.
             val probe = try {
-                catalog.season(id, 1)
+                cards.season(id, 1)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: CatalogException) {
@@ -245,6 +273,7 @@ class DetailsViewModel @Inject constructor(
             details, seasons, first, progress = progress, resume = resume, started = started, series = true,
             episodes = preloaded.orEmpty(),
         )
+        refreshProgress()
         if (preloaded == null) loadEpisodes(first)
     }
 }

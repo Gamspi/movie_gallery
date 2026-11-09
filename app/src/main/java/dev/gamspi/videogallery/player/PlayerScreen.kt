@@ -1,6 +1,8 @@
 package dev.gamspi.videogallery.player
 
 import android.view.KeyEvent
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import android.view.View
 import android.util.Log
 import androidx.activity.compose.BackHandler
@@ -238,6 +240,7 @@ fun PlayerScreen(
         return true
     }
 
+    val preparationScope = rememberCoroutineScope()
     DisposableEffect(player) {
         var initialAudioDone = false
         var started = false
@@ -325,18 +328,22 @@ fun PlayerScreen(
             }
         }
         player.addListener(listener)
-        if (state.url.isNotEmpty()) {
-            val factory = DefaultMediaSourceFactory(
-                DefaultHttpDataSource.Factory()
-                    .setConnectTimeoutMs(30_000)
-                    .setReadTimeoutMs(60_000),
-            ).setLoadErrorHandlingPolicy(DefaultLoadErrorHandlingPolicy(10))
-            player.setMediaSource(factory.createMediaSource(MediaItem.fromUri(state.url)))
-            player.prepare()
-        } else {
-            vm.onError(PlayerFailure("Не указан адрес видео. Выберите другой источник."))
+        val preparation = preparationScope.launch {
+            vm.prepareCloudResume()
+            if (state.url.isNotEmpty()) {
+                val factory = DefaultMediaSourceFactory(
+                    DefaultHttpDataSource.Factory()
+                        .setConnectTimeoutMs(30_000)
+                        .setReadTimeoutMs(60_000),
+                ).setLoadErrorHandlingPolicy(DefaultLoadErrorHandlingPolicy(10))
+                player.setMediaSource(factory.createMediaSource(MediaItem.fromUri(state.url)))
+                player.prepare()
+            } else {
+                vm.onError(PlayerFailure("Не указан адрес видео. Выберите другой источник."))
+            }
         }
         onDispose {
+            preparation.cancel()
             vm.onPlaybackWaiting(false)
             vm.onPauseOrExit(player.currentPosition, durationOrZero())
             player.removeListener(listener)

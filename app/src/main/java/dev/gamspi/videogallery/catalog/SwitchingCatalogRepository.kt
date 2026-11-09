@@ -16,11 +16,13 @@ class SwitchingCatalogRepository(
     private val poiskkino: CatalogRepository,
 ) : CatalogRepository {
     private val current: CatalogRepository
-        get() = when (settings.catalogSource.value) {
-            CatalogSource.Tmdb -> tmdb
-            CatalogSource.Kinopoisk -> kinopoisk
-            CatalogSource.PoiskKino -> poiskkino
-        }
+        get() = forSource(settings.catalogSource.value)
+
+    override fun forSource(source: CatalogSource): CatalogRepository = when (source) {
+        CatalogSource.Tmdb -> tmdb
+        CatalogSource.Kinopoisk -> kinopoisk
+        CatalogSource.PoiskKino -> poiskkino
+    }
 
     override suspend fun popular(page: Int, kind: MediaKind): List<Movie> = current.popular(page, kind)
     override suspend fun genres(kind: MediaKind): List<Genre> = current.genres(kind)

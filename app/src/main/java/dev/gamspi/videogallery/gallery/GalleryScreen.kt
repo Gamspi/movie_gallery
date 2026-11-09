@@ -58,6 +58,7 @@ import dev.gamspi.videogallery.ui.icons.AppIcons
 @Composable
 fun GalleryScreen(
     onOpenMovie: (Int, MediaKind) -> Unit,
+    onOpenSaved: (dev.gamspi.videogallery.watchlist.SavedTarget) -> Unit,
     onContinue: (WatchEntry) -> Unit,
     onOpenSearch: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -66,6 +67,8 @@ fun GalleryScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val history by viewModel.history.collectAsStateWithLifecycle()
+    val listSnapshot by viewModel.listSnapshot.collectAsStateWithLifecycle()
+    val listError by viewModel.listError.collectAsStateWithLifecycle()
     val source = LocalCatalogSource.current
     val visibleHistory = remember(history, source) { historyForSource(history, source.name) }
     val tab by viewModel.tab.collectAsStateWithLifecycle()
@@ -85,7 +88,12 @@ fun GalleryScreen(
                 is GalleryUiState.Error ->
                     ErrorView(s.kind, onRetry = viewModel::retry, onOpenKeySettings = onOpenKeySettings, onOpenSettings = onOpenSettings)
                 is GalleryUiState.Content -> key(s.tab) {
+                    if (s.tab == HomeTab.Watchlist || s.tab == HomeTab.Watched) {
+                        SavedListContent(listSnapshot, s.tab == HomeTab.Watched, listError, railEntry, railLinks,
+                            { viewModel.openSaved(it, onOpenSaved) }, { row, field, value -> viewModel.changeList(row, field, value); Unit })
+                    } else {
                     GalleryContent(s, visibleHistory, memory, railEntry, railLinks, if (showRail) RailCollapsedWidth else 0.dp, onOpenMovie, onContinue, onOpenSearch, onOpenSettings)
+                    }
                 }
             }
         }

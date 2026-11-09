@@ -60,6 +60,7 @@ fun AppNavHost() {
         composable("gallery") { entry ->
             GalleryScreen(
                 onOpenMovie = { id, kind -> nav.navigateOnce(entry, movieRoute(id, kind)) },
+                onOpenSaved = { nav.navigateOnce(entry, movieRoute(it.id, it.kind, it.source.name)) },
                 onContinue = { nav.navigateOnce(entry, it.streamRoute()) },
                 onOpenSearch = { nav.navigateOnce(entry, "search") },
                 onOpenSettings = { nav.navigateOnce(entry, SETTINGS_HOME_ROUTE) },
@@ -124,7 +125,7 @@ fun AppNavHost() {
                 onPickRelease = { meta ->
                     // Back to the card, then the season's releases on top of it.
                     val onCard = nav.popBackStack(MOVIE_ROUTE, inclusive = false)
-                    nav.navigate(releasesRoute(meta.movieId, MediaKind.Series, meta.season, meta.episode)) {
+                    nav.navigate(releasesRoute(meta.movieId, MediaKind.Series, meta.season, meta.episode, source = meta.source)) {
                         if (!onCard) popUpTo(PLAYER_ROUTE) { inclusive = true }
                     }
                 },
@@ -140,19 +141,21 @@ fun AppNavHost() {
         composable(MOVIE_ROUTE, arguments = listOf(
             navArgument("id") { type = NavType.IntType },
             navArgument("kind") { type = NavType.StringType; defaultValue = MediaKind.Movie.name },
+            navArgument("source") { type = NavType.StringType; defaultValue = "" },
         )) { entry ->
+            val cardSource = entry.arguments?.getString("source")
             DetailsScreen(
                 onOpenKeySettings = { nav.navigateOnce(entry, settingsRoute(SettingsSection.Keys)) },
                 onOpenSettings = { nav.navigateOnce(entry, SETTINGS_HOME_ROUTE) },
                 onWatch = {
                     val kind = MediaKind.entries.firstOrNull { it.name == entry.arguments?.getString("kind") }
                         ?: MediaKind.Movie
-                    nav.navigateOnce(entry, releasesRoute(checkNotNull(entry.arguments).getInt("id"), kind))
+                    nav.navigateOnce(entry, releasesRoute(checkNotNull(entry.arguments).getInt("id"), kind, source = cardSource))
                 },
                 onStream = { title, meta -> nav.navigateOnce(entry, streamRoute(title, meta)) },
                 onPickRelease = { season, episode ->
                     val id = checkNotNull(entry.arguments).getInt("id")
-                    nav.navigateOnce(entry, releasesRoute(id, MediaKind.Series, season, episode))
+                    nav.navigateOnce(entry, releasesRoute(id, MediaKind.Series, season, episode, source = cardSource))
                 },
             )
         }
@@ -162,6 +165,7 @@ fun AppNavHost() {
             navArgument("season") { type = NavType.StringType; defaultValue = "" },
             navArgument("episode") { type = NavType.StringType; defaultValue = "" },
             navArgument("missing") { type = NavType.StringType; defaultValue = "" },
+            navArgument("source") { type = NavType.StringType; defaultValue = "" },
         )) { entry ->
             val viewModel = hiltViewModel<ReleasesViewModel>()
             LaunchedEffect(entry) {
@@ -210,7 +214,7 @@ fun AppNavHost() {
                                 nav.popBackStack(RELEASES_ROUTE, inclusive = false)
                             }
                         } else {
-                            nav.navigateOnce(entry, releasesRoute(id, MediaKind.Series, season, episode, missing = true)) {
+                            nav.navigateOnce(entry, releasesRoute(id, MediaKind.Series, season, episode, missing = true, source = entry.arguments?.getString("source"))) {
                                 popUpTo(STREAM_ROUTE) { inclusive = true }
                             }
                         }

@@ -12,10 +12,12 @@ import org.junit.Test
 
 class RoutesTest {
     @Test fun detailsAndReleaseRoutesIncludeKind() {
-        assertEquals("movie/{id}?kind={kind}", MOVIE_ROUTE)
-        assertEquals("releases/{id}?kind={kind}&season={season}&episode={episode}&missing={missing}", RELEASES_ROUTE)
+        assertEquals("movie/{id}?kind={kind}&source={source}", MOVIE_ROUTE)
+        assertEquals("releases/{id}?kind={kind}&season={season}&episode={episode}&missing={missing}&source={source}", RELEASES_ROUTE)
         assertEquals("movie/7?kind=Movie", movieRoute(7))
         assertEquals("movie/7?kind=Series", movieRoute(7, MediaKind.Series))
+        assertEquals("movie/7?kind=Series&source=Tmdb", movieRoute(7, MediaKind.Series, "Tmdb"))
+        assertEquals("releases/7?kind=Movie&season=&episode=&source=Tmdb", releasesRoute(7, source = "Tmdb"))
         assertEquals("releases/7?kind=Movie&season=&episode=", releasesRoute(7))
         assertEquals("releases/7?kind=Series&season=3&episode=", releasesRoute(7, MediaKind.Series, 3))
         assertEquals("releases/7?kind=Series&season=3&episode=4", releasesRoute(7, MediaKind.Series, 3, 4))
