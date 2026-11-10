@@ -1,6 +1,8 @@
 # ТВ: «Скоро» — этап 3
 
 Дата: 2026-11-10. Статус: код задач 1–4 написан, добавлены 34 unit-теста. Docker-прогон: 881 тест без failures/errors/skipped, assembleDebug успешен. Приёмка на ТВ открыта. [Протокол и файлы](../../verification/2026-11-10-tv-coming-soon.md).
+
+Исправление после частичной приёмки ТВ, 2026-11-10: код отбора ряда обновлён, добавлены 9 тестов; тесты, сборка и повтор на ТВ не проверены. Первая страница ранжируется по популярности/ожиданию, отбираются тайтлы с кириллицей и постером в окне от завтра до `today.plusMonths(6)` включительно; итог по дате, до 20. [Решение и ограничения](../../verification/2026-11-10-tv-coming-soon.md#исправление-ряда-скоро).
 Основание: [дизайн](../specs/2026-11-07-watchlist-sync-design.md), решения пользователя от 2026-11-10.
 Используем личный список этапа 2, ListSyncService и LocalListStore. Коммиты, ТВ и adb исключены из этой задачи.
 
@@ -41,4 +43,4 @@
 
 Кинопоиск не отдаёт дату в списках/поиске: там применяется год без дополнительных запросов на каждый постер. В деталях фильма используется distributions/WORLD_PREMIER (без повторного проката), сериала — дата первой серии первого сезона. Нет даты или ошибка необязательных метаданных — год. Старые записи личного списка без даты также используют год; новая дата записывается при правке из карточки.
 
-Документация API сверена 2026-11-10: [TMDB фильмы](https://developer.themoviedb.org/reference/discover-movie), [TMDB сериалы](https://developer.themoviedb.org/reference/discover-tv), [PoiskKino](https://poiskkino.dev/documentation), [Кинопоиск OpenAPI](https://kinopoiskapiunofficial.tech/documentation/api/openapi.json). Живые запросы с ключами не выполнялись. PoiskKino: один запрос premiere.world от завтра до 31.12.9999, sortField=premiere.world, sortType=1, limit=20; TMDB: один запрос на тип, два во «Все», итог до 20 карточек. Кэш запросов — час, кэш рядов — как у остальных рядов с очисткой при смене календарного дня на загрузке вкладки.
+Документация API сверена 2026-11-10: [TMDB фильмы](https://developer.themoviedb.org/reference/discover-movie), [TMDB сериалы](https://developer.themoviedb.org/reference/discover-tv), [PoiskKino OpenAPI](https://api.poiskkino.dev/documentation-json), [Кинопоиск OpenAPI](https://kinopoiskapiunofficial.tech/documentation/api/openapi.json). Живые запросы с ключами не выполнялись. После исправления: PoiskKino — один запрос premiere.world от завтра до today.plusMonths(6), sortField=votes.await, sortType=-1, limit=20; TMDB — те же границы primary_release_date/first_air_date, sort_by=popularity.desc, один запрос на тип, два во «Все». Общий фильтр кириллицы/постера/дат, итог по дате до 20 карточек. Кэш запросов — час, кэш рядов — как у остальных рядов с очисткой при смене календарного дня на загрузке вкладки.

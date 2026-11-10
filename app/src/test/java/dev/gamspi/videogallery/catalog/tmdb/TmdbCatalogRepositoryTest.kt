@@ -20,9 +20,10 @@ import org.junit.Test
 class TmdbCatalogRepositoryTest {
     @Test fun upcomingMixedUsesTwoDateFilteredRequestsAndSortsByPremiere() = runBlocking {
         server.enqueue(MockResponse.Builder().body("""{"results":[
-            {"id":1,"release_date":"2027-03-12"},{"id":3,"release_date":"2026-11-10"}]}
+            {"id":1,"title":"Фильм","poster_path":"/film.jpg","release_date":"2027-03-12"},
+            {"id":3,"title":"Вышедший","poster_path":"/old.jpg","release_date":"2026-11-10"}]}
         """).build())
-        server.enqueue(MockResponse.Builder().body("""{"results":[{"id":1,"first_air_date":"2026-11-11"}]}""").build())
+        server.enqueue(MockResponse.Builder().body("""{"results":[{"id":1,"name":"Сериал","poster_path":"/tv.jpg","first_air_date":"2026-11-11"}]}""").build())
         val movies = repo().upcoming(java.time.LocalDate.of(2026, 11, 10))
         assertEquals(listOf(MediaKind.Series, MediaKind.Movie), movies.map { it.kind })
         assertEquals(listOf("2026-11-11", "2027-03-12"), movies.map { it.premiereDate })
@@ -30,11 +31,19 @@ class TmdbCatalogRepositoryTest {
         val tv = server.takeRequest().url
         assertEquals("/3/discover/movie", film.encodedPath)
         assertEquals("2026-11-11", film.queryParameter("primary_release_date.gte"))
-        assertEquals("primary_release_date.asc", film.queryParameter("sort_by"))
+        assertEquals("2027-05-10", film.queryParameter("primary_release_date.lte"))
+        assertEquals("popularity.desc", film.queryParameter("sort_by"))
+        assertEquals("ru-RU", film.queryParameter("language"))
+        assertNull(film.queryParameter("with_original_language"))
+        assertNull(film.queryParameter("vote_count.gte"))
         assertNull(film.queryParameter("region"))
         assertEquals("/3/discover/tv", tv.encodedPath)
         assertEquals("2026-11-11", tv.queryParameter("first_air_date.gte"))
-        assertEquals("first_air_date.asc", tv.queryParameter("sort_by"))
+        assertEquals("2027-05-10", tv.queryParameter("first_air_date.lte"))
+        assertEquals("popularity.desc", tv.queryParameter("sort_by"))
+        assertEquals("ru-RU", tv.queryParameter("language"))
+        assertNull(tv.queryParameter("with_original_language"))
+        assertNull(tv.queryParameter("vote_count.gte"))
         assertEquals(2, server.requestCount)
     }
 
@@ -45,7 +54,43 @@ class TmdbCatalogRepositoryTest {
             val url = server.takeRequest().url
             assertEquals(if (kind == MediaKind.Movie) "/3/discover/movie" else "/3/discover/tv", url.encodedPath)
             assertEquals("2027-01-01", url.queryParameter(if (kind == MediaKind.Movie) "primary_release_date.gte" else "first_air_date.gte"))
+            assertEquals("2027-06-30", url.queryParameter(if (kind == MediaKind.Movie) "primary_release_date.lte" else "first_air_date.lte"))
+            assertEquals("popularity.desc", url.queryParameter("sort_by"))
         }
+        assertEquals(2, server.requestCount)
+    }
+
+    @Test fun upcomingFiltersBothTypesLocallyAndKeepsZeroVotePremieres() = runBlocking {
+        for (kind in MediaKind.entries) {
+            val titleField = if (kind == MediaKind.Movie) "title" else "name"
+            val dateField = if (kind == MediaKind.Movie) "release_date" else "first_air_date"
+            server.enqueue(MockResponse.Builder().body("""{"results":[
+                {"id":1,"$titleField":"Премьера","poster_path":"/p.jpg","$dateField":"2027-05-10","vote_count":0},
+                {"id":2,"$titleField":"Unknown","poster_path":"/p.jpg","$dateField":"2026-11-11","popularity":999},
+                {"id":3,"$titleField":"Без постера","$dateField":"2026-11-11"},
+                {"id":4,"$titleField":"Позже","poster_path":"/p.jpg","$dateField":"2027-05-11"},
+                {"id":5,"$titleField":"Без даты","poster_path":"/p.jpg"},
+                {"id":6,"$titleField":"Пустой постер","poster_path":"","$dateField":"2026-11-11"},
+                {"id":7,"$titleField":"Пробельный постер","poster_path":" ","$dateField":"2026-11-11"}
+            ],"total_pages":100}""").build())
+            assertEquals(listOf(1), repo().upcoming(java.time.LocalDate.of(2026, 11, 10), kind).map { it.id })
+        }
+        assertEquals(2, server.requestCount)
+    }
+
+    @Test fun upcomingMixedCapsAtTwentyAfterMergingAndSorting() = runBlocking {
+        val today = java.time.LocalDate.of(2026, 11, 10)
+        val films = (1..20).reversed().joinToString(",") {
+            """{"id":$it,"title":"Фильм $it","poster_path":"/p.jpg","release_date":"${today.plusDays(it * 2L)}"}"""
+        }
+        val series = (1..20).reversed().joinToString(",") {
+            """{"id":$it,"name":"Сериал $it","poster_path":"/p.jpg","first_air_date":"${today.plusDays(it * 2L - 1)}"}"""
+        }
+        server.enqueue(MockResponse.Builder().body("""{"results":[$films]}""").build())
+        server.enqueue(MockResponse.Builder().body("""{"results":[$series]}""").build())
+        val result = repo().upcoming(today)
+        assertEquals((1..20).map { today.plusDays(it.toLong()).toString() }, result.map { it.premiereDate })
+        assertEquals(List(20) { if (it % 2 == 0) MediaKind.Series else MediaKind.Movie }, result.map { it.kind })
         assertEquals(2, server.requestCount)
     }
 

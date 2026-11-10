@@ -40,9 +40,21 @@ fun isSeasonComingSoon(season: SeasonInfo, episodes: List<Episode>?, today: Loca
         episodes.none { isEpisodeAvailable(it, today, season.airDate) }
     } else releaseDate(season.airDate)?.isAfter(today) == true
 
-/** Keep movie/series id collisions distinct; unknown dates follow dated premieres. */
+fun upcomingDateWindow(today: LocalDate): ClosedRange<LocalDate> = today.plusDays(1)..today.plusMonths(6)
+
+fun hasCyrillicTitle(title: String): Boolean = title.any {
+    it.isLetter() && Character.UnicodeScript.of(it.code) == Character.UnicodeScript.CYRILLIC
+}
+
+/** Row eligibility is stricter than the badges and details availability rules. */
+fun Movie.isUpcomingCandidate(today: LocalDate): Boolean {
+    val date = releaseDate(premiereDate) ?: return false
+    return date in upcomingDateWindow(today) && hasCyrillicTitle(title) && !posterUrl.isNullOrBlank()
+}
+
+/** Sources rank candidates by popularity; display eligible premieres chronologically. */
 fun upcomingTitles(movies: List<Movie>, today: LocalDate): List<Movie> = movies
-    .filter { it.isComingSoon(today) }
+    .filter { it.isUpcomingCandidate(today) }
     .distinctBy { it.kind to it.id }
-    .sortedWith(compareBy<Movie> { releaseDate(it.premiereDate) == null }
-        .thenBy { releaseDate(it.premiereDate) }.thenBy { it.year })
+    .sortedBy { releaseDate(it.premiereDate) }
+    .take(20)

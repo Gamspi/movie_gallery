@@ -17,13 +17,15 @@ interface TmdbApi {
     @GET("discover/movie")
     suspend fun upcomingMovies(
         @Query("primary_release_date.gte") from: String,
-        @Query("sort_by") sortBy: String = "primary_release_date.asc",
+        @Query("primary_release_date.lte") to: String,
+        @Query("sort_by") sortBy: String = "popularity.desc",
     ): MovieListDto
 
     @GET("discover/tv")
     suspend fun upcomingSeries(
         @Query("first_air_date.gte") from: String,
-        @Query("sort_by") sortBy: String = "first_air_date.asc",
+        @Query("first_air_date.lte") to: String,
+        @Query("sort_by") sortBy: String = "popularity.desc",
     ): MovieListDto
 
     @GET("movie/popular")

@@ -31,9 +31,9 @@ class PoiskKinoCatalogRepositoryTest {
         val client = dev.gamspi.videogallery.catalog.cachingClient(dir)
         try {
             server.enqueue(MockResponse.Builder().body("""{"docs":[
-                {"id":1,"type":"movie","year":2027,"premiere":{"world":"2027-03-12T00:00:00.000Z","russia":"2028-01-01"}},
-                {"id":2,"type":"tv-series","premiere":{"world":"2026-11-11"}},
-                {"id":3,"type":"movie","premiere":{"world":"2026-11-10"}}],"hasNext":true,"next":"cursor"}""").build())
+                {"id":1,"name":"Фильм","poster":{"url":"https://images.example/film.jpg"},"type":"movie","year":2027,"premiere":{"world":"2027-03-12T00:00:00.000Z","russia":"2028-01-01"}},
+                {"id":2,"name":"Сериал","poster":{"url":"https://images.example/tv.jpg"},"type":"tv-series","premiere":{"world":"2026-11-11"}},
+                {"id":3,"name":"Вышедший","poster":{"url":"https://images.example/old.jpg"},"type":"movie","premiere":{"world":"2026-11-10"}}],"hasNext":true,"next":"cursor"}""").build())
             val repository = repo(client = client)
             repeat(2) {
                 val result = repository.upcoming(java.time.LocalDate.of(2026, 11, 10))
@@ -42,9 +42,9 @@ class PoiskKinoCatalogRepositoryTest {
             }
             val url = server.takeRequest().url
             assertEquals("/v1.5/movie", url.encodedPath)
-            assertEquals("11.11.2026-31.12.9999", url.queryParameter("premiere.world"))
-            assertEquals("premiere.world", url.queryParameter("sortField"))
-            assertEquals("1", url.queryParameter("sortType"))
+            assertEquals("11.11.2026-10.05.2027", url.queryParameter("premiere.world"))
+            assertEquals("votes.await", url.queryParameter("sortField"))
+            assertEquals("-1", url.queryParameter("sortType"))
             assertEquals("20", url.queryParameter("limit"))
             for (field in listOf("lists", "next", "type", "isSeries")) assertNull(url.queryParameter(field))
             assertEquals(1, server.requestCount)
@@ -54,12 +54,29 @@ class PoiskKinoCatalogRepositoryTest {
     @Test fun upcomingKindFiltersAreSent() = runBlocking {
         for (kind in MediaKind.entries) {
             server.enqueue(MockResponse.Builder().body("""{"docs":[]}""").build())
-            repo().upcoming(java.time.LocalDate.of(2026, 11, 10), kind)
+            repo().upcoming(java.time.LocalDate.of(2026, 12, 31), kind)
             val url = server.takeRequest().url
             assertEquals(if (kind == MediaKind.Movie) "movie" else null, url.queryParameter("type"))
             assertEquals(if (kind == MediaKind.Series) "true" else null, url.queryParameter("isSeries"))
+            assertEquals("01.01.2027-30.06.2027", url.queryParameter("premiere.world"))
+            assertEquals("votes.await", url.queryParameter("sortField"))
+            assertEquals("-1", url.queryParameter("sortType"))
         }
         assertEquals(2, server.requestCount)
+    }
+
+    @Test fun upcomingFiltersUnlocalizedMissingPostersAndOutOfWindowWithoutFollowingCursor() = runBlocking {
+        server.enqueue(MockResponse.Builder().body("""{"docs":[
+            {"id":1,"name":"Премьера","poster":{"url":"https://images.example/p.jpg"},"premiere":{"world":"2027-05-10"},"votes":{"kp":0}},
+            {"id":2,"name":"Unknown","poster":{"url":"https://images.example/p.jpg"},"premiere":{"world":"2026-11-11"},"votes":{"await":999999}},
+            {"id":3,"name":"Без постера","premiere":{"world":"2026-11-11"}},
+            {"id":4,"name":"Пустой постер","poster":{"url":" "},"premiere":{"world":"2026-11-11"}},
+            {"id":5,"name":"Позже","poster":{"url":"https://images.example/p.jpg"},"premiere":{"world":"2027-05-11"}},
+            {"id":6,"name":"Без даты","year":2027,"poster":{"url":"https://images.example/p.jpg"}},
+            {"id":7,"alternativeName":"東京","poster":{"url":"https://images.example/p.jpg"},"premiere":{"world":"2026-11-11"}}
+        ],"hasNext":true,"next":"cursor"}""").build())
+        assertEquals(listOf(1), repo().upcoming(java.time.LocalDate.of(2026, 11, 10)).map { it.id })
+        assertEquals(1, server.requestCount)
     }
 
     @Test fun premiereWorldMapsFromSearchAndDetailsWithoutRegionalFallback() {

@@ -8,6 +8,8 @@ import dev.gamspi.videogallery.catalog.model.Genre
 import dev.gamspi.videogallery.catalog.model.MediaKind
 import dev.gamspi.videogallery.catalog.model.Movie
 import dev.gamspi.videogallery.catalog.model.MovieDetails
+import dev.gamspi.videogallery.catalog.model.upcomingDateWindow
+import dev.gamspi.videogallery.catalog.model.upcomingTitles
 import dev.gamspi.videogallery.settings.SettingsRepository
 import java.io.IOException
 import kotlinx.serialization.SerializationException
@@ -39,10 +41,14 @@ class TmdbCatalogRepository(
     }
 
     override suspend fun upcoming(today: java.time.LocalDate, kind: MediaKind?): List<Movie> = call {
-        val from = today.plusDays(1).toString()
-        val movies = if (kind != MediaKind.Series) api.upcomingMovies(from).results.orEmpty().map { it.toMovie() } else emptyList()
-        val series = if (kind != MediaKind.Movie) api.upcomingSeries(from).results.orEmpty().map { it.toSeries() } else emptyList()
-        dev.gamspi.videogallery.catalog.model.upcomingTitles(movies + series, today).take(20)
+        val window = upcomingDateWindow(today)
+        val from = window.start.toString()
+        val to = window.endInclusive.toString()
+        val movies = if (kind != MediaKind.Series) api.upcomingMovies(from, to).results.orEmpty()
+            .filter { !it.posterPath.isNullOrBlank() }.map { it.toMovie() } else emptyList()
+        val series = if (kind != MediaKind.Movie) api.upcomingSeries(from, to).results.orEmpty()
+            .filter { !it.posterPath.isNullOrBlank() }.map { it.toSeries() } else emptyList()
+        upcomingTitles(movies + series, today)
     }
 
     override suspend fun popular(page: Int, kind: MediaKind): List<Movie> = call {

@@ -32,9 +32,11 @@ class GalleryViewModelTest {
     @Test fun upcomingSecondSortedAndFilteredOnEveryTabWithCachedReturn() = runTest {
         happyRepo(1)
         val today = java.time.LocalDate.now()
-        val film = movie(1).copy(premiereDate = today.plusDays(2).toString())
-        val tv = movie(1).copy(kind = MediaKind.Series, premiereDate = today.plusDays(1).toString())
-        repo.upcomingResult = { _, _ -> listOf(film, movie(3), tv) }
+        val film = movie(1).copy(title = "Фильм", posterUrl = "https://images.example/film.jpg", premiereDate = today.plusDays(2).toString())
+        val tv = film.copy(kind = MediaKind.Series, premiereDate = today.plusDays(1).toString())
+        repo.upcomingResult = { _, _ -> listOf(film, movie(3), tv,
+            film.copy(id = 4, title = "Unknown"), film.copy(id = 5, posterUrl = null),
+            film.copy(id = 6, premiereDate = today.plusMonths(6).plusDays(1).toString())) }
         val vm = GalleryViewModel(repo, settings(), FakeWatchHistoryStore())
         advanceUntilIdle()
         fun row() = (vm.state.value as GalleryUiState.Content).rows[1]

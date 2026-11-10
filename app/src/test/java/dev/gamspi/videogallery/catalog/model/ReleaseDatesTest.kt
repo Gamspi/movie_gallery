@@ -46,11 +46,60 @@ class ReleaseDatesTest {
 
     @Test fun upcomingSortedByDateAndTypeIdentityKept() {
         fun movie(id: Int, date: String?, year: Int = 2027, kind: MediaKind = MediaKind.Movie) =
-            Movie(id, "", "", year, null, "", kind = kind, premiereDate = date)
+            Movie(id, "Премьера", "", year, "https://images.example/poster.jpg", "", kind = kind, premiereDate = date)
         val soon = movie(1, "2026-11-11")
         val series = movie(1, "2026-11-12", kind = MediaKind.Series)
         val unknown = movie(2, null)
-        assertEquals(listOf(soon, series, unknown), upcomingTitles(
+        assertEquals(listOf(soon, series), upcomingTitles(
             listOf(unknown, series, soon, soon, movie(3, "2026-11-10")), today))
+    }
+
+    private fun candidate(date: String? = "2026-11-11") =
+        Movie(1, "Премьера", "Premiere", 2027, "https://images.example/poster.jpg", "", premiereDate = date)
+
+    @Test fun cyrillicTitleAcceptsMixedNamesAndYoButRejectsOtherScripts() {
+        for (title in listOf("Премьера", "Ё", "ё", "WALL·E: ВАЛЛ·И", "Ї")) {
+            assertTrue(title, hasCyrillicTitle(title))
+        }
+        for (title in listOf("", "  ", "Premiere", "東京", "한국", "123!?", "\u0483")) {
+            assertFalse(title, hasCyrillicTitle(title))
+        }
+    }
+
+    @Test fun upcomingWindowIncludesTomorrowAndSixMonthsButNotTodayOrLater() {
+        assertEquals(LocalDate.of(2026, 11, 11)..LocalDate.of(2027, 5, 10), upcomingDateWindow(today))
+        for (date in listOf("2026-11-11", "2027-05-10", "2027-05-10T23:59:59Z")) {
+            assertTrue(date, candidate(date).isUpcomingCandidate(today))
+        }
+        for (date in listOf("2026-11-09", "2026-11-10", "2027-05-11")) {
+            assertFalse(date, candidate(date).isUpcomingCandidate(today))
+        }
+    }
+
+    @Test fun upcomingWindowUsesCalendarMonthsAtYearEndAndLeapDay() {
+        assertEquals(LocalDate.of(2027, 1, 1)..LocalDate.of(2027, 6, 30), upcomingDateWindow(LocalDate.of(2026, 12, 31)))
+        assertEquals(LocalDate.of(2023, 9, 1)..LocalDate.of(2024, 2, 29), upcomingDateWindow(LocalDate.of(2023, 8, 31)))
+    }
+
+    @Test fun upcomingRowRequiresKnownDateEvenWhenBadgeUsesFutureYear() {
+        for (date in listOf(null, "", "bad", "2027-02-30")) {
+            assertFalse(candidate(date).isUpcomingCandidate(today))
+            assertTrue(candidate(date).isComingSoon(today))
+        }
+    }
+
+    @Test fun upcomingRowRequiresLocalizedTitleAndPosterButNoRating() {
+        assertTrue(candidate().isUpcomingCandidate(today))
+        for (poster in listOf(null, "", " \t")) {
+            assertFalse(candidate().copy(posterUrl = poster).isUpcomingCandidate(today))
+        }
+        assertFalse(candidate().copy(title = "Premiere", originalTitle = "Премьера", rating = 10.0).isUpcomingCandidate(today))
+        assertTrue(upcomingTitles(listOf(candidate().copy(title = "東京"), candidate().copy(posterUrl = null)), today).isEmpty())
+    }
+
+    @Test fun upcomingLimitAppliedAfterFilteringDeduplicationAndDateSorting() {
+        val eligible = (1..25).map { candidate(today.plusDays(it.toLong()).toString()).copy(id = it) }
+        val rejected = (26..50).map { candidate().copy(id = it, title = "Untranslated") }
+        assertEquals(eligible.take(20), upcomingTitles(rejected + eligible.reversed() + eligible, today))
     }
 }

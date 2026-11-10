@@ -7,6 +7,8 @@ import dev.gamspi.videogallery.catalog.model.Genre
 import dev.gamspi.videogallery.catalog.model.MediaKind
 import dev.gamspi.videogallery.catalog.model.Movie
 import dev.gamspi.videogallery.catalog.model.MovieDetails
+import dev.gamspi.videogallery.catalog.model.upcomingDateWindow
+import dev.gamspi.videogallery.catalog.model.upcomingTitles
 import dev.gamspi.videogallery.catalog.withCatalogCredentials
 import dev.gamspi.videogallery.settings.SettingsRepository
 import java.io.IOException
@@ -49,11 +51,14 @@ class PoiskKinoCatalogRepository(private val api: PoiskKinoApi, private val sett
     private var credentials: Credentials? = null
 
     override suspend fun upcoming(today: java.time.LocalDate, kind: MediaKind?): List<Movie> = call { state ->
-        val from = today.plusDays(1).format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.uuuu"))
+        val window = upcomingDateWindow(today)
+        val format = java.time.format.DateTimeFormatter.ofPattern("dd.MM.uuuu", java.util.Locale.ROOT)
+        val from = window.start.format(format)
+        val to = window.endInclusive.format(format)
         val result = api.movies(state.key, type = if (kind == MediaKind.Movie) "movie" else null,
             isSeries = if (kind == MediaKind.Series) true else null,
-            sortField = "premiere.world", sortType = "1", premiereWorld = "$from-31.12.9999")
-        dev.gamspi.videogallery.catalog.model.upcomingTitles(
+            sortField = "votes.await", sortType = "-1", premiereWorld = "$from-$to")
+        upcomingTitles(
             result.docs.orEmpty().mapNotNull { it.toMovieOrNull() }.filter { kind == null || it.kind == kind }, today)
     }
 
