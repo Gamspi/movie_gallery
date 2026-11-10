@@ -12,3 +12,6 @@ local.properties
 .env
 cloud/list-worker/node_modules/
 cloud/list-worker/.wrangler/
+
+# Google service account key
+google-sa.json

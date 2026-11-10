@@ -1,3 +1,6 @@
+import { BACKUP_CRON, NOTIFY_CRON, makeContext, runNotify, runRefresh } from './cron.js';
+import { runBackup } from './google.js';
+
 const json = (value, status = 200) => Response.json(value, { status });
 
 async function keyMatches(given, expected) {
@@ -137,7 +140,7 @@ export default {
       return json({ error: 'bad_key' }, 403);
     }
     const url = new URL(request.url);
-    const methods = { '/v1/health': 'GET', '/v1/batch': 'POST', '/v1/changes': 'GET' };
+    const methods = { '/v1/health': 'GET', '/v1/batch': 'POST', '/v1/changes': 'GET', '/v1/cron/run': 'POST' };
     if (!Object.hasOwn(methods, url.pathname)) {
       return json({ error: 'not_found' }, 404);
     }
@@ -145,11 +148,39 @@ export default {
     try {
       if (url.pathname === '/v1/batch') return await writeBatch(request, env.DB);
       if (url.pathname === '/v1/changes') return await changes(url, env.DB);
+      if (url.pathname === '/v1/cron/run') return await manualRun(url, env);
     const row = await env.DB.prepare("SELECT v FROM meta WHERE k = 'seq'").first();
     return json({ ok: true, seq: row.v });
     } catch (error) {
       if (error instanceof InputError) return json({ error: error.message }, error.status);
+      if (url.pathname === '/v1/cron/run') return json({ error: 'cron_failed', detail: errorCode(error) }, 500);
       return json({ error: 'database_error' }, 500);
     }
   },
+
+  async scheduled(controller, env) {
+    const deps = { now: controller.scheduledTime ?? Date.now() };
+    const jobs = controller.cron === BACKUP_CRON
+      ? [() => runBackup(env, deps), () => runRefresh(env, deps)]
+      : controller.cron === NOTIFY_CRON ? [() => runNotify(env, deps)] : [() => runRefresh(env, deps)];
+    for (const job of jobs) {
+      // Jobs are independent: a failed backup must not block the metadata refresh.
+      try { console.log(JSON.stringify(summary(await job()))); }
+      catch (error) { console.error(JSON.stringify({ cron: controller.cron, error: errorCode(error) })); }
+    }
+  },
 };
+
+// Error codes only: messages never carry URLs, tokens or response bodies.
+const errorCode = error => /^[a-z_]{3,40}$/.test(error?.message ?? '') ? error.message : 'internal';
+const summary = report => ({ ...report, events: report.events?.map(e => `${e.key}=${e.state}`) });
+
+async function manualRun(url, env) {
+  const job = url.searchParams.get('job');
+  const dry = url.searchParams.get('dry');
+  if (!['notify', 'backup', 'refresh'].includes(job) || ![null, '0', '1'].includes(dry)) fail('bad_query');
+  const deps = { dry: dry === '1' };
+  if (job === 'notify') return json(await runNotify(env, deps));
+  if (job === 'backup') return json(await runBackup(env, deps));
+  return json(await runRefresh(env, deps, makeContext(env, deps)));
+}

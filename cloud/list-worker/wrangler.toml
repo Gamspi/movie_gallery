@@ -2,8 +2,12 @@ name = "vg-list"
 main = "src/worker.js"
 compatibility_date = "2026-11-01"
 
+# 07:00 UTC = 10:00 MSK: metadata refresh + Telegram; 00:00 UTC = 03:00 MSK: Google Sheet backup + refresh.
+[triggers]
+crons = ["0 7 * * *", "0 0 * * *"]
+
 [[d1_databases]]
 binding = "DB"
 database_name = "vg-list"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "27f74af9-f7a1-4816-bc4d-e24e91a94931"
 migrations_dir = "migrations"

@@ -9,3 +9,6 @@ CREATE INDEX positions_seq ON positions(seq);
 ALTER TABLE titles ADD COLUMN client_updated_at INTEGER;
 ALTER TABLE episodes ADD COLUMN client_updated_at INTEGER;
 ALTER TABLE positions ADD COLUMN client_updated_at INTEGER;
+CREATE TABLE IF NOT EXISTS cron_titles (key TEXT PRIMARY KEY, tmdb_type TEXT, tmdb_id INTEGER, mapped_at INTEGER, checked_at INTEGER, info TEXT);
+CREATE TABLE IF NOT EXISTS sent_events (event_key TEXT PRIMARY KEY, status TEXT NOT NULL, attempts INTEGER NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS cron_state (k TEXT PRIMARY KEY, v TEXT NOT NULL);
