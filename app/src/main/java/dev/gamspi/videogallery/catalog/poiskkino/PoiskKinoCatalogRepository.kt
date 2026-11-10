@@ -25,6 +25,17 @@ import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 
 class PoiskKinoCatalogRepository(private val api: PoiskKinoApi, private val settings: SettingsRepository) : CatalogRepository {
+    override suspend fun recommendations(id: Int, kind: MediaKind): List<Movie> = call { state ->
+        api.details(state.key, id).similarMovies.orEmpty().mapNotNull { it.toMovieOrNull() }.take(20)
+    }
+
+    override suspend fun findByImdb(imdbId: String, kind: MediaKind): Movie? = call { state ->
+        val docs = api.findByImdb(state.key, imdbId).docs.orEmpty()
+        // The filter is server side; a single doc without externalId is trusted, a contradicting id never.
+        val found = docs.filter { it.externalId?.imdb == imdbId || (it.externalId?.imdb == null && docs.size == 1) }
+            .mapNotNull { it.toMovieOrNull() }
+        found.firstOrNull { it.kind == kind } ?: found.firstOrNull()
+    }
     private class Chain {
         val mutex = Mutex()
         val pages = mutableListOf<MovieCursorDto>()

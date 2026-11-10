@@ -7,6 +7,10 @@ import retrofit2.http.Query
 
 interface PoiskKinoApi {
     @GET("v1.5/movie")
+    suspend fun findByImdb(@Header("X-API-KEY") key: String, @Query("externalId.imdb") imdb: String,
+        @Query("limit") limit: Int = 10): MovieCursorDto
+
+    @GET("v1.5/movie")
     suspend fun movies(
         @Header("X-API-KEY") key: String,
         @Query("next") next: String? = null,

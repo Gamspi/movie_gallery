@@ -25,6 +25,26 @@ class KinopoiskCatalogRepository(
     private val api: KinopoiskApi,
     private val settings: SettingsRepository,
 ) : CatalogRepository {
+    override suspend fun findByImdb(imdbId: String, kind: MediaKind): Movie? = call {
+        val found = api.findByImdb(imdbId).items.orEmpty().filter { it.imdbId == imdbId && it.kind() != null }
+        val dto = found.firstOrNull { it.kind() == kind } ?: found.firstOrNull()
+        dto?.let { it.toMovie(it.kind()!!) }
+    }
+
+    override suspend fun recommendations(id: Int, kind: MediaKind): List<Movie> = call {
+        // Similar responses lack type and rating. Read a few details (disk-cached for a day),
+        // without seasons/distributions, to keep within the daily key quota.
+        api.similars(id).items.orEmpty().mapNotNull { it.filmId?.takeIf { id -> id > 0 } }.distinct().take(SIMILAR_DETAILS)
+            .mapNotNull { similarId ->
+                val dto = optionalMetadata { api.details(similarId) } ?: return@mapNotNull null
+                val actualKind = when (dto.type) {
+                    "FILM" -> MediaKind.Movie
+                    "TV_SERIES", "MINI_SERIES", "TV_SHOW" -> MediaKind.Series
+                    else -> return@mapNotNull null
+                }
+                dto.toDetails(actualKind).movie
+            }
+    }
 
     override suspend fun popular(page: Int, kind: MediaKind): List<Movie> = call {
         val list = if (kind == MediaKind.Series) api.popular(page, "POPULAR_SERIES") else api.popular(page)
@@ -120,6 +140,7 @@ class KinopoiskCatalogRepository(
 
     companion object {
         const val BASE_URL = "https://kinopoiskapiunofficial.tech/"
+        private const val SIMILAR_DETAILS = 10
 
         fun create(baseUrl: String, settings: SettingsRepository, client: OkHttpClient = OkHttpClient()): KinopoiskCatalogRepository {
             val configured = client.newBuilder()

@@ -69,4 +69,5 @@ data class MovieDto(
     val rating: RatingDto? = null,
     val seasonsInfo: List<SeasonInfoDto>? = null,
     val premiere: PremiereDto? = null,
+    val similarMovies: List<MovieDto>? = null,
 )

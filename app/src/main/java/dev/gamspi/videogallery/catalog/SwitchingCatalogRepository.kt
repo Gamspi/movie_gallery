@@ -25,6 +25,8 @@ class SwitchingCatalogRepository(
     }
 
     override suspend fun popular(page: Int, kind: MediaKind): List<Movie> = current.popular(page, kind)
+    override suspend fun recommendations(id: Int, kind: MediaKind): List<Movie> = current.recommendations(id, kind)
+    override suspend fun findByImdb(imdbId: String, kind: MediaKind): Movie? = current.findByImdb(imdbId, kind)
     override suspend fun upcoming(today: java.time.LocalDate, kind: MediaKind?): List<Movie> = current.upcoming(today, kind)
     override suspend fun genres(kind: MediaKind): List<Genre> = current.genres(kind)
     override suspend fun byGenre(genreId: Int, page: Int, kind: MediaKind): List<Movie> =

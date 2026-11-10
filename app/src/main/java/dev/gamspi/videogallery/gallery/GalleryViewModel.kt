@@ -24,11 +24,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
+import dev.gamspi.videogallery.watchlist.ListRecord
 import kotlinx.coroutines.launch
 
-data class MovieRow(val title: String, val movies: List<Movie>)
+data class MovieRow(val title: String, val movies: List<Movie>, val key: String? = null)
 
-enum class HomeTab { All, Movies, Series, Watchlist, Watched }
+enum class HomeTab { All, Movies, Series, Watchlist, Watched, ForYou }
 
 /** Alternates items of [a] and [b] starting with [a]; the longer tail is appended. */
 internal fun <T> interleave(a: List<T>, b: List<T>): List<T> = buildList(a.size + b.size) {
@@ -50,6 +53,7 @@ class GalleryViewModel @Inject constructor(
     private val settings: SettingsRepository,
     history: WatchHistoryStore,
     private val listSync: dev.gamspi.videogallery.watchlist.ListSyncService? = null,
+    private val imdbMatches: ImdbMatchStore? = null,
 ) : ViewModel() {
     val listSnapshot = listSync?.store?.snapshots ?: MutableStateFlow(dev.gamspi.videogallery.watchlist.ListSnapshot())
     val listError = listSync?.error ?: MutableStateFlow<String?>(null)
@@ -99,16 +103,25 @@ class GalleryViewModel @Inject constructor(
     private val cache = HashMap<HomeTab, List<MovieRow>>()
     private var cacheEpoch: Pair<*, Int>? = null
     private var cacheDate = LocalDate.now()
+    private var recommendations: RecommendationLoader? = null
+    // Last «Похожие на» rows; shown with the catalog rows until fresh ones replace them.
+    private var related: List<MovieRow> = emptyList()
 
     init {
         viewModelScope.launch {
-            combine(settings.activeCatalog, retryTick, _tab) { active, tick, tab -> Triple(active, tick, tab) }
-                .collectLatest { (active, tick, tab) ->
+            // Only live titles matter: positions and episode marks do not reload the rows.
+            val titles = listSnapshot.map { recommendationTitles(it.records.values) }.distinctUntilChanged()
+            combine(settings.activeCatalog, retryTick, _tab, titles) { active, tick, tab, records ->
+                Pair(Triple(active, tick, tab), records)
+            }.collectLatest { (selection, records) ->
+                    val (active, tick, tab) = selection
                     if (cacheEpoch != active to tick) {
                         cache.clear()
                         cacheEpoch = active to tick
+                        related = emptyList()
+                        recommendations = RecommendationLoader(catalog.forSource(active.source), active.source, imdbMatches)
                     }
-                    load(tab)
+                    load(tab, records)
                 }
         }
     }
@@ -119,35 +132,55 @@ class GalleryViewModel @Inject constructor(
 
     fun selectTab(t: HomeTab) {
         _tab.value = t
-        if (t == HomeTab.Watchlist || t == HomeTab.Watched) { listSync?.loadLocal(); listSync?.request() }
+        if (t == HomeTab.Watchlist || t == HomeTab.Watched || t == HomeTab.ForYou) { listSync?.loadLocal(); listSync?.request() }
     }
 
-    private suspend fun load(tab: HomeTab) {
+    private suspend fun load(tab: HomeTab, records: List<ListRecord>) {
         val today = LocalDate.now()
         if (cacheDate != today) {
             cache.clear()
             cacheDate = today
         }
-        cache[tab]?.let {
-            _state.value = GalleryUiState.Content(it, tab)
-            return
+        // Cached catalog rows and list edits on an open «Для вас» reload in place, without a skeleton.
+        val shown = (_state.value as? GalleryUiState.Content)?.tab == tab
+        if (if (tab == HomeTab.ForYou) !shown else cache[tab] == null) {
+            _state.value = GalleryUiState.Loading(initial = firstLoad)
         }
-        _state.value = GalleryUiState.Loading(initial = firstLoad)
         firstLoad = false
-        _state.value = try {
-            val rows = when (tab) {
+        val loader = recommendations ?: return
+        try {
+            val rows = cache[tab] ?: when (tab) {
                 HomeTab.Movies -> fetchRows(MediaKind.Movie, "Популярное")
                 HomeTab.Series -> fetchRows(MediaKind.Series, "Популярные сериалы")
                 HomeTab.All -> fetchAllRows()
-                HomeTab.Watchlist, HomeTab.Watched -> emptyList()
+                HomeTab.Watchlist, HomeTab.Watched, HomeTab.ForYou -> emptyList()
             }
             cache[tab] = rows
-            GalleryUiState.Content(rows, tab)
+            when (tab) {
+                HomeTab.All -> {
+                    _state.value = GalleryUiState.Content(withRelatedRows(rows, related), tab)
+                    related = relatedRows(loader, records)
+                    _state.value = GalleryUiState.Content(withRelatedRows(rows, related), tab)
+                }
+                HomeTab.ForYou -> _state.value = GalleryUiState.Content(forYouRows(loader.load(records, forYouSeeds(records))), tab)
+                else -> _state.value = GalleryUiState.Content(rows, tab)
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: CatalogException) {
-            GalleryUiState.Error(e.toErrorKind())
+            _state.value = GalleryUiState.Error(e.toErrorKind())
         }
+    }
+
+    // A failed similar-titles lookup only hides these rows.
+    private suspend fun relatedRows(loader: RecommendationLoader, records: List<ListRecord>): List<MovieRow> = try {
+        loader.load(records, homeRecommendationSeeds(records)).mapNotNull { batch ->
+            batch.movies.takeIf { it.isNotEmpty() }?.let {
+                MovieRow("Похожие на „${recommendationSeedName(batch.seed)}“", it, "similar:${batch.seed.titleKey}")
+            }
+        }
+    } catch (_: CatalogException) {
+        emptyList()
     }
 
     private suspend fun fetchRows(kind: MediaKind, popularTitle: String): List<MovieRow> = coroutineScope {

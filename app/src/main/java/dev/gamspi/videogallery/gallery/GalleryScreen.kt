@@ -112,7 +112,9 @@ fun GalleryScreen(
                         SavedListContent(listSnapshot, s.tab == HomeTab.Watched, listError, railEntry, railLinks,
                             { viewModel.openSaved(it, onOpenSaved) }, { row, field, value -> viewModel.changeList(row, field, value); Unit }, viewModel::rateSaved)
                     } else {
-                    GalleryContent(s, visibleHistory, memory, railEntry, railLinks, if (showRail) RailCollapsedWidth else 0.dp, onOpenMovie, onContinue, onOpenSearch, onOpenSettings, { menuMovie = it })
+                    GalleryContent(s, if (s.tab == HomeTab.ForYou) emptyList() else visibleHistory,
+                        memory, railEntry, railLinks, if (showRail) RailCollapsedWidth else 0.dp,
+                        onOpenMovie, onContinue, onOpenSearch, onOpenSettings, { menuMovie = it }, menuMovie != null)
                     }
                 }
             }
@@ -195,6 +197,9 @@ private fun Movie.cardId(): Int = if (kind == MediaKind.Series) id or SERIES_ID_
 
 private const val SERIES_ID_BIT = 1 shl 30
 
+private fun cardSlot(row: String, cardId: Int) = "$row|$cardId"
+private fun slotCard(slot: String) = CardKey(slot.substringBeforeLast('|'), slot.substringAfterLast('|').toInt())
+
 /** One displayed row: the continue row or a catalog row. */
 private class DisplayRow(val key: String, val title: String, val movies: List<Movie>)
 
@@ -211,6 +216,7 @@ private fun GalleryContent(
     onOpenSearch: () -> Unit,
     onOpenSettings: () -> Unit,
     onCardMenu: (Movie) -> Unit,
+    menuOpen: Boolean,
 ) {
     val restore = remember {
         val saved = if (memory.movieId != -1) CardKey(memory.rowKey, memory.movieId) else null
@@ -228,7 +234,9 @@ private fun GalleryContent(
     val rows = remember(history, content) {
         buildList {
             if (history.isNotEmpty()) add(DisplayRow(CONTINUE_ROW_KEY, "Продолжить просмотр", history.map { it.toMovie() }))
-            content.rows.forEachIndexed { i, row -> add(DisplayRow(catalogRowKey(i), row.title, row.movies)) }
+            // Catalog rows are numbered among themselves, so inserted «Похожие на» rows keep their keys stable.
+            var catalogIndex = 0
+            content.rows.forEach { row -> add(DisplayRow(row.key ?: catalogRowKey(catalogIndex++), row.title, row.movies)) }
         }
     }
     // The focused continue card vanished (watched to the end): refocus a neighbour.
@@ -236,7 +244,28 @@ private fun GalleryContent(
         restore.wanted = CardKey(memory.rowKey, memory.movieId)
         restore.active = true
     }
+    // A list edit (e.g. «Не предлагать» from the card menu) can remove the focused recommendation:
+    // once the menu has closed, focus moves to its neighbour, else to the rail.
+    val cardOrder = remember(rows) { rows.flatMap { row -> row.movies.map { cardSlot(row.key, it.cardId()) } } }
+    val shownOrder = remember { arrayOf(cardOrder) }
+    if (!menuOpen && shownOrder[0] != cardOrder) {
+        val focused = cardSlot(memory.rowKey, memory.movieId)
+        if (!restore.active && memory.cardFocused && focused in shownOrder[0] && focused !in cardOrder) {
+            neighbourAfterRemoval(focused, shownOrder[0], cardOrder)?.let {
+                restore.wanted = slotCard(it)
+                restore.active = true
+            }
+        }
+        shownOrder[0] = cardOrder
+    }
     if (restore.active) restore.target = resolveFocusTarget(rows.map { r -> r.key to r.movies.map { it.cardId() } }, restore.wanted)
+    LaunchedEffect(cardOrder, menuOpen) {
+        if (!menuOpen && !restore.active && memory.cardFocused && cardSlot(memory.rowKey, memory.movieId) !in cardOrder) {
+            memory.cardFocused = false
+            memory.lastFocused = null
+            runCatching { railEntry.requestFocus() }
+        }
+    }
     // Down from the header: previously focused card, else the first card, else default search.
     val headerFocus = remember {
         Modifier
@@ -296,6 +325,12 @@ private fun GalleryContent(
                     IconPillButton(AppIcons.Settings, "Настройки", onOpenSettings, headerFocus)
                     HeaderClock()
                 }
+            }
+        }
+        if (content.tab == HomeTab.ForYou && rows.isEmpty()) item {
+            Column(Modifier.padding(horizontal = 48.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text("Для вас", style = MaterialTheme.typography.titleLarge)
+                Text("Оцените пару фильмов — здесь появятся похожие", style = MaterialTheme.typography.bodyLarge)
             }
         }
         itemsIndexed(rows, key = { _, row -> row.key }) { rowIndex, row ->

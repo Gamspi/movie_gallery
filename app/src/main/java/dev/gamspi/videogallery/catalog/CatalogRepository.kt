@@ -8,6 +8,10 @@ import dev.gamspi.videogallery.catalog.model.MovieDetails
 
 /** All failures are thrown as [CatalogException]. */
 interface CatalogRepository {
+    /** Titles similar to [id] in this catalog; unsupported catalogs return an empty list. */
+    suspend fun recommendations(id: Int, kind: MediaKind): List<Movie> = emptyList()
+    /** This catalog's title for an IMDb id, preferring [kind]; null when not found. */
+    suspend fun findByImdb(imdbId: String, kind: MediaKind): Movie? = null
     /** Null kind mixes films and series. Unsupported catalogs return no row, without extra requests. */
     suspend fun upcoming(today: java.time.LocalDate, kind: MediaKind? = null): List<Movie> = emptyList()
     suspend fun popular(page: Int = 1, kind: MediaKind = MediaKind.Movie): List<Movie>

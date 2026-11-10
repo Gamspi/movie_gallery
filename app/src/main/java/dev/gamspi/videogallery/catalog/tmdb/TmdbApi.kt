@@ -5,6 +5,15 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 
 interface TmdbApi {
+    @GET("{type}/{id}/recommendations")
+    suspend fun recommendations(@Path("type") type: String, @Path("id") id: Int): MovieListDto
+
+    @GET("{type}/{id}/similar")
+    suspend fun similar(@Path("type") type: String, @Path("id") id: Int): MovieListDto
+
+    @GET("find/{imdb}")
+    suspend fun findByImdb(@Path("imdb") imdb: String, @Query("external_source") source: String = "imdb_id"): FindDto
+
     @GET("discover/movie")
     suspend fun upcomingMovies(
         @Query("primary_release_date.gte") from: String,

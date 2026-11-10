@@ -7,6 +7,12 @@ import kotlinx.serialization.Serializable
 data class MovieListDto(val results: List<MovieDto>? = null)
 
 @Serializable
+data class FindDto(
+    @SerialName("movie_results") val movies: List<MovieDto>? = null,
+    @SerialName("tv_results") val series: List<MovieDto>? = null,
+)
+
+@Serializable
 data class MovieDto(
     val id: Int,
     val title: String? = null,

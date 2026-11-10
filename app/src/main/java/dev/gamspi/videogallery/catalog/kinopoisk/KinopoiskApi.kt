@@ -5,6 +5,12 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 
 interface KinopoiskApi {
+    @GET("api/v2.2/films/{id}/similars")
+    suspend fun similars(@Path("id") id: Int): SimilarFilmsDto
+
+    @GET("api/v2.2/films")
+    suspend fun findByImdb(@Query("imdbId") imdb: String): FilmListDto
+
     @GET("api/v2.2/films/collections")
     suspend fun popular(
         @Query("page") page: Int,

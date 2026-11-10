@@ -16,6 +16,7 @@ object AppIcons {
     private var _grid: ImageVector? = null
     private var _movie: ImageVector? = null
     private var _tv: ImageVector? = null
+    private var _star: ImageVector? = null
 
     val Search: ImageVector
         get() = _search ?: ImageVector.Builder(
@@ -180,4 +181,17 @@ object AppIcons {
                 moveTo(8f, 19f); lineTo(16f, 19f); lineTo(16f, 21f); lineTo(8f, 21f); close()
             }
         }.build().also { _tv = it }
+
+    /** Five-point star: «Для вас». */
+    val Star: ImageVector
+        get() = _star ?: ImageVector.Builder(
+            name = "Star", defaultWidth = 24.dp, defaultHeight = 24.dp,
+            viewportWidth = 24f, viewportHeight = 24f,
+        ).apply {
+            path(fill = SolidColor(Color.Black)) {
+                moveTo(12f, 2.5f); lineTo(14.9f, 8.6f); lineTo(21.5f, 9.3f); lineTo(16.6f, 13.8f)
+                lineTo(17.9f, 20.4f); lineTo(12f, 17.1f); lineTo(6.1f, 20.4f); lineTo(7.4f, 13.8f)
+                lineTo(2.5f, 9.3f); lineTo(9.1f, 8.6f); close()
+            }
+        }.build().also { _star = it }
 }

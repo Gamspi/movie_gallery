@@ -51,6 +51,7 @@ private val Items = listOf(
     RailItem(HomeTab.Series, AppIcons.Tv, "Сериалы"),
     RailItem(HomeTab.Watchlist, AppIcons.Movie, "К просмотру"),
     RailItem(HomeTab.Watched, AppIcons.Grid, "Просмотренные"),
+    RailItem(HomeTab.ForYou, AppIcons.Star, "Для вас"),
 )
 
 /**

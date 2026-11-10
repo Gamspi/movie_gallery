@@ -23,6 +23,20 @@ class TmdbCatalogRepository(
     private val api: TmdbApi,
     private val settings: SettingsRepository,
 ) : CatalogRepository {
+    override suspend fun recommendations(id: Int, kind: MediaKind): List<Movie> = call {
+        val type = if (kind == MediaKind.Series) "tv" else "movie"
+        // Recommendations are empty for little-rated titles; similar is the documented fallback.
+        val found = api.recommendations(type, id).results.orEmpty().filter { it.id > 0 }
+            .ifEmpty { api.similar(type, id).results.orEmpty().filter { it.id > 0 } }
+        found.map { if (kind == MediaKind.Series) it.toSeries() else it.toMovie() }
+    }
+
+    override suspend fun findByImdb(imdbId: String, kind: MediaKind): Movie? = call {
+        val result = api.findByImdb(imdbId)
+        val movie = result.movies.orEmpty().firstOrNull { it.id > 0 }?.toMovie()
+        val series = result.series.orEmpty().firstOrNull { it.id > 0 }?.toSeries()
+        if (kind == MediaKind.Series) series ?: movie else movie ?: series
+    }
 
     override suspend fun upcoming(today: java.time.LocalDate, kind: MediaKind?): List<Movie> = call {
         val from = today.plusDays(1).toString()
