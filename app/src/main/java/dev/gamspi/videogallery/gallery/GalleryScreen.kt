@@ -79,6 +79,26 @@ fun GalleryScreen(
     val memory = rememberSaveable(saver = GalleryFocusMemory.Saver) { GalleryFocusMemory() }
     val railEntry = remember { FocusRequester() }
     val railLinks = remember { RailLinks() }
+    var menuMovie by remember { mutableStateOf<Movie?>(null) }
+    var restoreCard by remember { mutableStateOf(false) }
+    LaunchedEffect(restoreCard) {
+        if (restoreCard) {
+            withFrameNanos { }
+            runCatching { memory.lastFocused?.requestFocus() }
+            restoreCard = false
+        }
+    }
+    menuMovie?.let { movie ->
+        remember(movie, listSnapshot) { viewModel.menuRecord(movie) }?.let { record ->
+            dev.gamspi.videogallery.watchlist.ListActionsDialog(
+                record,
+                { menuMovie = null; restoreCard = true },
+                { field, value -> viewModel.changeFromCard(movie, field, value) },
+                { season, rating -> viewModel.rateFromCard(movie, season, rating) },
+                dev.gamspi.videogallery.watchlist.listDefaultSeason(listSnapshot, record.titleKey),
+            )
+        }
+    }
     val showRail = !(state is GalleryUiState.Loading && (state as GalleryUiState.Loading).initial)
     Box(Modifier.fillMaxSize()) {
         Box(Modifier.fillMaxSize().padding(start = if (showRail) RailCollapsedWidth else 0.dp)) {
@@ -90,9 +110,9 @@ fun GalleryScreen(
                 is GalleryUiState.Content -> key(s.tab) {
                     if (s.tab == HomeTab.Watchlist || s.tab == HomeTab.Watched) {
                         SavedListContent(listSnapshot, s.tab == HomeTab.Watched, listError, railEntry, railLinks,
-                            { viewModel.openSaved(it, onOpenSaved) }, { row, field, value -> viewModel.changeList(row, field, value); Unit })
+                            { viewModel.openSaved(it, onOpenSaved) }, { row, field, value -> viewModel.changeList(row, field, value); Unit }, viewModel::rateSaved)
                     } else {
-                    GalleryContent(s, visibleHistory, memory, railEntry, railLinks, if (showRail) RailCollapsedWidth else 0.dp, onOpenMovie, onContinue, onOpenSearch, onOpenSettings)
+                    GalleryContent(s, visibleHistory, memory, railEntry, railLinks, if (showRail) RailCollapsedWidth else 0.dp, onOpenMovie, onContinue, onOpenSearch, onOpenSettings, { menuMovie = it })
                     }
                 }
             }
@@ -190,6 +210,7 @@ private fun GalleryContent(
     onContinue: (WatchEntry) -> Unit,
     onOpenSearch: () -> Unit,
     onOpenSettings: () -> Unit,
+    onCardMenu: (Movie) -> Unit,
 ) {
     val restore = remember {
         val saved = if (memory.movieId != -1) CardKey(memory.rowKey, memory.movieId) else null
@@ -198,6 +219,7 @@ private fun GalleryContent(
     val firstCard = remember { FocusRequester() }
     val openMovie by rememberUpdatedState(onOpenMovie)
     val continueWatch by rememberUpdatedState(onContinue)
+    val cardMenu by rememberUpdatedState(onCardMenu)
     val listState = rememberLazyListState()
     // Built once per history change, not per card.
     val entriesById = remember(history) { history.associateBy { it.kind to it.movieId } }
@@ -331,7 +353,8 @@ private fun GalleryContent(
                             if (entry != null) { { continueWatch(entry) } } else { { openMovie(movie.id, movie.kind) } }
                         }
                         MovieCard(movie = movie, onClick = onClick, modifier = cardModifier, progress = progress[movie.kind to movie.id],
-                            caption = entry?.episodeCaption())
+                            caption = entry?.episodeCaption(),
+                            onLongClick = remember(movie) { if (movie.id > 0) { { cardMenu(movie) } } else null })
                     }
                 }
             }

@@ -24,6 +24,7 @@ data class EpisodeDto(
     val enName: String? = null,
     val duration: Int? = null,
     val still: ImageDto? = null,
+    val airDate: String? = null,
 )
 
 @Serializable

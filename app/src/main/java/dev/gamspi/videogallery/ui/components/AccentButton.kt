@@ -15,6 +15,7 @@ fun AccentButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     selected: Boolean = false,
+    onLongClick: (() -> Unit)? = null,
     content: @Composable RowScope.() -> Unit,
 ) {
     val base = if (selected) {
@@ -34,7 +35,7 @@ fun AccentButton(
             pressedContentColor = AppColors.OnAccent,
         )
     }
-    Button(onClick = onClick, modifier = modifier, enabled = enabled, colors = base, content = content)
+    Button(onClick = onClick, onLongClick = onLongClick, modifier = modifier, enabled = enabled, colors = base, content = content)
 }
 
 private val SelectedContainer = Color(0xFF4A3A10)

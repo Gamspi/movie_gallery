@@ -78,5 +78,6 @@ fun SeasonDto.toEpisodes(season: Int): List<Episode> = episodes.orEmpty().map {
         title = it.name.orEmpty(),
         runtimeMin = it.runtime?.takeIf { r -> r > 0 },
         stillUrl = it.stillPath?.takeIf { p -> p.isNotEmpty() }?.let { p -> STILL_BASE + p },
+        airDate = it.airDate,
     )
 }

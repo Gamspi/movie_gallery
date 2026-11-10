@@ -251,6 +251,7 @@ private fun NetworkSection(viewModel: SettingsViewModel) {
     val listEnabled by viewModel.listSyncEnabled.collectAsState()
     val listStatus by viewModel.listSyncStatus.collectAsState()
     val listError by viewModel.listSyncError.collectAsState()
+    val listQueue by viewModel.listQueue.collectAsState()
     var saveError by remember { mutableStateOf(false) }
     val firstFocus = remember { FocusRequester() }
     InitialFocus(firstFocus)
@@ -267,6 +268,7 @@ private fun NetworkSection(viewModel: SettingsViewModel) {
             dev.gamspi.videogallery.watchlist.ListSyncStatus.Running -> "Синхронизация…"
             is dev.gamspi.videogallery.watchlist.ListSyncStatus.Unavailable -> "Сервер недоступен с " + java.text.DateFormat.getDateTimeInstance().format(java.util.Date(status.since))
         })
+        Text("В очереди: $listQueue")
         listError?.let { Text(it) }
         if (listEnabled) AccentButton(onClick = viewModel::syncListNow) { Text("Синхронизировать сейчас") }
     }

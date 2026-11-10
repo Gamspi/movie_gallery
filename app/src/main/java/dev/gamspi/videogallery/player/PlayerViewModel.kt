@@ -541,6 +541,27 @@ class PlayerViewModel internal constructor(
             syncNow = urgent)
     }
 
+    private var ratingAsked = false
+
+    /** Label of the score to request now, at most once per screen; null when none is due. */
+    suspend fun ratingPrompt(positionMs: Long, durationMs: Long): String? {
+        if (ratingAsked || !actuallyPlayed || meta.movieId <= 0 || durationMs <= 0) return null
+        if (positionMs.toFloat() / durationMs < FINISHED_PROGRESS) return null
+        val season = meta.season
+        val series = meta.kind == MediaKind.Series
+        if (series && (season == null || meta.episode == null || meta.seasonEpisodes == null || meta.episode < meta.seasonEpisodes)) return null
+        val needed = try { listSync?.needsRating(listEntry(positionMs, durationMs)) == true }
+            catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (_: Exception) { false }
+        if (!needed) return null
+        ratingAsked = true
+        return if (series) "Оцените сезон $season" else "Оцените фильм"
+    }
+
+    fun submitRating(rating: Int) {
+        listSync?.rate(listEntry(0, 0), rating)
+    }
+
     /**
      * Computes the resume point once. With autoResume returns the position to seek to silently;
      * otherwise may raise the resume offer and returns null.

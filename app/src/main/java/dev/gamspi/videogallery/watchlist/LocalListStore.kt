@@ -44,6 +44,36 @@ class LocalListStore(
         current.copy(records = current.records + (row.identity to row), pending = current.pending + (row.identity to row))
     }
 
+    /** Season score and the series average commit together; the status only changes for a new title. */
+    suspend fun rateSeason(seed: ListRecord, season: Int, rating: Int) = transaction { current ->
+        require(seed.table == ListTable.Titles && season in 0..9999 && rating in 1..10)
+        val old = current.records[seed.identity]
+        val live = old?.takeUnless { it.deleted }
+        val row = seed.copy(data = withSeasonRating(seed.data + live?.data.orEmpty(), season, rating, live == null),
+            deleted = false, updatedAt = maxOf(seed.updatedAt, (old?.updatedAt ?: -1) + 1)).validated()
+        current.copy(records = current.records + (row.identity to row), pending = current.pending + (row.identity to row))
+    }
+
+    /** Episode marks and, for an unknown title, its record commit together. */
+    suspend fun markEpisodes(seed: ListRecord, episodes: List<Pair<Int, Int>>, watched: Boolean) = transaction { current ->
+        require(seed.table == ListTable.Titles)
+        if (episodes.isEmpty()) return@transaction current
+        var next = current
+        if (next.records[seed.identity]?.deleted != false) {
+            val title = seed.copy(deleted = false, updatedAt = maxOf(seed.updatedAt, (next.records[seed.identity]?.updatedAt ?: -1) + 1),
+                data = kotlinx.serialization.json.JsonObject(seed.data + mapOf(
+                    "status" to kotlinx.serialization.json.JsonPrimitive("watching"),
+                    "notify" to kotlinx.serialization.json.JsonPrimitive(true)))).validated()
+            next = next.copy(records = next.records + (title.identity to title), pending = next.pending + (title.identity to title))
+        }
+        episodes.forEach { (season, episode) ->
+            val row = ListRecord(ListTable.Episodes, seed.titleKey, seed.updatedAt, season = season, episode = episode, watched = watched)
+            val revision = row.copy(updatedAt = maxOf(row.updatedAt, (next.records[row.identity]?.updatedAt ?: -1) + 1)).validated()
+            next = next.copy(records = next.records + (revision.identity to revision), pending = next.pending + (revision.identity to revision))
+        }
+        next
+    }
+
     suspend fun recordPlayback(rows: List<ListRecord>, seriesDone: Boolean) = transaction { current ->
         var next = current
         rows.forEach { incoming ->

@@ -65,6 +65,7 @@ import kotlinx.coroutines.delay
 import dev.gamspi.videogallery.ui.components.AccentButton
 import dev.gamspi.videogallery.ui.components.CatMascot
 import dev.gamspi.videogallery.ui.components.CatPose
+import dev.gamspi.videogallery.watchlist.StarRatingDialog
 
 private const val OVERLAY_HIDE_MS = 3_000L
 private const val POLL_MS = 500L
@@ -157,6 +158,11 @@ fun PlayerScreen(
     var overlayVisible by remember { mutableStateOf(true) }
     var overlayTick by remember { mutableLongStateOf(0L) }
     var exited by remember { mutableStateOf(false) }
+    var exitPending by remember { mutableStateOf(false) }
+    var ratingPrompt by remember { mutableStateOf<String?>(null) }
+    var afterRating by remember { mutableStateOf<(() -> Unit)?>(null) }
+    var endRatingChecked by remember { mutableStateOf(false) }
+    val preparationScope = rememberCoroutineScope()
     // Playback reached the end: the end screen owns focus until exit.
     var ended by remember { mutableStateOf(false) }
     val rootFocus = remember { FocusRequester() }
@@ -203,11 +209,44 @@ fun PlayerScreen(
         }
     }
 
-    fun exit() {
+    fun leave() {
         if (exited) return
         exited = true
         vm.onPauseOrExit(player.currentPosition, durationOrZero())
         onBack()
+    }
+
+    // The score is asked before leaving; closing its dialog continues the normal exit.
+    fun exit() {
+        if (exited || exitPending) return
+        if (playbackError != null) return leave()
+        exitPending = true
+        val position = player.currentPosition
+        val duration = durationOrZero()
+        preparationScope.launch {
+            val prompt = vm.ratingPrompt(position, duration)
+            if (prompt == null) leave() else {
+                player.pause()
+                afterRating = ::leave
+                ratingPrompt = prompt
+            }
+        }
+    }
+
+    fun closeRating() {
+        ratingPrompt = null
+        val next = afterRating
+        afterRating = null
+        next?.invoke()
+    }
+
+    // The end screen and its countdown start only after the score dialog is closed.
+    LaunchedEffect(ended) {
+        if (ended) {
+            val duration = durationOrZero()
+            ratingPrompt = vm.ratingPrompt(duration, duration)
+            endRatingChecked = true
+        }
     }
 
     // The follow-up is decided once, when playback ends (history and release hold are settled by then).
@@ -240,7 +279,6 @@ fun PlayerScreen(
         return true
     }
 
-    val preparationScope = rememberCoroutineScope()
     DisposableEffect(player) {
         var initialAudioDone = false
         var started = false
@@ -542,9 +580,13 @@ fun PlayerScreen(
             onRelease = { it.player = null },
         )
 
+        ratingPrompt?.let { label ->
+            StarRatingDialog(label, null, onRate = { vm.submitRating(it); closeRating() }, onDismiss = ::closeRating)
+        }
         val offer = state.resumeOffer
         val error = playbackError
         when {
+            ended && (!endRatingChecked || ratingPrompt != null) -> Box(Modifier.fillMaxSize().background(Color.Black))
             ended -> EndContent(next = nextStep, onExit = ::exit, onNext = ::goNext)
             error != null && recoveryAudioOpen && terminalStreamError == null -> AudioRecoveryContent(
                 tracks = recoveryOptions,

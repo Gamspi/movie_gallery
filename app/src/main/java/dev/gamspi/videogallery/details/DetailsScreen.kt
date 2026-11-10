@@ -48,7 +48,11 @@ fun DetailsScreen(
     val listError by viewModel.listError.collectAsStateWithLifecycle()
     val actions: @Composable () -> Unit = {
         val record = remember(state, listSnapshot) { viewModel.listRecord() }
-        record?.let { dev.gamspi.videogallery.watchlist.ListActionButton(it, change = viewModel::changeList) }
+        val season = (state as? DetailsUiState.Content)?.takeIf { it.series }?.selectedSeason
+        record?.let {
+            dev.gamspi.videogallery.watchlist.ListActionButton(it, ratingSeason = season, rateSeason = viewModel::rateSeason, change = viewModel::changeList)
+            dev.gamspi.videogallery.watchlist.RateButton(it, season, viewModel::rateSeason, viewModel::changeList)
+        }
         listError?.let { Text(it) }
     }
     when (val s = state) {
@@ -70,6 +74,8 @@ fun DetailsScreen(
                 onPlay = play,
                 onPickSeason = { season -> onPickRelease(season, viewModel.releaseEpisode(season)) },
                 listActions = actions,
+                onMarkEpisode = viewModel::markEpisode,
+                onMarkSeason = viewModel::markSeason,
             )
         }
     }

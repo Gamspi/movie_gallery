@@ -1,7 +1,9 @@
 package dev.gamspi.videogallery.ui.components
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CardBadgesTest {
@@ -28,6 +30,16 @@ class CardBadgesTest {
         assertNull(visibleProgress(0f))
         assertNull(visibleProgress(1f))
         assertNull(visibleProgress(-0.1f))
+    }
+
+    @Test
+    fun watchedMark_onlyCompletedEpisodes() {
+        assertFalse(watchedMark(null))
+        assertFalse(watchedMark(0f))
+        assertFalse(watchedMark(0.5f))
+        assertFalse(watchedMark(0.99f))
+        assertTrue(watchedMark(1f))
+        assertTrue(watchedMark(1.1f))
     }
 
     @Test

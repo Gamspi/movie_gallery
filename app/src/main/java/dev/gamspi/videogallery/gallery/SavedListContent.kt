@@ -41,7 +41,7 @@ private fun FocusRequester.tryFocus(): Boolean = try { requestFocus() } catch (_
 
 @Composable
 internal fun SavedListContent(snapshot: ListSnapshot, watched: Boolean, error: String?, rail: FocusRequester,
-    links: RailLinks, open: (ListRecord) -> Unit, change: (ListRecord, String, JsonElement) -> Unit) {
+    links: RailLinks, open: (ListRecord) -> Unit, change: (ListRecord, String, JsonElement) -> Unit, rate: (ListRecord, Int, Int) -> Unit) {
     val rows = remember(snapshot, watched) { listTitles(snapshot, if(watched) "watched" else "unwatched") }
     var selected by rememberSaveable { mutableStateOf<String?>(null) }
     val focuses = remember { mutableMapOf<String, FocusRequester>() }
@@ -80,6 +80,12 @@ internal fun SavedListContent(snapshot: ListSnapshot, watched: Boolean, error: S
         items(rows, key = { it.titleKey }) { row ->
             val focus = focuses.getOrPut(row.titleKey) { FocusRequester() }
             val key = row.titleKey
+            val season = remember(snapshot, key) { listDefaultSeason(snapshot, key) }
+            var longMenu by remember { mutableStateOf(false) }
+            var restoreEntry by remember { mutableStateOf(false) }
+            LaunchedEffect(restoreEntry) {
+                if(restoreEntry) { withFrameNanos { }; focus.tryFocus(); restoreEntry = false }
+            }
             val entry = Modifier.focusRequester(focus).onFocusChanged { if(it.isFocused) selected = key }
             Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)
                 .onFocusChanged {
@@ -96,10 +102,13 @@ internal fun SavedListContent(snapshot: ListSnapshot, watched: Boolean, error: S
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.focusProperties { left = rail }) {
                         val openable = savedTarget(row) != null
                         if(openable) {
-                            AccentButton(onClick = { open(row) }, modifier = entry) { Text("Открыть") }
+                            AccentButton(onClick = { open(row) }, modifier = entry, onLongClick = { dialogKey = key; longMenu = true }) { Text("Открыть") }
                         } else { Text("Карточка фильма недоступна") }
                         ListActionButton(row, if(openable) Modifier else entry,
-                            onDialog = { dialogKey = if(it) key else null }) { field, value -> change(row, field, value) }
+                            onDialog = { dialogKey = if(it) key else null }, ratingSeason = season,
+                            rateSeason = { s, value -> rate(row, s, value) }) { field, value -> change(row, field, value) }
+                        if(longMenu) ListActionsDialog(row, { longMenu = false; dialogKey = null; restoreEntry = true },
+                            { field, value -> change(row, field, value) }, { s, value -> rate(row, s, value) }, season)
                     }
                 }
             }

@@ -61,7 +61,7 @@ fun SeasonsDto.toEpisodes(season: Int): List<Episode> = items.orEmpty()
     .flatMap { it.episodes.orEmpty() }
     .mapNotNull { e ->
         val n = e.episodeNumber ?: return@mapNotNull null
-        Episode(season, n, e.nameRu.nonBlank() ?: e.nameEn.nonBlank() ?: "Серия $n", null, null)
+        Episode(season, n, e.nameRu.nonBlank() ?: e.nameEn.nonBlank() ?: "Серия $n", null, null, e.releaseDate)
     }
 
 fun GenreDto.toGenreOrNull(): Genre? {

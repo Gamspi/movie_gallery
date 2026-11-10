@@ -12,8 +12,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -34,6 +36,9 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Border
@@ -50,7 +55,9 @@ import dev.gamspi.videogallery.ui.components.LocalCatalogSource
 import dev.gamspi.videogallery.ui.components.cardProgressFill
 import dev.gamspi.videogallery.ui.components.catalogErrorMessage
 import dev.gamspi.videogallery.ui.components.formatRating
+import dev.gamspi.videogallery.ui.components.watchedMark
 import dev.gamspi.videogallery.ui.theme.AppColors
+import dev.gamspi.videogallery.watchlist.EpisodeMarkDialog
 
 private val EpisodeShape = RoundedCornerShape(8.dp)
 private val EpisodeFocusBorder = Border(BorderStroke(3.dp, AppColors.Accent), shape = EpisodeShape)
@@ -81,6 +88,8 @@ internal fun SeriesDetailsContent(
     onPlay: (EpisodeRef) -> Unit,
     onPickSeason: (Int) -> Unit,
     listActions: @Composable () -> Unit = {},
+    onMarkEpisode: (EpisodeRef, Boolean) -> Unit = { _, _ -> },
+    onMarkSeason: () -> Unit = {},
 ) {
     val details = c.details
     val movie = details.movie
@@ -97,6 +106,15 @@ internal fun SeriesDetailsContent(
     var returning by remember { mutableStateOf(false) }
     // 0 until initial focus is placed; saved so a return from the player does not repeat it.
     var focusPlaced by rememberSaveable { mutableIntStateOf(0) }
+    var episodeMenu by remember { mutableStateOf<EpisodeRef?>(null) }
+    var focusAfterMenu by remember { mutableStateOf<EpisodeRef?>(null) }
+    LaunchedEffect(focusAfterMenu) {
+        focusAfterMenu?.let { ref ->
+            withFrameNanos { }
+            runCatching { requesters[ref.episode]?.requestFocus() }
+            focusAfterMenu = null
+        }
+    }
     fun play(ref: EpisodeRef) {
         pending = true
         onPlay(ref)
@@ -244,20 +262,32 @@ internal fun SeriesDetailsContent(
                             ep,
                             c.progress[ref],
                             onClick = { play(ref) },
+                            onLongClick = { episodeMenu = ref },
                             modifier = upToSelected.then(requesters[ep.number]?.let { Modifier.focusRequester(it) } ?: Modifier),
                         )
                     }
                 }
             }
         }
+        episodeMenu?.let { ref ->
+            val close = { episodeMenu = null; focusAfterMenu = ref }
+            EpisodeMarkDialog(
+                title = episodeCode(ref),
+                onMarkEpisode = { onMarkEpisode(ref, true); close() },
+                onMarkSeason = { onMarkSeason(); close() },
+                onClear = { onMarkEpisode(ref, false); close() },
+                onDismiss = close,
+            )
+        }
     }
 }
 
 @Composable
-private fun EpisodeCard(ep: Episode, progress: Float?, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun EpisodeCard(ep: Episode, progress: Float?, onClick: () -> Unit, onLongClick: () -> Unit, modifier: Modifier = Modifier) {
     Column(Modifier.width(EpisodeWidth)) {
         Card(
             onClick = onClick,
+            onLongClick = onLongClick,
             modifier = modifier.fillMaxWidth(),
             shape = CardDefaults.shape(EpisodeShape),
             scale = CardDefaults.scale(focusedScale = 1.05f),
@@ -276,6 +306,21 @@ private fun EpisodeCard(ep: Episode, progress: Float?, onClick: () -> Unit, modi
                         Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
                         contentAlignment = Alignment.Center,
                     ) { Text(ep.number.toString(), style = MaterialTheme.typography.headlineLarge) }
+                }
+                if (watchedMark(progress)) {
+                    Box(
+                        modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).size(24.dp)
+                            .background(AppColors.Accent, CircleShape)
+                            .clearAndSetSemantics { contentDescription = "Просмотрено" },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            "✓",
+                            color = AppColors.OnAccent,
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
                 }
                 cardProgressFill(progress)?.let { share ->
                     Box(

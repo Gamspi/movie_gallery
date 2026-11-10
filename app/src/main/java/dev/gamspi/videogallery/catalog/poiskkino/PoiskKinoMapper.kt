@@ -37,7 +37,7 @@ internal fun SeasonCursorDto.toEpisodes(season: Int): List<Episode> = docs.orEmp
     .mapNotNull { e ->
         val n = e.number ?: return@mapNotNull null
         Episode(season, n, e.name.nonBlank() ?: e.enName.nonBlank() ?: "Серия $n",
-            e.duration?.takeIf { it > 0 }, e.still?.url.nonBlank())
+            e.duration?.takeIf { it > 0 }, e.still?.url.nonBlank(), e.airDate)
     }
 
 internal fun DictionaryDto.toGenres(): List<Genre> {

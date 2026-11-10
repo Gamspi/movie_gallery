@@ -69,6 +69,16 @@ fun formatRuntime(min: Int?): String? {
     }
 }
 
+/** A list mark overrides local progress; an unmarked episode keeps only partial progress. */
+internal fun episodeFraction(local: Float?, watched: Boolean): Float =
+    if (watched) 1f else local?.takeIf { it < FINISHED_PROGRESS } ?: 0f
+
+/** Episodes without a date count as released: not every catalog reports one. */
+internal fun releasedEpisodes(episodes: List<Episode>, todayIso: String): List<Episode> =
+    episodes.filter { it.airDate.isNullOrBlank() || it.airDate.take(10) <= todayIso }
+
+private fun todayIso(): String = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+
 @HiltViewModel
 class DetailsViewModel @Inject constructor(
     private val catalog: CatalogRepository,
@@ -83,13 +93,17 @@ class DetailsViewModel @Inject constructor(
     fun listRecord(): dev.gamspi.videogallery.watchlist.ListRecord? {
         val details = content()?.details ?: return null
         val movie = details.movie
-        val seed = dev.gamspi.videogallery.watchlist.importWatchEntry(WatchEntry(
-            movieId = movie.id, title = movie.title, year = movie.year, posterUrl = movie.posterUrl,
-            imdb = details.imdbId.orEmpty(), positionKey = "list", positionMs = 0, durationMs = 0,
-            updatedAt = System.currentTimeMillis(), kind = movie.kind, source = source.name,
-        )).firstOrNull() ?: return null
-        return listSnapshot.value.records[seed.identity]?.takeUnless { it.deleted }
-            ?: dev.gamspi.videogallery.watchlist.listCardSeed(seed)
+        val seed = dev.gamspi.videogallery.watchlist.titleSeed(movie, details.imdbId.orEmpty(), source.name) ?: return null
+        return listSnapshot.value.records[seed.identity]?.takeUnless { it.deleted } ?: seed
+    }
+    fun rateSeason(season: Int, rating: Int) { listRecord()?.let { listSync?.rateSeason(it, season, rating) } }
+    fun markEpisode(ref: EpisodeRef, watched: Boolean) {
+        listRecord()?.let { listSync?.markEpisodes(it, listOf(ref.season to ref.episode), watched) }
+    }
+    /** Marks only episodes already out; future ones stay unmarked. */
+    fun markSeason() {
+        val episodes = releasedEpisodes(content()?.episodes.orEmpty(), todayIso())
+        listRecord()?.let { record -> listSync?.markEpisodes(record, episodes.map { it.season to it.number }, true) }
     }
     fun changeList(field: String, value: kotlinx.serialization.json.JsonElement) {
         val record = listRecord() ?: return
@@ -139,8 +153,9 @@ class DetailsViewModel @Inject constructor(
         val c = content()?.takeIf { it.seasons.isNotEmpty() } ?: return
         val progress = series.progress(key()).toMutableMap()
         val titleKey = listRecord()?.titleKey
-        listSnapshot.value.records.values.filter { it.table == dev.gamspi.videogallery.watchlist.ListTable.Episodes && it.titleKey == titleKey }
-            .forEach { progress[EpisodeRef(it.season, it.episode)] = if (!it.deleted && it.watched) 1f else 0f }
+        val marks = listSnapshot.value.records.values.filter { it.table == dev.gamspi.videogallery.watchlist.ListTable.Episodes && it.titleKey == titleKey }
+            .associate { EpisodeRef(it.season, it.episode) to (!it.deleted && it.watched) }
+        marks.forEach { (ref, watched) -> progress[ref] = episodeFraction(progress[ref], watched) }
         val (resume, started) = resumeOf(c.seasons, progress)
         _state.value = c.copy(progress = progress, resume = resume, started = started)
     }

@@ -32,6 +32,9 @@ class SettingsViewModel @Inject constructor(
     val listSyncEnabled = listSync?.enabled ?: MutableStateFlow(false)
     val listSyncStatus = listSync?.status ?: MutableStateFlow<dev.gamspi.videogallery.watchlist.ListSyncStatus>(dev.gamspi.videogallery.watchlist.ListSyncStatus.Disabled)
     val listSyncError = listSync?.error ?: MutableStateFlow<String?>(null)
+    val listQueue: StateFlow<Int> = listSync?.store?.snapshots?.map { it.pending.size }
+        ?.stateIn(viewModelScope, SharingStarted.Eagerly, 0) ?: MutableStateFlow(0)
+    init { listSync?.loadLocal() }
     fun toggleListSync() { viewModelScope.launch { listSync?.toggle() } }
     fun syncListNow() { listSync?.retryNow() }
     /** Translation model state; NotDownloaded when translation is unavailable. */

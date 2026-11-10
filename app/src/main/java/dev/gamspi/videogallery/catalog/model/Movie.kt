@@ -37,6 +37,8 @@ data class Episode(
     val title: String,
     val runtimeMin: Int?,
     val stillUrl: String?,
+    /** ISO date; null when the catalog does not report it. */
+    val airDate: String? = null,
 )
 
 data class Genre(val id: Int, val name: String)

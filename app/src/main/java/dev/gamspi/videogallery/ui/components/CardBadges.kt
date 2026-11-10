@@ -9,6 +9,9 @@ fun formatRating(rating: Double?): String? =
 /** Progress shown on a card: only a started and unfinished share in (0, 1). */
 fun visibleProgress(progress: Float?): Float? = progress?.takeIf { it > 0f && it < 1f }
 
+/** Whether an episode has been watched to completion. */
+fun watchedMark(progress: Float?): Boolean = progress != null && progress >= 1f
+
 /** Smallest drawn share of the card progress bar, so a just-started movie still shows a mark. */
 const val MIN_CARD_PROGRESS = 0.04f
 

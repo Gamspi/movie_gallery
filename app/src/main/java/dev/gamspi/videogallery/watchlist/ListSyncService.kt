@@ -46,6 +46,9 @@ internal fun importWatchEntry(entry: WatchEntry): List<ListRecord> {
 interface PlaybackList {
     /** [syncNow] is false for routine position ticks, which are exchanged less often. */
     fun record(entry: WatchEntry, seriesDone: Boolean, syncNow: Boolean)
+    /** True when this movie or the entry's season has no score yet. */
+    suspend fun needsRating(entry: WatchEntry): Boolean = false
+    fun rate(entry: WatchEntry, rating: Int) {}
     suspend fun savedPosition(entry: WatchEntry): Long?
 }
 
@@ -56,7 +59,7 @@ class ListSyncService @Inject constructor(
     private val history: WatchHistoryStore,
 ) : PlaybackList {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val playback = kotlinx.coroutines.channels.Channel<Triple<WatchEntry, Boolean, Boolean>>(kotlinx.coroutines.channels.Channel.UNLIMITED)
+    private val playback = kotlinx.coroutines.channels.Channel<suspend () -> Unit>(kotlinx.coroutines.channels.Channel.UNLIMITED)
     // One connection pool for every exchange; no proxy interceptor, no key logging.
     private val http by lazy { OkHttpClient.Builder().callTimeout(30, TimeUnit.SECONDS).build() }
     private val positionSync = SyncThrottle(POSITION_SYNC_MS, SystemClock::elapsedRealtime)
@@ -82,10 +85,9 @@ class ListSyncService @Inject constructor(
         if (started) return
         started = true
         scope.launch {
-            for ((entry, done, syncNow) in playback) {
+            for (event in playback) {
                 try {
-                    store.recordPlayback(importWatchEntry(entry), done)
-                    if (positionSync.allow(syncNow)) runner.request()
+                    event()
                 } catch (cancelled: CancellationException) { throw cancelled }
                 catch (_: Exception) { message.value = "Не удалось сохранить прогресс списка" }
             }
@@ -137,7 +139,43 @@ class ListSyncService @Inject constructor(
         }
     }
 
-    override fun record(entry: WatchEntry, seriesDone: Boolean, syncNow: Boolean) { playback.trySend(Triple(entry, seriesDone, syncNow)) }
+    override fun record(entry: WatchEntry, seriesDone: Boolean, syncNow: Boolean) {
+        playback.trySend {
+            store.recordPlayback(importWatchEntry(entry), seriesDone)
+            if (positionSync.allow(syncNow)) runner.request()
+        }
+    }
+
+    override suspend fun needsRating(entry: WatchEntry): Boolean {
+        val seed = importWatchEntry(entry).firstOrNull() ?: return false
+        return ratingMissing(store.snapshot().records[seed.identity]?.takeUnless { it.deleted }, entry.season)
+    }
+
+    // Same queue as progress, so a score never overtakes the playback write before it.
+    override fun rate(entry: WatchEntry, rating: Int) {
+        val seed = importWatchEntry(entry).firstOrNull() ?: return
+        val season = entry.season
+        playback.trySend {
+            if (entry.kind == MediaKind.Series && season != null) store.rateSeason(seed.copy(updatedAt = System.currentTimeMillis()), season, rating)
+            else store.changeTitle(seed.copy(updatedAt = System.currentTimeMillis()), "my_rating", JsonPrimitive(rating))
+            runner.request()
+        }
+    }
+
+    fun rateSeason(seed: ListRecord, season: Int, rating: Int) = saveAndSync { store.rateSeason(seed.copy(updatedAt = System.currentTimeMillis()), season, rating) }
+
+    fun markEpisodes(seed: ListRecord, episodes: List<Pair<Int, Int>>, watched: Boolean) =
+        saveAndSync { store.markEpisodes(seed.copy(updatedAt = System.currentTimeMillis()), episodes, watched) }
+
+    private fun saveAndSync(save: suspend () -> Unit) {
+        scope.launch {
+            try {
+                save()
+                runner.request()
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { message.value = "Не удалось сохранить личный список" }
+        }
+    }
 
     override suspend fun savedPosition(entry: WatchEntry): Long? {
         val identity = importWatchEntry(entry).firstOrNull { it.table == ListTable.Positions }?.identity ?: return null

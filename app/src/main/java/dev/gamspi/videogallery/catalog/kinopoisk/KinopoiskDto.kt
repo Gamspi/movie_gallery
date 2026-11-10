@@ -72,6 +72,7 @@ data class EpisodeDto(
     val episodeNumber: Int? = null,
     val nameRu: String? = null,
     val nameEn: String? = null,
+    val releaseDate: String? = null,
 )
 
 @Serializable

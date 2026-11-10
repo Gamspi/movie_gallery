@@ -160,6 +160,34 @@ class PlayerViewModelTest {
         assertEquals(listOf(61_000L, 62_000L), recorded.map { it.positionMs })
     }
 
+    private fun ratingList(needed: Boolean = true) = object : dev.gamspi.videogallery.watchlist.PlaybackList {
+        override suspend fun savedPosition(entry: WatchEntry): Long? = null
+        override fun record(entry: WatchEntry, seriesDone: Boolean, syncNow: Boolean) {}
+        override suspend fun needsRating(entry: WatchEntry) = needed
+    }
+
+    @Test fun ratingIsAskedOnceAfterNinetyPercentOfMovie() = runTest {
+        val vm = metaVm(FakeHistory(), mapOf("movieId" to "7", "source" to "Tmdb"), ratingList())
+        assertNull(vm.ratingPrompt(950, 1000))
+        now = 20_000; vm.onProgress(100, 1000)
+        assertNull(vm.ratingPrompt(899, 1000))
+        assertEquals("Оцените фильм", vm.ratingPrompt(900, 1000))
+        assertNull(vm.ratingPrompt(950, 1000))
+    }
+
+    @Test fun seasonRatingOnlyAfterLastEpisodeOfSeason() = runTest {
+        val args = mapOf("movieId" to "7", "source" to "Tmdb", "kind" to "Series", "season" to "2", "seasonEpisodes" to "8")
+        val middle = metaVm(FakeHistory(), args + ("episode" to "7"), ratingList())
+        now = 20_000; middle.onProgress(100, 1000)
+        assertNull(middle.ratingPrompt(950, 1000))
+        val last = metaVm(FakeHistory(), args + ("episode" to "8"), ratingList())
+        now = 40_000; last.onProgress(100, 1000)
+        assertEquals("Оцените сезон 2", last.ratingPrompt(950, 1000))
+        val rated = metaVm(FakeHistory(), args + ("episode" to "8"), ratingList(needed = false))
+        now = 60_000; rated.onProgress(100, 1000)
+        assertNull(rated.ratingPrompt(950, 1000))
+    }
+
     @Test fun listTicksAreThrottledButUrgentEventsAreNot() = runTest {
         val recorded = mutableListOf<Pair<Long, Boolean>>()
         val list = object : dev.gamspi.videogallery.watchlist.PlaybackList {

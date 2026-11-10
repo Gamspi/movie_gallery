@@ -51,10 +51,11 @@ private const val POSTER_HEIGHT_PX = 450
 /** Poster card; [progress] in (0, 1) draws a watched bar at the poster bottom. */
 @Composable
 fun MovieCard(movie: Movie, onClick: () -> Unit, modifier: Modifier = Modifier, progress: Float? = null,
-    caption: String? = null) {
+    caption: String? = null, onLongClick: (() -> Unit)? = null) {
     Column(modifier = modifier.width(150.dp)) {
         Card(
             onClick = onClick,
+            onLongClick = onLongClick,
             modifier = Modifier.fillMaxWidth(),
             shape = CardDefaults.shape(CardShape),
             scale = CardDefaults.scale(focusedScale = 1.05f),

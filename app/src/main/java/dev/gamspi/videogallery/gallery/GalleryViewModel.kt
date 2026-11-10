@@ -45,13 +45,40 @@ sealed interface GalleryUiState {
 @HiltViewModel
 class GalleryViewModel @Inject constructor(
     private val catalog: CatalogRepository,
-    settings: SettingsRepository,
+    private val settings: SettingsRepository,
     history: WatchHistoryStore,
     private val listSync: dev.gamspi.videogallery.watchlist.ListSyncService? = null,
 ) : ViewModel() {
     val listSnapshot = listSync?.store?.snapshots ?: MutableStateFlow(dev.gamspi.videogallery.watchlist.ListSnapshot())
     val listError = listSync?.error ?: MutableStateFlow<String?>(null)
     fun changeList(row: dev.gamspi.videogallery.watchlist.ListRecord, field: String, value: kotlinx.serialization.json.JsonElement) = listSync?.changeTitle(row, field, value)
+    /** Instant record for the card menu: the saved row, else a seed without the IMDb id. */
+    fun menuRecord(movie: Movie): dev.gamspi.videogallery.watchlist.ListRecord? {
+        val source = settings.catalogSource.value.name
+        return dev.gamspi.videogallery.watchlist.findByCatalog(listSnapshot.value, source, movie.id)
+            ?: dev.gamspi.videogallery.watchlist.titleSeed(movie, "", source)
+    }
+    fun changeFromCard(movie: Movie, field: String, value: kotlinx.serialization.json.JsonElement) = withCardRecord(movie) { record, listed ->
+        listSync?.changeTitle(if (listed) record else dev.gamspi.videogallery.watchlist.firstEditSeed(record, field), field, value)
+    }
+    fun rateFromCard(movie: Movie, season: Int, rating: Int) = withCardRecord(movie) { record, _ -> listSync?.rateSeason(record, season, rating) }
+
+    // The card has no IMDb id: fetch it so the row gets the same key as the details screen.
+    private fun withCardRecord(movie: Movie, act: (dev.gamspi.videogallery.watchlist.ListRecord, Boolean) -> Unit) {
+        val source = settings.catalogSource.value.name
+        dev.gamspi.videogallery.watchlist.findByCatalog(listSnapshot.value, source, movie.id)?.let { return act(it, true) }
+        viewModelScope.launch {
+            try {
+                val details = catalog.details(movie.id, movie.kind)
+                val seed = dev.gamspi.videogallery.watchlist.titleSeed(movie, details.imdbId.orEmpty(), source) ?: return@launch
+                val live = listSnapshot.value.records[seed.identity]?.takeUnless { it.deleted }
+                act(live ?: seed, live != null)
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: CatalogException) { listSync?.report("Не удалось получить данные тайтла") }
+        }
+    }
+    fun rateSaved(row: dev.gamspi.videogallery.watchlist.ListRecord, season: Int, rating: Int) { listSync?.rateSeason(row, season, rating) }
+
     /** The title's source goes to its card only; the selected catalog stays as it is. */
     fun openSaved(row: dev.gamspi.videogallery.watchlist.ListRecord, open: (dev.gamspi.videogallery.watchlist.SavedTarget) -> Unit) {
         val target = dev.gamspi.videogallery.watchlist.savedTarget(row)
