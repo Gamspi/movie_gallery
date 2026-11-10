@@ -124,6 +124,7 @@ class DetailsViewModel @Inject constructor(
 
     init {
         listSync?.loadLocal()
+        listSync?.request()
         viewModelScope.launch { listSnapshot.collect { refreshProgress() } }
         viewModelScope.launch {
             combine(settings.activeCatalog, retryTick) { active, tick -> active to tick }

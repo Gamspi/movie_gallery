@@ -82,7 +82,8 @@ class LocalListStore(
             var row = incoming
             if (row.table == ListTable.Titles) {
                 val data = incoming.data.toMutableMap()
-                old?.data?.let { data.putAll(it) }
+                // A tombstone must not bring its old fields back
+                old?.takeUnless { it.deleted }?.data?.let { data.putAll(it) }
                 data["status"] = kotlinx.serialization.json.JsonPrimitive(
                     if (seriesDone) "watched" else incoming.data.getValue("status").toString().trim('"'))
                 row = row.copy(data = kotlinx.serialization.json.JsonObject(data))

@@ -106,4 +106,17 @@ class LocalListStoreTest {
         assertEquals(3, store.snapshot().records.size)
         assertEquals(2, store.pending(2).size)
     }
+
+    @Test fun playbackRevivesTombstoneWithoutOldFields() = runTest {
+        val store = LocalListStore({null}, {}, StandardTestDispatcher(testScheduler))
+        val old = row(50).copy(deleted = true, data = buildJsonObject { put("status", "watched"); put("my_rating", 9) })
+        store.edit(old)
+        store.recordPlayback(listOf(row(10)), seriesDone = false)
+        val revived = store.snapshot().records.getValue(old.identity)
+        assertFalse(revived.deleted)
+        assertNull(revived.data["my_rating"])
+        assertEquals("unwatched", revived.data["status"]?.toString()?.trim('"'))
+        assertTrue(revived.updatedAt > 50)
+        assertTrue(old.identity in store.snapshot().pending)
+    }
 }

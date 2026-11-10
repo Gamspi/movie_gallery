@@ -117,6 +117,23 @@ class ListSyncService @Inject constructor(
 
     fun request() = runner.request()
 
+    private var pullJob: Job? = null
+
+    /** Exchanges on entering the foreground, periodically while there, and once on leaving. */
+    @Synchronized fun setForeground(on: Boolean) {
+        if (on == (pullJob != null)) return
+        if (on) {
+            runner.request()
+            pullJob = scope.launch {
+                while (true) { delay(FOREGROUND_PULL_MS); runner.request() }
+            }
+        } else {
+            pullJob?.cancel()
+            pullJob = null
+            runner.request()
+        }
+    }
+
     fun retryNow() = runner.retryNow()
 
     fun report(text: String) { message.value = text }
@@ -187,5 +204,6 @@ class ListSyncService @Inject constructor(
         const val KEY = "list_key"
         const val ENABLED = "list_sync_enabled"
         private const val POSITION_SYNC_MS = 300_000L
+        private const val FOREGROUND_PULL_MS = 300_000L
     }
 }
