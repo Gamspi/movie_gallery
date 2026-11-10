@@ -8,6 +8,12 @@ import dev.gamspi.videogallery.catalog.model.MovieDetails
 
 /** Configurable fake. Set a result or an exception per method; calls are recorded. */
 class FakeCatalogRepository : CatalogRepository {
+    var upcomingResult: suspend (java.time.LocalDate, MediaKind?) -> List<Movie> = { _, _ -> emptyList() }
+    val upcomingCalls = mutableListOf<MediaKind?>()
+    override suspend fun upcoming(today: java.time.LocalDate, kind: MediaKind?): List<Movie> {
+        upcomingCalls += kind
+        return upcomingResult(today, kind)
+    }
     var popularResult: () -> List<Movie> = { emptyList() }
     var genresResult: () -> List<Genre> = { emptyList() }
     var byGenreResult: (Int) -> List<Movie> = { emptyList() }

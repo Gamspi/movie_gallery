@@ -1,5 +1,16 @@
 package dev.gamspi.videogallery.ui.components
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.tv.material3.MaterialTheme
+import androidx.tv.material3.Text
+import dev.gamspi.videogallery.catalog.model.comingSoonLabel
+import dev.gamspi.videogallery.ui.theme.AppColors
+import java.time.LocalDate
 import java.util.Locale
 
 /** Rating badge text with one decimal, e.g. "7.8"; null for absent or non-positive ratings. */
@@ -20,3 +31,17 @@ fun cardProgressFill(progress: Float?): Float? = visibleProgress(progress)?.coer
 
 /** Badge text of a series card. */
 const val SERIES_BADGE = "Сериал"
+
+/** Shared bottom badge; compact list posters may wrap it instead of truncating the date. */
+@Composable
+fun ComingSoonBadge(premiereDate: String?, year: Int?, modifier: Modifier = Modifier) {
+    comingSoonLabel(premiereDate, year, LocalDate.now())?.let { label ->
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = AppColors.OnAccent,
+            modifier = modifier.background(AppColors.Accent, RoundedCornerShape(4.dp))
+                .padding(horizontal = 4.dp, vertical = 3.dp),
+        )
+    }
+}

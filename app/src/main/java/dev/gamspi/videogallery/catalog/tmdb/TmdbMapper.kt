@@ -35,6 +35,7 @@ private fun movie(
         overview = overview.orEmpty(),
         rating = rating.positiveRating(),
         kind = kind,
+        premiereDate = dev.gamspi.videogallery.catalog.model.releaseDate(releaseDate)?.toString(),
     )
 }
 
@@ -68,7 +69,7 @@ fun MovieDetailsDto.toSeriesDetails(): MovieDetails = MovieDetails(
     backdropUrl = backdropPath?.takeIf { it.isNotEmpty() }?.let { BACKDROP_BASE + it },
     // season 0 is "Specials"
     seasons = seasons.orEmpty().filter { it.seasonNumber > 0 }
-        .map { SeasonInfo(it.seasonNumber, it.episodeCount ?: 0) },
+        .map { SeasonInfo(it.seasonNumber, it.episodeCount ?: 0, it.airDate) },
 )
 
 fun SeasonDto.toEpisodes(season: Int): List<Episode> = episodes.orEmpty().map {

@@ -15,6 +15,8 @@ data class Movie(
     /** Native rating of the catalog source (Kinopoisk or TMDB), null when absent or zero. */
     val rating: Double? = null,
     val kind: MediaKind = MediaKind.Movie,
+    /** World premiere for films, first air date for series (ISO date). */
+    val premiereDate: String? = null,
 )
 
 /** Zero or negative ratings mean "no votes". */
@@ -29,7 +31,7 @@ data class MovieDetails(
     val seasons: List<SeasonInfo> = emptyList(),
 )
 
-data class SeasonInfo(val number: Int, val episodeCount: Int)
+data class SeasonInfo(val number: Int, val episodeCount: Int, val airDate: String? = null)
 
 data class Episode(
     val season: Int,

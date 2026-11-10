@@ -116,6 +116,8 @@ fun MovieCard(movie: Movie, onClick: () -> Unit, modifier: Modifier = Modifier, 
                             .padding(horizontal = 6.dp, vertical = 2.dp),
                     )
                 }
+                ComingSoonBadge(movie.premiereDate, movie.year,
+                    Modifier.align(Alignment.BottomStart).padding(bottom = 5.dp).fillMaxWidth())
                 cardProgressFill(progress)?.let { share ->
                     // Fill is drawn in the draw phase; the minimum share keeps ~1% progress visible.
                     Box(

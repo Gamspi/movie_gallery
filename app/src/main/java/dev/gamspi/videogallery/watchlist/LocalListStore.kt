@@ -35,6 +35,8 @@ class LocalListStore(
         val old = current.records[seed.identity]
         // A tombstone's fields must not leak into a title added again.
         val data = (seed.data + old?.takeUnless { it.deleted }?.data.orEmpty()).toMutableMap()
+        // An explicit card edit also carries the current catalog premiere.
+        seed.data["premiere_date"]?.let { data["premiere_date"] = it }
         if (field != "deleted") data[field] = value
         if (field == "my_rating" && data["type"].toString().trim('"') !in setOf("tv_show", "animated_series"))
             data["status"] = kotlinx.serialization.json.JsonPrimitive("watched")

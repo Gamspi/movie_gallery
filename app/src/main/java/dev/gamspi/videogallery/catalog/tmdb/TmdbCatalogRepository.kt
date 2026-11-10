@@ -24,6 +24,13 @@ class TmdbCatalogRepository(
     private val settings: SettingsRepository,
 ) : CatalogRepository {
 
+    override suspend fun upcoming(today: java.time.LocalDate, kind: MediaKind?): List<Movie> = call {
+        val from = today.plusDays(1).toString()
+        val movies = if (kind != MediaKind.Series) api.upcomingMovies(from).results.orEmpty().map { it.toMovie() } else emptyList()
+        val series = if (kind != MediaKind.Movie) api.upcomingSeries(from).results.orEmpty().map { it.toSeries() } else emptyList()
+        dev.gamspi.videogallery.catalog.model.upcomingTitles(movies + series, today).take(20)
+    }
+
     override suspend fun popular(page: Int, kind: MediaKind): List<Movie> = call {
         if (kind == MediaKind.Series) api.tvPopular(page).results.orEmpty().map { it.toSeries() }
         else api.popular(page).results.orEmpty().map { it.toMovie() }

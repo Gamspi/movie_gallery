@@ -54,7 +54,13 @@ fun FilmDto.toMovie(kind: MediaKind = MediaKind.Movie): Movie =
 /** Season 0 (specials) is dropped. */
 fun SeasonsDto.toSeasonInfos(): List<SeasonInfo> = items.orEmpty()
     .filter { (it.number ?: 0) > 0 }
-    .map { SeasonInfo(it.number!!, it.episodes.orEmpty().size) }
+    .map { season -> SeasonInfo(season.number!!, season.episodes.orEmpty().size,
+        dev.gamspi.videogallery.catalog.model.releaseDate(
+            season.episodes.orEmpty().firstOrNull { it.episodeNumber == 1 }?.releaseDate)?.toString()) }
+
+fun DistributionsDto.worldPremiere(): String? = items.orEmpty()
+    .filter { it.type == "WORLD_PREMIER" && it.reRelease != true }
+    .mapNotNull { dev.gamspi.videogallery.catalog.model.releaseDate(it.date) }.minOrNull()?.toString()
 
 fun SeasonsDto.toEpisodes(season: Int): List<Episode> = items.orEmpty()
     .filter { it.number == season }

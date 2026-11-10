@@ -37,6 +37,15 @@ class PoiskKinoCatalogRepository(private val api: PoiskKinoApi, private val sett
     }
     private var credentials: Credentials? = null
 
+    override suspend fun upcoming(today: java.time.LocalDate, kind: MediaKind?): List<Movie> = call { state ->
+        val from = today.plusDays(1).format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.uuuu"))
+        val result = api.movies(state.key, type = if (kind == MediaKind.Movie) "movie" else null,
+            isSeries = if (kind == MediaKind.Series) true else null,
+            sortField = "premiere.world", sortType = "1", premiereWorld = "$from-31.12.9999")
+        dev.gamspi.videogallery.catalog.model.upcomingTitles(
+            result.docs.orEmpty().mapNotNull { it.toMovieOrNull() }.filter { kind == null || it.kind == kind }, today)
+    }
+
     override suspend fun popular(page: Int, kind: MediaKind): List<Movie> =
         call { state -> loadPage(state, null, page, kind) }
 

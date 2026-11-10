@@ -18,6 +18,44 @@ import org.junit.Before
 import org.junit.Test
 
 class TmdbCatalogRepositoryTest {
+    @Test fun upcomingMixedUsesTwoDateFilteredRequestsAndSortsByPremiere() = runBlocking {
+        server.enqueue(MockResponse.Builder().body("""{"results":[
+            {"id":1,"release_date":"2027-03-12"},{"id":3,"release_date":"2026-11-10"}]}
+        """).build())
+        server.enqueue(MockResponse.Builder().body("""{"results":[{"id":1,"first_air_date":"2026-11-11"}]}""").build())
+        val movies = repo().upcoming(java.time.LocalDate.of(2026, 11, 10))
+        assertEquals(listOf(MediaKind.Series, MediaKind.Movie), movies.map { it.kind })
+        assertEquals(listOf("2026-11-11", "2027-03-12"), movies.map { it.premiereDate })
+        val film = server.takeRequest().url
+        val tv = server.takeRequest().url
+        assertEquals("/3/discover/movie", film.encodedPath)
+        assertEquals("2026-11-11", film.queryParameter("primary_release_date.gte"))
+        assertEquals("primary_release_date.asc", film.queryParameter("sort_by"))
+        assertNull(film.queryParameter("region"))
+        assertEquals("/3/discover/tv", tv.encodedPath)
+        assertEquals("2026-11-11", tv.queryParameter("first_air_date.gte"))
+        assertEquals("first_air_date.asc", tv.queryParameter("sort_by"))
+        assertEquals(2, server.requestCount)
+    }
+
+    @Test fun upcomingSingleKindUsesOneRequest() = runBlocking {
+        for (kind in MediaKind.entries) {
+            server.enqueue(MockResponse.Builder().body("""{"results":[]}""").build())
+            assertTrue(repo().upcoming(java.time.LocalDate.of(2026, 12, 31), kind).isEmpty())
+            val url = server.takeRequest().url
+            assertEquals(if (kind == MediaKind.Movie) "/3/discover/movie" else "/3/discover/tv", url.encodedPath)
+            assertEquals("2027-01-01", url.queryParameter(if (kind == MediaKind.Movie) "primary_release_date.gte" else "first_air_date.gte"))
+        }
+        assertEquals(2, server.requestCount)
+    }
+
+    @Test fun premiereAndSeasonAirDateMappedInDetails() {
+        assertEquals("2027-03-12", MovieDetailsDto(1, releaseDate = "2027-03-12").toDetails().movie.premiereDate)
+        val tv = MovieDetailsDto(1, releaseDate = "2000-01-01", firstAirDate = "2027-03-12",
+            seasons = listOf(SeasonSummaryDto(1, 0, "2027-03-12"))).toSeriesDetails()
+        assertEquals("2027-03-12", tv.movie.premiereDate)
+        assertEquals("2027-03-12", tv.seasons.single().airDate)
+    }
     private lateinit var server: MockWebServer
 
     @Before fun setUp() { server = MockWebServer().apply { start() } }

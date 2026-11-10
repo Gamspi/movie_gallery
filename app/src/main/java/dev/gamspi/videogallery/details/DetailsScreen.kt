@@ -28,6 +28,11 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
 import dev.gamspi.videogallery.catalog.model.MovieDetails
+import dev.gamspi.videogallery.catalog.model.isComingSoon
+import dev.gamspi.videogallery.catalog.model.formatReleaseDate
+import dev.gamspi.videogallery.watchlist.text
+import java.time.LocalDate
+import kotlinx.serialization.json.JsonPrimitive
 import dev.gamspi.videogallery.history.PlaybackMeta
 import dev.gamspi.videogallery.stream.EpisodeRef
 import dev.gamspi.videogallery.ui.components.ErrorView
@@ -51,18 +56,35 @@ fun DetailsScreen(
         val season = (state as? DetailsUiState.Content)?.takeIf { it.series }?.selectedSeason
         record?.let {
             dev.gamspi.videogallery.watchlist.ListActionButton(it, ratingSeason = season, rateSeason = viewModel::rateSeason, change = viewModel::changeList)
-            dev.gamspi.videogallery.watchlist.RateButton(it, season, viewModel::rateSeason, viewModel::changeList)
+            if ((state as? DetailsUiState.Content)?.details?.movie?.isComingSoon(LocalDate.now()) != true) {
+                dev.gamspi.videogallery.watchlist.RateButton(it, season, viewModel::rateSeason, viewModel::changeList)
+            }
         }
         listError?.let { Text(it) }
+    }
+    val upcomingActions: @Composable (Modifier) -> Unit = { modifier ->
+        val record = remember(state, listSnapshot) { viewModel.listRecord() }
+        val saved = record?.let { listSnapshot.records[it.identity]?.takeUnless { row -> row.deleted } }
+        AccentButton(onClick = { viewModel.changeList("status", JsonPrimitive("unwatched")) }, modifier = modifier,
+            selected = saved?.text("status") == "unwatched") {
+            Text("К просмотру")
+        }
+        if ((state as? DetailsUiState.Content)?.series == true) {
+            val notify = record?.text("notify") == "true"
+            AccentButton(onClick = { viewModel.changeList("notify", JsonPrimitive(!notify)) }, selected = notify) {
+                Text(if (notify) "Уведомлять ✓" else "Уведомлять")
+            }
+        }
     }
     when (val s = state) {
         DetailsUiState.Loading -> FullScreenLoader()
         is DetailsUiState.Error -> ErrorView(s.kind, onRetry = viewModel::retry, onOpenKeySettings = onOpenKeySettings, onOpenSettings = onOpenSettings)
         is DetailsUiState.Content -> if (!s.series) {
-            DetailsContent(s.details, onWatch, actions)
+            DetailsContent(s.details, { if (viewModel.canWatch()) onWatch() }, actions, upcomingActions)
         } else {
             val play = { ref: EpisodeRef ->
                 when (val t = viewModel.playTarget(ref)) {
+                    PlayTarget.Unavailable -> Unit
                     is PlayTarget.Stream -> onStream(t.releaseTitle, t.meta)
                     is PlayTarget.PickRelease -> onPickRelease(ref.season, ref.episode)
                 }
@@ -72,8 +94,9 @@ fun DetailsScreen(
                 onSelectSeason = viewModel::selectSeason,
                 onRetryEpisodes = viewModel::retryEpisodes,
                 onPlay = play,
-                onPickSeason = { season -> onPickRelease(season, viewModel.releaseEpisode(season)) },
+                onPickSeason = { season -> if (viewModel.canPickSeason(season)) onPickRelease(season, viewModel.releaseEpisode(season)) },
                 listActions = actions,
+                upcomingActions = upcomingActions,
                 onMarkEpisode = viewModel::markEpisode,
                 onMarkSeason = viewModel::markSeason,
             )
@@ -82,7 +105,8 @@ fun DetailsScreen(
 }
 
 @Composable
-private fun DetailsContent(details: MovieDetails, onWatch: () -> Unit, listActions: @Composable () -> Unit) {
+private fun DetailsContent(details: MovieDetails, onWatch: () -> Unit, listActions: @Composable () -> Unit,
+    upcomingActions: @Composable (Modifier) -> Unit) {
     val movie = details.movie
     val watchFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) {
@@ -129,13 +153,17 @@ private fun DetailsContent(details: MovieDetails, onWatch: () -> Unit, listActio
                 }
                 val meta = listOfNotNull(movie.year?.toString(), formatRuntime(details.runtimeMin))
                 if (meta.isNotEmpty()) Text(meta.joinToString(" · "), style = MaterialTheme.typography.bodyLarge)
+                formatReleaseDate(movie.premiereDate)?.let { Text("Дата выхода: $it", style = MaterialTheme.typography.bodyLarge) }
+                    ?: movie.year?.takeIf { movie.isComingSoon(LocalDate.now()) }?.let { Text("Дата выхода: $it") }
                 if (details.genres.isNotEmpty()) {
                     Text(details.genres.joinToString(", "), style = MaterialTheme.typography.bodyLarge)
                 }
                 if (movie.overview.isNotBlank()) {
                     Text(movie.overview, style = MaterialTheme.typography.bodyMedium, maxLines = 8, overflow = TextOverflow.Ellipsis)
                 }
-                AccentButton(
+                if (movie.isComingSoon(LocalDate.now())) {
+                    upcomingActions(Modifier.focusRequester(watchFocus))
+                } else AccentButton(
                     onClick = onWatch,
                     modifier = Modifier.focusRequester(watchFocus),
                 ) {

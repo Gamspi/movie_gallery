@@ -17,6 +17,7 @@ interface PoiskKinoApi {
         @Query("sortField") sortField: String = "votes.kp",
         @Query("sortType") sortType: String = "-1",
         @Query("limit") limit: Int = 20,
+        @Query("premiere.world") premiereWorld: String? = null,
     ): MovieCursorDto
 
     @GET("v1.5/dictionary/genres")

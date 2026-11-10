@@ -28,7 +28,7 @@ data class EpisodeDto(
 )
 
 @Serializable
-data class SeasonInfoDto(val number: Int? = null, val episodesCount: Int? = null)
+data class SeasonInfoDto(val number: Int? = null, val episodesCount: Int? = null, val airDate: String? = null)
 
 @Serializable
 data class MovieSearchDto(val docs: List<MovieDto>? = null)
@@ -49,6 +49,9 @@ data class RatingDto(@Serializable(with = LenientDoubleSerializer::class) val kp
 data class ExternalIdDto(val imdb: String? = null)
 
 @Serializable
+data class PremiereDto(val world: String? = null)
+
+@Serializable
 data class MovieDto(
     val id: Int? = null,
     val name: String? = null,
@@ -65,4 +68,5 @@ data class MovieDto(
     val genres: List<DictionaryItemDto>? = null,
     val rating: RatingDto? = null,
     val seasonsInfo: List<SeasonInfoDto>? = null,
+    val premiere: PremiereDto? = null,
 )

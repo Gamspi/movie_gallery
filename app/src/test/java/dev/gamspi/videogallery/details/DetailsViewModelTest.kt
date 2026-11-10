@@ -37,6 +37,88 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class DetailsViewModelTest {
+    @Test fun futureTitleBlocksAllPlaybackAndSeasonSearch() = runTest {
+        val vm = seriesVm()
+        repo.detailsResult = { seriesDetails(it).let { d -> d.copy(movie = d.movie.copy(premiereDate = "2999-03-12")) } }
+        advanceUntilIdle()
+        val c = vm.state.value as DetailsUiState.Content
+        assertEquals(3, c.episodes.size)
+        assertNull(c.resume)
+        assertFalse(vm.canWatch())
+        assertFalse(vm.canPickSeason(1))
+        assertEquals(PlayTarget.Unavailable, vm.playTarget(EpisodeRef(1, 1)))
+    }
+
+    @Test fun futureMovieUsesYearWhenDateMissing() = runTest {
+        repo.detailsResult = { details(it).let { d -> d.copy(movie = d.movie.copy(year = 2999)) } }
+        val vm = DetailsViewModel(repo, settings(), history, seriesStore, SavedStateHandle(mapOf("id" to 1)))
+        advanceUntilIdle()
+        assertFalse(vm.canWatch())
+        assertTrue(repo.seasonCalls.isEmpty())
+    }
+
+    @Test fun futureEpisodeStaysVisibleButCannotUseSavedReleaseOrResume() = runTest {
+        seriesStore.saveRelease(seriesKey("Tmdb", 9), 1, savedRelease(EpisodeRef(1, 2)))
+        seriesStore.saveProgress(seriesKey("Tmdb", 9), EpisodeRef(1, 1), 1f)
+        val vm = seriesVm()
+        repo.seasonResult = { _, n -> listOf(
+            Episode(n, 1, "Вышла", 40, null, "2020-01-01"),
+            Episode(n, 2, "Скоро", 40, null, "2999-03-12")) }
+        advanceUntilIdle()
+        val c = vm.state.value as DetailsUiState.Content
+        assertEquals(2, c.episodes.size)
+        assertNull(c.resume)
+        assertEquals(PlayTarget.Unavailable, vm.playTarget(EpisodeRef(1, 2)))
+        assertEquals(1, vm.releaseEpisode(1))
+        assertTrue(vm.canPickSeason(1))
+    }
+
+    @Test fun futureHistoryEntryFallsBackToAvailableUnwatchedEpisode() = runTest {
+        history.upsert(entry(1, 2))
+        val vm = seriesVm()
+        repo.seasonResult = { _, n -> listOf(Episode(n, 1, "", null, null, "2020-01-01"),
+            Episode(n, 2, "", null, null, "2999-03-12")) }
+        advanceUntilIdle()
+        assertEquals(EpisodeRef(1, 1), (vm.state.value as DetailsUiState.Content).resume)
+    }
+
+    @Test fun futureSeasonWithZeroEpisodesRemainsAndCannotSearchReleases() = runTest {
+        val vm = seriesVm()
+        repo.detailsResult = { seriesDetails(it).copy(seasons = listOf(SeasonInfo(1, 0, "2999-03-12"))) }
+        repo.seasonResult = { _, _ -> emptyList() }
+        advanceUntilIdle()
+        val c = vm.state.value as DetailsUiState.Content
+        assertEquals(1, c.seasons.size)
+        assertTrue(c.seasonComingSoon(1, java.time.LocalDate.now()))
+        assertFalse(vm.canPickSeason(1))
+        assertNull(c.resume)
+    }
+
+    @Test fun switchingToFutureSeasonKeepsReleasedResumeAndCachesEpisodes() = runTest {
+        val vm = seriesVm()
+        repo.seasonResult = { _, n -> episodes(n).map { it.copy(airDate = if (n == 1) "2020-01-01" else "2999-03-12") } }
+        advanceUntilIdle()
+        vm.selectSeason(2)
+        advanceUntilIdle()
+        val c = vm.state.value as DetailsUiState.Content
+        assertEquals(EpisodeRef(1, 1), c.resume)
+        assertTrue(c.seasonComingSoon(2, java.time.LocalDate.now()))
+        assertFalse(vm.canPickSeason(2))
+        vm.selectSeason(1)
+        advanceUntilIdle()
+        assertEquals(listOf(9 to 1, 9 to 2), repo.seasonCalls)
+    }
+
+    @Test fun finishingSeasonChecksNextSeasonDatesBeforeOfferingResume() = runTest {
+        val vm = seriesVm()
+        repo.seasonResult = { _, n -> episodes(n).map { it.copy(airDate = if (n == 1) "2020-01-01" else "2999-03-12") } }
+        advanceUntilIdle()
+        for (episode in 1..8) seriesStore.saveProgress(seriesKey("Tmdb", 9), EpisodeRef(1, episode), 1f)
+        history.upsert(entry(2, 1))
+        advanceUntilIdle()
+        assertNull((vm.state.value as DetailsUiState.Content).resume)
+        assertEquals(listOf(9 to 1, 9 to 2), repo.seasonCalls)
+    }
     private val repo = FakeCatalogRepository()
     private val history = FakeWatchHistoryStore()
     private val seriesStore = FakeSeriesStore()
@@ -231,7 +313,10 @@ class DetailsViewModelTest {
         seriesStore.saveRelease(seriesKey("Tmdb", 9), 1, savedRelease(EpisodeRef(1, 1)))
         val vm = seriesVm()
         advanceUntilIdle()
-        assertEquals(PlayTarget.PickRelease(1), vm.playTarget(EpisodeRef(1, 5)))
+        assertEquals(PlayTarget.PickRelease(1), vm.playTarget(EpisodeRef(1, 2)))
+        assertEquals(PlayTarget.Unavailable, vm.playTarget(EpisodeRef(2, 1)))
+        vm.selectSeason(2)
+        advanceUntilIdle()
         assertEquals(PlayTarget.PickRelease(2), vm.playTarget(EpisodeRef(2, 1)))
     }
 

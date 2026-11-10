@@ -16,6 +16,8 @@ import dev.gamspi.videogallery.ui.components.toErrorKind
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -27,6 +29,57 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class GalleryViewModelTest {
+    @Test fun upcomingSecondSortedAndFilteredOnEveryTabWithCachedReturn() = runTest {
+        happyRepo(1)
+        val today = java.time.LocalDate.now()
+        val film = movie(1).copy(premiereDate = today.plusDays(2).toString())
+        val tv = movie(1).copy(kind = MediaKind.Series, premiereDate = today.plusDays(1).toString())
+        repo.upcomingResult = { _, _ -> listOf(film, movie(3), tv) }
+        val vm = GalleryViewModel(repo, settings(), FakeWatchHistoryStore())
+        advanceUntilIdle()
+        fun row() = (vm.state.value as GalleryUiState.Content).rows[1]
+        assertEquals("Скоро", row().title)
+        assertEquals(listOf(tv, film), row().movies)
+        vm.selectTab(HomeTab.Movies)
+        advanceUntilIdle()
+        assertEquals(listOf(film), row().movies)
+        vm.selectTab(HomeTab.Series)
+        advanceUntilIdle()
+        assertEquals(listOf(tv), row().movies)
+        vm.selectTab(HomeTab.All)
+        advanceUntilIdle()
+        assertEquals(listOf(tv, film), row().movies)
+        assertEquals(listOf(null, MediaKind.Movie, MediaKind.Series), repo.upcomingCalls)
+        assertTrue(repo.detailsCalls.isEmpty())
+    }
+
+    @Test fun upcomingFailureOrEmptyDoesNotShowAnErrorOrEmptyRow() = runTest {
+        happyRepo(1)
+        repo.upcomingResult = { _, _ -> throw CatalogException.Network }
+        val vm = newVm(repo, settings(), FakeWatchHistoryStore())
+        advanceUntilIdle()
+        assertEquals(listOf("Популярное", "G1"), (vm.state.value as GalleryUiState.Content).rows.map { it.title })
+        repo.upcomingResult = { _, _ -> emptyList() }
+        vm.retry()
+        advanceUntilIdle()
+        assertEquals(listOf("Популярное", "G1"), (vm.state.value as GalleryUiState.Content).rows.map { it.title })
+    }
+
+    @Test fun changingTabCancelsPendingUpcomingRequest() = runTest {
+        happyRepo(1)
+        var cancelled = false
+        repo.upcomingResult = { _, kind ->
+            if (kind == null) try { kotlinx.coroutines.awaitCancellation() }
+                finally { cancelled = true }
+            else emptyList()
+        }
+        val vm = GalleryViewModel(repo, settings(), FakeWatchHistoryStore())
+        runCurrent()
+        vm.selectTab(HomeTab.Movies)
+        advanceUntilIdle()
+        assertTrue(cancelled)
+        assertTrue(vm.state.value is GalleryUiState.Content)
+    }
     private val repo = FakeCatalogRepository()
 
     private fun movie(id: Int) = Movie(id, "M$id", "O$id", 2020, null, "")

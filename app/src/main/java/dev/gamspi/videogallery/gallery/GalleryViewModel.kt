@@ -8,6 +8,8 @@ import dev.gamspi.videogallery.catalog.CatalogRepository
 import dev.gamspi.videogallery.catalog.model.Genre
 import dev.gamspi.videogallery.catalog.model.MediaKind
 import dev.gamspi.videogallery.catalog.model.Movie
+import dev.gamspi.videogallery.catalog.model.upcomingTitles
+import java.time.LocalDate
 import dev.gamspi.videogallery.history.WatchEntry
 import dev.gamspi.videogallery.history.WatchHistoryStore
 import dev.gamspi.videogallery.settings.SettingsRepository
@@ -55,7 +57,7 @@ class GalleryViewModel @Inject constructor(
     /** Instant record for the card menu: the saved row, else a seed without the IMDb id. */
     fun menuRecord(movie: Movie): dev.gamspi.videogallery.watchlist.ListRecord? {
         val source = settings.catalogSource.value.name
-        return dev.gamspi.videogallery.watchlist.findByCatalog(listSnapshot.value, source, movie.id)
+        return dev.gamspi.videogallery.watchlist.findByCatalog(listSnapshot.value, source, movie.id, movie.kind)
             ?: dev.gamspi.videogallery.watchlist.titleSeed(movie, "", source)
     }
     fun changeFromCard(movie: Movie, field: String, value: kotlinx.serialization.json.JsonElement) = withCardRecord(movie) { record, listed ->
@@ -66,11 +68,11 @@ class GalleryViewModel @Inject constructor(
     // The card has no IMDb id: fetch it so the row gets the same key as the details screen.
     private fun withCardRecord(movie: Movie, act: (dev.gamspi.videogallery.watchlist.ListRecord, Boolean) -> Unit) {
         val source = settings.catalogSource.value.name
-        dev.gamspi.videogallery.watchlist.findByCatalog(listSnapshot.value, source, movie.id)?.let { return act(it, true) }
+        dev.gamspi.videogallery.watchlist.findByCatalog(listSnapshot.value, source, movie.id, movie.kind)?.let { return act(it, true) }
         viewModelScope.launch {
             try {
                 val details = catalog.details(movie.id, movie.kind)
-                val seed = dev.gamspi.videogallery.watchlist.titleSeed(movie, details.imdbId.orEmpty(), source) ?: return@launch
+                val seed = dev.gamspi.videogallery.watchlist.titleSeed(details.movie, details.imdbId.orEmpty(), source) ?: return@launch
                 val live = listSnapshot.value.records[seed.identity]?.takeUnless { it.deleted }
                 act(live ?: seed, live != null)
             } catch (cancelled: CancellationException) { throw cancelled }
@@ -96,6 +98,7 @@ class GalleryViewModel @Inject constructor(
     // Rows per tab; dropped on catalog change or retry.
     private val cache = HashMap<HomeTab, List<MovieRow>>()
     private var cacheEpoch: Pair<*, Int>? = null
+    private var cacheDate = LocalDate.now()
 
     init {
         viewModelScope.launch {
@@ -120,6 +123,11 @@ class GalleryViewModel @Inject constructor(
     }
 
     private suspend fun load(tab: HomeTab) {
+        val today = LocalDate.now()
+        if (cacheDate != today) {
+            cache.clear()
+            cacheDate = today
+        }
         cache[tab]?.let {
             _state.value = GalleryUiState.Content(it, tab)
             return
@@ -144,6 +152,7 @@ class GalleryViewModel @Inject constructor(
 
     private suspend fun fetchRows(kind: MediaKind, popularTitle: String): List<MovieRow> = coroutineScope {
         val popular = async { catalog.popular(kind = kind) }
+        val upcoming = async { upcomingRow(kind) }
         val genres = catalog.genres(kind).take(GENRE_ROWS)
         val genreRows = genres.map { genre ->
             async {
@@ -154,12 +163,13 @@ class GalleryViewModel @Inject constructor(
                 }
             }
         }
-        listOf(MovieRow(popularTitle, popular.await())) + genreRows.mapNotNull { it.await() }.filter { it.movies.isNotEmpty() }
+        listOfNotNull(MovieRow(popularTitle, popular.await()), upcoming.await()) + genreRows.mapNotNull { it.await() }.filter { it.movies.isNotEmpty() }
     }
 
     // Movie rows mixed with the same-named series genre; series failures only thin the rows out.
     private suspend fun fetchAllRows(): List<MovieRow> = coroutineScope {
         val popular = async { catalog.popular(kind = MediaKind.Movie) }
+        val upcoming = async { upcomingRow(null) }
         val seriesPopular = async { optional { catalog.popular(kind = MediaKind.Series) } }
         val seriesGenres = async { optional { catalog.genres(MediaKind.Series) } }
         val genres = catalog.genres(MediaKind.Movie).take(GENRE_ROWS)
@@ -178,7 +188,14 @@ class GalleryViewModel @Inject constructor(
             }
         }
         val first = MovieRow("Популярное", interleave(popular.await(), seriesPopular.await()))
-        listOf(first) + genreRows.mapNotNull { it.await() }.filter { it.movies.isNotEmpty() }
+        listOfNotNull(first, upcoming.await()) + genreRows.mapNotNull { it.await() }.filter { it.movies.isNotEmpty() }
+    }
+
+    private suspend fun upcomingRow(kind: MediaKind?): MovieRow? {
+        val today = LocalDate.now()
+        val movies = upcomingTitles(optional { catalog.upcoming(today, kind) }, today)
+            .filter { kind == null || it.kind == kind }
+        return movies.takeIf { it.isNotEmpty() }?.let { MovieRow("Скоро", it) }
     }
 
     private suspend fun <T> optional(block: suspend () -> List<T>): List<T> =

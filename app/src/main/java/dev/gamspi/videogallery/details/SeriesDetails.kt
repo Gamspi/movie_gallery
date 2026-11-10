@@ -35,6 +35,8 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -48,6 +50,9 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
 import dev.gamspi.videogallery.catalog.model.Episode
+import dev.gamspi.videogallery.catalog.model.isComingSoon
+import dev.gamspi.videogallery.catalog.model.formatReleaseDate
+import java.time.LocalDate
 import dev.gamspi.videogallery.history.FINISHED_PROGRESS
 import dev.gamspi.videogallery.stream.EpisodeRef
 import dev.gamspi.videogallery.ui.components.AccentButton
@@ -88,11 +93,15 @@ internal fun SeriesDetailsContent(
     onPlay: (EpisodeRef) -> Unit,
     onPickSeason: (Int) -> Unit,
     listActions: @Composable () -> Unit = {},
+    upcomingActions: @Composable (Modifier) -> Unit = {},
     onMarkEpisode: (EpisodeRef, Boolean) -> Unit = { _, _ -> },
     onMarkSeason: () -> Unit = {},
 ) {
     val details = c.details
     val movie = details.movie
+    val today = LocalDate.now()
+    val comingSoon = movie.isComingSoon(today)
+    val seasonSoon = c.seasonComingSoon(c.selectedSeason, today)
     val watchFocus = remember { FocusRequester() }
     val retryFocus = remember { FocusRequester() }
     val requesters = remember(c.selectedSeason, c.episodes) { c.episodes.associate { it.number to FocusRequester() } }
@@ -102,6 +111,7 @@ internal fun SeriesDetailsContent(
     val upToSelected = Modifier.focusProperties { tabFocus[c.selectedSeason]?.let { up = it } }
     // Set when an episode is started; survives the trip to the player.
     var pending by rememberSaveable { mutableStateOf(false) }
+    var lastPlayedNumber by rememberSaveable { mutableStateOf<Int?>(null) }
     // True only after coming back from the player: focus follows the history entry (c.resume).
     var returning by remember { mutableStateOf(false) }
     // 0 until initial focus is placed; saved so a return from the player does not repeat it.
@@ -116,6 +126,8 @@ internal fun SeriesDetailsContent(
         }
     }
     fun play(ref: EpisodeRef) {
+        if (!c.episodeAvailable(ref, LocalDate.now())) return
+        lastPlayedNumber = ref.episode
         pending = true
         onPlay(ref)
     }
@@ -133,13 +145,14 @@ internal fun SeriesDetailsContent(
     LaunchedEffect(c.episodes, c.selectedSeason, c.resume, returning) {
         if (focusPlaced == 1 && !returning) return@LaunchedEffect
         val r = c.resume
-        if (returning && (r == null || r.season != c.selectedSeason || c.episodesLoading)) return@LaunchedEffect
+        if (returning && (c.episodesLoading || (r != null && r.season != c.selectedSeason))) return@LaunchedEffect
         withFrameNanos { }
         if (returning) {
             // Back from the player: focus the history episode (may differ from the one launched), once.
             returning = false
             focusPlaced = 1
-            val target = r?.let { requesters[it.episode] } ?: if (r != null) watchFocus else pickFocus
+            val target = r?.let { requesters[it.episode] } ?: if (r != null) watchFocus
+                else lastPlayedNumber?.let { requesters[it] } ?: firstTarget ?: pickFocus
             runCatching { target.requestFocus() }
         } else {
             focusPlaced = 1
@@ -195,6 +208,8 @@ internal fun SeriesDetailsContent(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    formatReleaseDate(movie.premiereDate)?.let { Text("Дата выхода: $it", style = MaterialTheme.typography.bodyMedium) }
+                        ?: movie.year?.takeIf { comingSoon }?.let { Text("Дата выхода: $it") }
                     if (movie.overview.isNotBlank()) {
                         Text(
                             movie.overview,
@@ -213,10 +228,12 @@ internal fun SeriesDetailsContent(
                                 Text((if (c.started) "▶ Продолжить " else "▶ Смотреть ") + episodeCode(resume))
                             }
                         }
-                        AccentButton(
+                        if (comingSoon) {
+                            upcomingActions(Modifier.focusRequester(pickFocus))
+                        } else AccentButton(
                             onClick = { onPickSeason(c.selectedSeason) },
                             modifier = Modifier.focusRequester(pickFocus),
-                        ) { Text("Раздачи сезона") }
+                        ) { Text(if (seasonSoon) "Сезон скоро" else "Раздачи сезона") }
                         listActions()
                     }
                 }
@@ -234,7 +251,7 @@ internal fun SeriesDetailsContent(
                             .then(tabFocus[info.number]?.let { Modifier.focusRequester(it) } ?: Modifier)
                             .onFocusChanged { if (it.hasFocus) onSelectSeason(info.number) }
                             .focusProperties { tabsDown?.let { down = it } },
-                    ) { Text("Сезон ${info.number}") }
+                    ) { Text("Сезон ${info.number}" + if (c.seasonComingSoon(info.number, today)) " · скоро" else "") }
                 }
             }
             val error = c.episodesError
@@ -261,8 +278,11 @@ internal fun SeriesDetailsContent(
                         EpisodeCard(
                             ep,
                             c.progress[ref],
+                            available = c.episodeAvailable(ref, today),
+                            airDate = ep.airDate ?: c.seasons.firstOrNull { it.number == ep.season }?.airDate
+                                ?: movie.premiereDate,
                             onClick = { play(ref) },
-                            onLongClick = { episodeMenu = ref },
+                            onLongClick = { if (c.episodeAvailable(ref, LocalDate.now())) episodeMenu = ref },
                             modifier = upToSelected.then(requesters[ep.number]?.let { Modifier.focusRequester(it) } ?: Modifier),
                         )
                     }
@@ -283,7 +303,8 @@ internal fun SeriesDetailsContent(
 }
 
 @Composable
-private fun EpisodeCard(ep: Episode, progress: Float?, onClick: () -> Unit, onLongClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun EpisodeCard(ep: Episode, progress: Float?, available: Boolean, airDate: String?,
+    onClick: () -> Unit, onLongClick: () -> Unit, modifier: Modifier = Modifier) {
     Column(Modifier.width(EpisodeWidth)) {
         Card(
             onClick = onClick,
@@ -299,6 +320,7 @@ private fun EpisodeCard(ep: Episode, progress: Float?, onClick: () -> Unit, onLo
                         model = ep.stillUrl,
                         contentDescription = ep.title,
                         contentScale = ContentScale.Crop,
+                        colorFilter = if (available) null else ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) }),
                         modifier = Modifier.fillMaxSize(),
                     )
                 } else {
@@ -307,7 +329,12 @@ private fun EpisodeCard(ep: Episode, progress: Float?, onClick: () -> Unit, onLo
                         contentAlignment = Alignment.Center,
                     ) { Text(ep.number.toString(), style = MaterialTheme.typography.headlineLarge) }
                 }
-                if (watchedMark(progress)) {
+                if (!available) {
+                    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.45f)))
+                    Text("Скоро", color = Color.LightGray, style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.align(Alignment.BottomStart).padding(8.dp))
+                }
+                if (available && watchedMark(progress)) {
                     Box(
                         modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).size(24.dp)
                             .background(AppColors.Accent, CircleShape)
@@ -333,13 +360,15 @@ private fun EpisodeCard(ep: Episode, progress: Float?, onClick: () -> Unit, onLo
         }
         Text(
             "${ep.number}. ${ep.title}",
+            color = if (available) Color.Unspecified else Color.Gray,
             style = MaterialTheme.typography.bodyMedium,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(top = 8.dp),
         )
         Text(
-            formatRuntime(ep.runtimeMin).orEmpty(),
+            if (available) formatRuntime(ep.runtimeMin).orEmpty() else formatReleaseDate(airDate, includeYear = false) ?: "Дата пока неизвестна",
+            color = if (available) Color.Unspecified else Color.LightGray,
             style = MaterialTheme.typography.labelSmall,
             maxLines = 1,
             modifier = Modifier.height(16.dp),

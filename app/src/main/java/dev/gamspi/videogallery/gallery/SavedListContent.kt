@@ -94,8 +94,13 @@ internal fun SavedListContent(snapshot: ListSnapshot, watched: Boolean, error: S
                     else if(focusedKey == key && key in latestKeys && dialogKey != key) focusedKey = null
                 }.padding(12.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                AsyncImage(model = row.text("poster_url"), contentDescription = null,
-                    modifier = Modifier.width(72.dp).height(108.dp), contentScale = ContentScale.Crop)
+                Box(Modifier.width(96.dp).height(144.dp)) {
+                    AsyncImage(model = row.text("poster_url"), contentDescription = null,
+                        modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                    dev.gamspi.videogallery.ui.components.ComingSoonBadge(
+                        row.text("premiere_date"), row.text("year").toIntOrNull(),
+                        Modifier.align(androidx.compose.ui.Alignment.BottomStart).fillMaxWidth())
+                }
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(row.text("title_ru").ifBlank { row.text("title_en").ifBlank { "Без названия" } }, style = MaterialTheme.typography.titleLarge)
                     if(row.text("my_rating").isNotBlank()) Text("Моя оценка: ${row.text("my_rating")} / 10")

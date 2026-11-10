@@ -5,6 +5,18 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 
 interface TmdbApi {
+    @GET("discover/movie")
+    suspend fun upcomingMovies(
+        @Query("primary_release_date.gte") from: String,
+        @Query("sort_by") sortBy: String = "primary_release_date.asc",
+    ): MovieListDto
+
+    @GET("discover/tv")
+    suspend fun upcomingSeries(
+        @Query("first_air_date.gte") from: String,
+        @Query("sort_by") sortBy: String = "first_air_date.asc",
+    ): MovieListDto
+
     @GET("movie/popular")
     suspend fun popular(@Query("page") page: Int): MovieListDto
 

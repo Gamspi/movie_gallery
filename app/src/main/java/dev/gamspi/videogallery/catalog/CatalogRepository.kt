@@ -8,6 +8,8 @@ import dev.gamspi.videogallery.catalog.model.MovieDetails
 
 /** All failures are thrown as [CatalogException]. */
 interface CatalogRepository {
+    /** Null kind mixes films and series. Unsupported catalogs return no row, without extra requests. */
+    suspend fun upcoming(today: java.time.LocalDate, kind: MediaKind? = null): List<Movie> = emptyList()
     suspend fun popular(page: Int = 1, kind: MediaKind = MediaKind.Movie): List<Movie>
     suspend fun genres(kind: MediaKind = MediaKind.Movie): List<Genre>
     suspend fun byGenre(genreId: Int, page: Int = 1, kind: MediaKind = MediaKind.Movie): List<Movie>

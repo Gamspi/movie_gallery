@@ -18,6 +18,37 @@ import org.junit.Before
 import org.junit.Test
 
 class KinopoiskCatalogRepositoryTest {
+    @Test fun unsupportedUpcomingDoesNotMakeRequestsOrNeedKey() = runBlocking {
+        assertTrue(repo(null).upcoming(java.time.LocalDate.of(2026, 11, 10)).isEmpty())
+        assertEquals(0, server.requestCount)
+    }
+
+    @Test fun worldPremiereIgnoresRegionalDatesAndReReleases() {
+        val result = DistributionsDto(listOf(
+            DistributionDto("LOCAL", "2028-01-01"),
+            DistributionDto("WORLD_PREMIER", "2029-01-01", true),
+            DistributionDto("WORLD_PREMIER", "2027-03-12"),
+        ))
+        assertEquals("2027-03-12", result.worldPremiere())
+        assertNull(DistributionsDto(listOf(DistributionDto("LOCAL", "2027-01-01"))).worldPremiere())
+    }
+
+    @Test fun seriesPremiereIsFirstSeasonAirDate() = runBlocking {
+        enqueueFixture("details_series.json")
+        server.enqueue(MockResponse.Builder().body("""{"items":[
+            {"number":0,"episodes":[{"episodeNumber":1,"releaseDate":"2020-01-01"}]},
+            {"number":1,"episodes":[{"episodeNumber":1,"releaseDate":"2027-03-12"},{"episodeNumber":2,"releaseDate":"2027-03-19"}]},
+            {"number":2,"episodes":[{"episodeNumber":1,"releaseDate":"2028-03-12"}]}]}""").build())
+        val d = repo().details(77044, MediaKind.Series)
+        assertEquals("2027-03-12", d.movie.premiereDate)
+        assertEquals("2028-03-12", d.seasons.last().airDate)
+    }
+
+    @Test fun optionalWorldPremiereFailureKeepsDetails() = runBlocking {
+        enqueueFixture("details.json")
+        server.enqueue(MockResponse.Builder().code(500).build())
+        assertNull(repo().details(301).movie.premiereDate)
+    }
     private lateinit var server: MockWebServer
 
     @Before fun setUp() { server = MockWebServer().apply { start() } }
@@ -128,11 +159,13 @@ class KinopoiskCatalogRepositoryTest {
     @Test
     fun details_mapsImdbRuntimeCoverGenres() = runBlocking {
         enqueueFixture("details.json")
+        server.enqueue(MockResponse.Builder().body("""{"items":[{"type":"WORLD_PREMIER","date":"1999-03-24"}]}""").build())
         val d = repo().details(301)
         assertEquals(301, d.movie.id)
         assertEquals("Матрица", d.movie.title)
         assertEquals("tt0133093", d.imdbId)
         assertEquals(136, d.runtimeMin)
+        assertEquals("1999-03-24", d.movie.premiereDate)
         assertEquals(8.5, d.movie.rating!!, 1e-9)
         assertEquals(listOf("Фантастика", "Боевик"), d.genres)
         assertEquals("https://avatars.mds.yandex.net/get-ott/1648503/2a0000016b6c1a2f/orig", d.backdropUrl)

@@ -10,6 +10,9 @@ import dev.gamspi.videogallery.catalog.model.Episode
 import dev.gamspi.videogallery.catalog.model.MediaKind
 import dev.gamspi.videogallery.catalog.model.MovieDetails
 import dev.gamspi.videogallery.catalog.model.SeasonInfo
+import dev.gamspi.videogallery.catalog.model.isComingSoon
+import dev.gamspi.videogallery.catalog.model.isEpisodeAvailable
+import java.time.LocalDate
 import dev.gamspi.videogallery.history.FINISHED_PROGRESS
 import dev.gamspi.videogallery.history.PlaybackMeta
 import dev.gamspi.videogallery.history.encodeSeasonSizes
@@ -34,7 +37,7 @@ sealed interface DetailsUiState {
     data object Loading : DetailsUiState
     data class Content(
         val details: MovieDetails,
-        /** Series only: released seasons (episodeCount > 0). */
+        /** Series only: includes announced future seasons. */
         val seasons: List<SeasonInfo> = emptyList(),
         val selectedSeason: Int = 0,
         val episodes: List<Episode> = emptyList(),
@@ -48,12 +51,14 @@ sealed interface DetailsUiState {
         val started: Boolean = false,
         /** True for any series, even when no released season is known (then only the season releases are offered). */
         val series: Boolean = false,
+        val knownEpisodes: Map<Int, List<Episode>> = emptyMap(),
     ) : DetailsUiState
     data class Error(val kind: ErrorKind) : DetailsUiState
 }
 
 /** What OK on an episode does. */
 sealed interface PlayTarget {
+    data object Unavailable : PlayTarget
     data class Stream(val meta: PlaybackMeta, val releaseTitle: String) : PlayTarget
     data class PickRelease(val season: Int) : PlayTarget
 }
@@ -75,9 +80,7 @@ internal fun episodeFraction(local: Float?, watched: Boolean): Float =
 
 /** Episodes without a date count as released: not every catalog reports one. */
 internal fun releasedEpisodes(episodes: List<Episode>, todayIso: String): List<Episode> =
-    episodes.filter { it.airDate.isNullOrBlank() || it.airDate.take(10) <= todayIso }
-
-private fun todayIso(): String = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+    episodes.filter { isEpisodeAvailable(it, LocalDate.parse(todayIso)) }
 
 @HiltViewModel
 class DetailsViewModel @Inject constructor(
@@ -94,15 +97,18 @@ class DetailsViewModel @Inject constructor(
         val details = content()?.details ?: return null
         val movie = details.movie
         val seed = dev.gamspi.videogallery.watchlist.titleSeed(movie, details.imdbId.orEmpty(), source.name) ?: return null
-        return listSnapshot.value.records[seed.identity]?.takeUnless { it.deleted } ?: seed
+        return dev.gamspi.videogallery.watchlist.withPremiere(
+            listSnapshot.value.records[seed.identity]?.takeUnless { it.deleted } ?: seed, movie)
     }
     fun rateSeason(season: Int, rating: Int) { listRecord()?.let { listSync?.rateSeason(it, season, rating) } }
     fun markEpisode(ref: EpisodeRef, watched: Boolean) {
+        if (watched && content()?.episodeAvailable(ref, LocalDate.now()) != true) return
         listRecord()?.let { listSync?.markEpisodes(it, listOf(ref.season to ref.episode), watched) }
     }
     /** Marks only episodes already out; future ones stay unmarked. */
     fun markSeason() {
-        val episodes = releasedEpisodes(content()?.episodes.orEmpty(), todayIso())
+        val c = content() ?: return
+        val episodes = c.episodes.filter { c.episodeAvailable(EpisodeRef(it.season, it.number), LocalDate.now()) }
         listRecord()?.let { record -> listSync?.markEpisodes(record, episodes.map { it.season to it.number }, true) }
     }
     fun changeList(field: String, value: kotlinx.serialization.json.JsonElement) {
@@ -121,6 +127,8 @@ class DetailsViewModel @Inject constructor(
     val state: StateFlow<DetailsUiState> = _state
     private val retryTick = MutableStateFlow(0)
     private var episodesJob: Job? = null
+    private var resumeJob: Job? = null
+    private var resumeLoading: Int? = null
 
     init {
         listSync?.loadLocal()
@@ -158,7 +166,25 @@ class DetailsViewModel @Inject constructor(
             .associate { EpisodeRef(it.season, it.episode) to (!it.deleted && it.watched) }
         marks.forEach { (ref, watched) -> progress[ref] = episodeFraction(progress[ref], watched) }
         val (resume, started) = resumeOf(c.seasons, progress)
-        _state.value = c.copy(progress = progress, resume = resume, started = started)
+        _state.value = c.copy(progress = progress, resume = availableResume(resume, c, progress, LocalDate.now()), started = started)
+        if (resume.season != c.selectedSeason && resume.season !in c.knownEpisodes && resumeLoading != resume.season &&
+            !c.seasonComingSoon(resume.season, LocalDate.now())) {
+            loadResumeSeason(resume.season)
+        }
+    }
+
+    private fun loadResumeSeason(number: Int) {
+        resumeJob?.cancel()
+        resumeLoading = number
+        resumeJob = viewModelScope.launch {
+            try {
+                val episodes = cards.season(id, number)
+                content()?.let { _state.value = it.copy(knownEpisodes = it.knownEpisodes + (number to episodes)) }
+                refreshProgress()
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: CatalogException) { /* Retry on the next progress refresh or season selection. */ }
+            finally { if (resumeLoading == number) resumeLoading = null }
+        }
     }
 
     private fun resumeOf(seasons: List<SeasonInfo>, progress: Map<EpisodeRef, Float>): Pair<EpisodeRef, Boolean> {
@@ -187,6 +213,11 @@ class DetailsViewModel @Inject constructor(
 
     private fun loadEpisodes(season: Int) {
         episodesJob?.cancel()
+        content()?.knownEpisodes?.get(season)?.let { cached ->
+            content()?.let { _state.value = it.copy(selectedSeason = season, episodes = cached, episodesLoading = false, episodesError = null) }
+            refreshProgress()
+            return
+        }
         content()?.let {
             _state.value = it.copy(selectedSeason = season, episodes = emptyList(), episodesLoading = true, episodesError = null)
         }
@@ -204,22 +235,35 @@ class DetailsViewModel @Inject constructor(
             }
             val c = content()
             if (c != null && c.selectedSeason == season) {
-                _state.value = c.copy(episodes = result, episodesLoading = false, episodesError = null)
+                _state.value = c.copy(episodes = result, episodesLoading = false, episodesError = null,
+                    knownEpisodes = c.knownEpisodes + (season to result))
+                refreshProgress()
             }
         }
     }
 
     /** Episode to preselect in the release list for [season]. */
     fun releaseEpisode(season: Int): Int? {
-        val c = content() ?: return 1
+        val c = content() ?: return null
         if (c.seasons.isEmpty()) return null
         val r = c.resume
-        return if (r != null && r.season == season) r.episode else 1
+        return if (r != null && r.season == season && c.episodeAvailable(r, LocalDate.now())) r.episode
+        else c.knownEpisodes[season]?.firstOrNull { c.episodeAvailable(EpisodeRef(season, it.number), LocalDate.now()) }?.number
+    }
+
+    fun canWatch(): Boolean = content()?.details?.movie?.isComingSoon(LocalDate.now()) == false
+
+    fun canPickSeason(season: Int): Boolean {
+        val c = content() ?: return false
+        if (!canWatch() || c.seasonComingSoon(season, LocalDate.now())) return false
+        val episodes = c.knownEpisodes[season] ?: return !c.episodesLoading
+        return episodes.isEmpty() || episodes.any { c.episodeAvailable(EpisodeRef(season, it.number), LocalDate.now()) }
     }
 
     /** Saved release of the season when it holds the episode; otherwise the release list. */
     fun playTarget(ref: EpisodeRef): PlayTarget {
-        val c = content() ?: return PlayTarget.PickRelease(ref.season)
+        val c = content() ?: return PlayTarget.Unavailable
+        if (!c.episodeAvailable(ref, LocalDate.now())) return PlayTarget.Unavailable
         val release = series.release(key(), ref.season)
         if (release == null || release.files.none { it.ref == ref }) return PlayTarget.PickRelease(ref.season)
         val movie = c.details.movie
@@ -240,13 +284,15 @@ class DetailsViewModel @Inject constructor(
             seasonEpisodes = c.seasons.firstOrNull { it.number == ref.season }?.episodeCount,
             seasonCount = c.seasons.size,
             seasonSizes = encodeSeasonSizes(c.seasons),
-            episodeTitle = c.episodes.firstOrNull { it.season == ref.season && it.number == ref.episode }?.title.orEmpty(),
+            episodeTitle = c.knownEpisodes[ref.season]?.firstOrNull { it.number == ref.episode }?.title.orEmpty(),
         )
         return PlayTarget.Stream(meta, release.title)
     }
 
     private suspend fun load() {
         episodesJob?.cancel()
+        resumeJob?.cancel()
+        resumeLoading = null
         _state.value = DetailsUiState.Loading
         val details = try {
             cards.details(id, kind)
@@ -257,7 +303,9 @@ class DetailsViewModel @Inject constructor(
             return
         }
         val isSeries = kind == MediaKind.Series
-        var seasons = if (isSeries) details.seasons.filter { it.episodeCount > 0 } else emptyList()
+        var seasons = if (isSeries) details.seasons.filter { it.number > 0 && (it.episodeCount > 0 ||
+            details.movie.isComingSoon(LocalDate.now()) ||
+            dev.gamspi.videogallery.catalog.model.releaseDate(it.airDate)?.isAfter(LocalDate.now()) == true) } else emptyList()
         var preloaded: List<Episode>? = null
         if (seasons.isEmpty()) {
             if (!isSeries) {
@@ -284,10 +332,11 @@ class DetailsViewModel @Inject constructor(
         history.awaitLoaded()
         val progress = series.progress(key())
         val (resume, started) = resumeOf(seasons, progress)
-        val first = historyEntry()?.season?.takeIf { s -> seasons.any { it.number == s } } ?: seasons.first().number
+        val first = resume.season.takeIf { s -> seasons.any { it.number == s } } ?: seasons.first().number
         _state.value = DetailsUiState.Content(
-            details, seasons, first, progress = progress, resume = resume, started = started, series = true,
+            details, seasons, first, progress = progress, started = started, series = true,
             episodes = preloaded.orEmpty(),
+            knownEpisodes = preloaded?.let { mapOf(first to it) }.orEmpty(),
         )
         refreshProgress()
         if (preloaded == null) loadEpisodes(first)

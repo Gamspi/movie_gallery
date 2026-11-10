@@ -22,13 +22,14 @@ internal fun MovieDto.toMovieOrNull(): Movie? {
     val title = name.nonBlank() ?: alternativeName.nonBlank() ?: enName.nonBlank().orEmpty()
     return Movie(movieId, title, alternativeName.nonBlank() ?: enName.nonBlank() ?: title,
         year, poster?.previewUrl.nonBlank() ?: poster?.url.nonBlank(),
-        description.nonBlank() ?: shortDescription.nonBlank().orEmpty(), rating?.kp.positiveRating(), kind)
+        description.nonBlank() ?: shortDescription.nonBlank().orEmpty(), rating?.kp.positiveRating(), kind,
+        dev.gamspi.videogallery.catalog.model.releaseDate(premiere?.world)?.toString())
 }
 
 internal fun MovieDto.toDetailsOrNull(): MovieDetails? = toMovieOrNull()?.let { movie ->
     MovieDetails(movie, externalId?.imdb.nonBlank(), movieLength,
         genres.orEmpty().mapNotNull { it.name.nonBlank()?.genreLabel() }.distinct(), backdrop?.url.nonBlank(),
-        seasonsInfo.orEmpty().filter { (it.number ?: 0) > 0 }.map { SeasonInfo(it.number!!, it.episodesCount ?: 0) })
+        seasonsInfo.orEmpty().filter { (it.number ?: 0) > 0 }.map { SeasonInfo(it.number!!, it.episodesCount ?: 0, it.airDate) })
 }
 
 internal fun SeasonCursorDto.toEpisodes(season: Int): List<Episode> = docs.orEmpty()

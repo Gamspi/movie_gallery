@@ -46,8 +46,27 @@ class KinopoiskCatalogRepository(
 
     override suspend fun details(id: Int, kind: MediaKind): MovieDetails = call {
         val dto = api.details(id)
-        if (kind == MediaKind.Series) dto.toDetails(kind, seasonsOrEmpty(id)) else dto.toDetails()
+        if (kind == MediaKind.Series) {
+            val seasons = seasonsOrEmpty(id)
+            val details = dto.toDetails(kind, seasons)
+            details.copy(movie = details.movie.copy(premiereDate = seasons.firstOrNull { it.number == 1 }?.airDate))
+        } else {
+            val details = dto.toDetails()
+            val date = optionalMetadata { api.distributions(id).worldPremiere() }
+            details.copy(movie = details.movie.copy(premiereDate = date))
+        }
     }
+
+    private suspend fun <T> optionalMetadata(block: suspend () -> T): T? = try {
+        block()
+    } catch (e: CancellationException) { throw e }
+    catch (e: HttpException) {
+        if (e.code() == 401 || e.code() == 402) throw e
+        null
+    } catch (e: MissingKeyException) { throw e }
+    catch (e: BadKeyException) { throw e }
+    catch (_: SerializationException) { null }
+    catch (_: IOException) { null }
 
     /** Seasons are optional for details: non-auth failures degrade to an empty list. */
     private suspend fun seasonsOrEmpty(id: Int): List<SeasonInfo> = try {

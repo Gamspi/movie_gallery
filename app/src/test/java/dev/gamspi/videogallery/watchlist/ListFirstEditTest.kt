@@ -9,6 +9,43 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ListFirstEditTest {
+    @Test fun mixedRowMenuKeepsTmdbMovieAndSeriesWithSameIdSeparate() {
+        fun seed(kind: dev.gamspi.videogallery.catalog.model.MediaKind) = titleSeed(
+            dev.gamspi.videogallery.catalog.model.Movie(1, "", "", 2027, null, "", kind = kind), "", "Tmdb")!!
+        val film = seed(dev.gamspi.videogallery.catalog.model.MediaKind.Movie)
+        val tv = seed(dev.gamspi.videogallery.catalog.model.MediaKind.Series)
+        val snapshot = ListSnapshot(records = mapOf(film.identity to film, tv.identity to tv))
+        assertEquals(tv, findByCatalog(snapshot, "Tmdb", 1, dev.gamspi.videogallery.catalog.model.MediaKind.Series))
+        assertEquals(film, findByCatalog(snapshot, "Tmdb", 1, dev.gamspi.videogallery.catalog.model.MediaKind.Movie))
+    }
+    @Test fun premiereSurvivesListRestartAndNotifyKeepsUnwatched() = runTest {
+        var disk: String? = null
+        fun open() = LocalListStore({ disk }, { disk = it }, StandardTestDispatcher(testScheduler))
+        val movie = dev.gamspi.videogallery.catalog.model.Movie(1, "Сериал", "Series", 2027, null, "",
+            kind = dev.gamspi.videogallery.catalog.model.MediaKind.Series, premiereDate = "2027-03-12")
+        val seed = titleSeed(movie, "", "Tmdb")!!
+        val store = open()
+        store.changeTitle(seed, "status", JsonPrimitive("unwatched"))
+        store.changeTitle(seed, "notify", JsonPrimitive(true))
+        val row = open().snapshot().records.getValue(seed.identity)
+        assertEquals("unwatched", row.text("status"))
+        assertEquals("true", row.text("notify"))
+        assertEquals("2027-03-12", row.text("premiere_date"))
+        assertEquals("Скоро · 12 мар 2027", dev.gamspi.videogallery.catalog.model.comingSoonLabel(
+            row.text("premiere_date"), row.text("year").toInt(), java.time.LocalDate.of(2026, 11, 10)))
+    }
+
+    @Test fun currentPremiereRefreshPreservesExistingUserFields() = runTest {
+        val store = LocalListStore({ null }, {}, StandardTestDispatcher(testScheduler))
+        val old = imported.copy(data = JsonObject(imported.data + mapOf(
+            "premiere_date" to JsonPrimitive("2027-01-01"), "my_rating" to JsonPrimitive(8))))
+        store.edit(old)
+        val seed = old.copy(data = JsonObject(old.data + ("premiere_date" to JsonPrimitive("2027-03-12"))))
+        val row = store.changeTitle(seed, "status", JsonPrimitive("unwatched")).records.getValue(seed.identity)
+        assertEquals("2027-03-12", row.text("premiere_date"))
+        assertEquals("8", row.text("my_rating"))
+        assertEquals("true", row.text("notify"))
+    }
     private val imported = ListRecord(ListTable.Titles, "kp-1", 10, data = buildJsonObject {
         put("status", "watching"); put("notify", true); put("type", "tv_show")
     })

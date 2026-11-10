@@ -26,6 +26,48 @@ import org.junit.Before
 import org.junit.Test
 
 class PoiskKinoCatalogRepositoryTest {
+    @Test fun upcomingUsesOneWorldPremiereQueryForMixedRowAndHttpCache() = runBlocking {
+        val dir = java.nio.file.Files.createTempDirectory("coming-soon-cache").toFile()
+        val client = dev.gamspi.videogallery.catalog.cachingClient(dir)
+        try {
+            server.enqueue(MockResponse.Builder().body("""{"docs":[
+                {"id":1,"type":"movie","year":2027,"premiere":{"world":"2027-03-12T00:00:00.000Z","russia":"2028-01-01"}},
+                {"id":2,"type":"tv-series","premiere":{"world":"2026-11-11"}},
+                {"id":3,"type":"movie","premiere":{"world":"2026-11-10"}}],"hasNext":true,"next":"cursor"}""").build())
+            val repository = repo(client = client)
+            repeat(2) {
+                val result = repository.upcoming(java.time.LocalDate.of(2026, 11, 10))
+                assertEquals(listOf(2, 1), result.map { it.id })
+                assertEquals(listOf("2026-11-11", "2027-03-12"), result.map { it.premiereDate })
+            }
+            val url = server.takeRequest().url
+            assertEquals("/v1.5/movie", url.encodedPath)
+            assertEquals("11.11.2026-31.12.9999", url.queryParameter("premiere.world"))
+            assertEquals("premiere.world", url.queryParameter("sortField"))
+            assertEquals("1", url.queryParameter("sortType"))
+            assertEquals("20", url.queryParameter("limit"))
+            for (field in listOf("lists", "next", "type", "isSeries")) assertNull(url.queryParameter(field))
+            assertEquals(1, server.requestCount)
+        } finally { client.cache?.close(); dir.deleteRecursively() }
+    }
+
+    @Test fun upcomingKindFiltersAreSent() = runBlocking {
+        for (kind in MediaKind.entries) {
+            server.enqueue(MockResponse.Builder().body("""{"docs":[]}""").build())
+            repo().upcoming(java.time.LocalDate.of(2026, 11, 10), kind)
+            val url = server.takeRequest().url
+            assertEquals(if (kind == MediaKind.Movie) "movie" else null, url.queryParameter("type"))
+            assertEquals(if (kind == MediaKind.Series) "true" else null, url.queryParameter("isSeries"))
+        }
+        assertEquals(2, server.requestCount)
+    }
+
+    @Test fun premiereWorldMapsFromSearchAndDetailsWithoutRegionalFallback() {
+        val dto = MovieDto(1, year = 2027, premiere = PremiereDto("2027-03-12T00:00:00Z"))
+        assertEquals("2027-03-12", dto.toMovieOrNull()!!.premiereDate)
+        assertEquals("2027-03-12", dto.copy(type = "tv-series").toDetailsOrNull()!!.movie.premiereDate)
+        assertNull(dto.copy(premiere = null).toMovieOrNull()!!.premiereDate)
+    }
     private lateinit var server: MockWebServer
     @Before fun start() { server = MockWebServer().apply { start() } }
     @After fun close() { server.close() }
@@ -222,8 +264,10 @@ class PoiskKinoCatalogRepositoryTest {
 
     @Test fun cancellation_before_headers_cancels_call_and_releases_chain_mutex() = cancellation(bodyDelay = false)
     @Test fun cancellation_during_body_cancels_call_and_releases_chain_mutex() = cancellation(bodyDelay = true)
+    @Test fun upcomingCancellationBeforeHeadersClosesCall() = cancellation(bodyDelay = false, upcoming = true)
+    @Test fun upcomingCancellationDuringBodyClosesCall() = cancellation(bodyDelay = true, upcoming = true)
 
-    private fun cancellation(bodyDelay: Boolean) = runBlocking {
+    private fun cancellation(bodyDelay: Boolean, upcoming: Boolean = false) = runBlocking {
         val canceled = CountDownLatch(1)
         val bodyStarted = CountDownLatch(1)
         val client = OkHttpClient.Builder().eventListener(object : EventListener() {
@@ -235,7 +279,9 @@ class PoiskKinoCatalogRepositoryTest {
             else response.headersDelay(10, TimeUnit.SECONDS).build())
         server.enqueue(page(2))
         val r = repo(client = client)
-        val job = async(Dispatchers.Default) { r.popular() }
+        val job = async(Dispatchers.Default) {
+            if (upcoming) r.upcoming(java.time.LocalDate.of(2026, 11, 10)) else r.popular()
+        }
         assertNotNull(server.takeRequest(3, TimeUnit.SECONDS))
         if (bodyDelay) assertTrue(bodyStarted.await(3, TimeUnit.SECONDS))
         withTimeout(3_000) { job.cancelAndJoin() }

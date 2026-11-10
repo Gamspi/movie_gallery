@@ -35,5 +35,13 @@ class SwitchingCatalogRepositoryTest {
         repo.season(7, 3)
         assertEquals(MediaKind.Series, poiskkino.kindCalls.last())
         assertEquals(listOf(7 to 3), poiskkino.seasonCalls)
+        val today = java.time.LocalDate.of(2026, 11, 10)
+        repo.upcoming(today, MediaKind.Series)
+        assertEquals(listOf(MediaKind.Series), poiskkino.upcomingCalls)
+        settings.setCatalogSource(CatalogSource.Tmdb)
+        repo.upcoming(today)
+        assertEquals(listOf<MediaKind?>(null), tmdb.upcomingCalls)
+        repo.forSource(CatalogSource.Kinopoisk).upcoming(today, MediaKind.Movie)
+        assertEquals(listOf(MediaKind.Movie), kp.upcomingCalls)
     }
 }

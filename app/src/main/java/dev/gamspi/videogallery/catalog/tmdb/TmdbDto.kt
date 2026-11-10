@@ -53,6 +53,7 @@ data class MovieDetailsDto(
 data class SeasonSummaryDto(
     @SerialName("season_number") val seasonNumber: Int,
     @SerialName("episode_count") val episodeCount: Int? = null,
+    @SerialName("air_date") val airDate: String? = null,
 )
 
 @Serializable

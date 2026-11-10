@@ -33,6 +33,9 @@ interface KinopoiskApi {
     @GET("api/v2.2/films/{id}")
     suspend fun details(@Path("id") id: Int): FilmDetailsDto
 
+    @GET("api/v2.2/films/{id}/distributions")
+    suspend fun distributions(@Path("id") id: Int): DistributionsDto
+
     @GET("api/v2.2/films/{id}/seasons")
     suspend fun seasons(@Path("id") id: Int): SeasonsDto
 }

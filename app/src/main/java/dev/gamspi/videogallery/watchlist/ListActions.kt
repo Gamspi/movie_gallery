@@ -70,15 +70,22 @@ fun listDefaultSeason(snapshot: ListSnapshot, titleKey: String): Int {
         ?: 1
 }
 
-fun findByCatalog(snapshot: ListSnapshot, source: String, id: Int): ListRecord? = snapshot.records.values.firstOrNull {
+fun findByCatalog(snapshot: ListSnapshot, source: String, id: Int, kind: dev.gamspi.videogallery.catalog.model.MediaKind? = null): ListRecord? = snapshot.records.values.firstOrNull {
     it.table == ListTable.Titles && !it.deleted && it.text("catalog_source") == source && it.text("catalog_id") == id.toString()
+        && (kind == null || isSeriesRecord(it) == (kind == dev.gamspi.videogallery.catalog.model.MediaKind.Series))
 }
 
 fun titleSeed(movie: Movie, imdb: String, source: String): ListRecord? = importWatchEntry(WatchEntry(
     movieId = movie.id, title = movie.title, year = movie.year, posterUrl = movie.posterUrl, imdb = imdb,
     positionKey = "list", positionMs = 0, durationMs = 0, updatedAt = System.currentTimeMillis(),
     kind = movie.kind, source = source,
-)).firstOrNull()?.let(::listCardSeed)
+)).firstOrNull()?.let(::listCardSeed)?.let { withPremiere(it, movie) }
+
+/** Refresh only the known premiere; user fields and an existing date survive sparse responses. */
+fun withPremiere(record: ListRecord, movie: Movie): ListRecord =
+    dev.gamspi.videogallery.catalog.model.releaseDate(movie.premiereDate)?.let {
+        record.copy(data = JsonObject(record.data + ("premiere_date" to JsonPrimitive(it.toString()))))
+    } ?: record
 
 internal fun stepRating(current: Int, delta: Int): Int = (current + delta).coerceIn(1, 10)
 

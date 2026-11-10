@@ -48,6 +48,12 @@ object LenientDoubleSerializer : KSerializer<Double?> {
 data class FilmListDto(val items: List<FilmDto>? = null)
 
 @Serializable
+data class DistributionsDto(val items: List<DistributionDto>? = null)
+
+@Serializable
+data class DistributionDto(val type: String? = null, val date: String? = null, val reRelease: Boolean? = null)
+
+@Serializable
 data class FilmDto(
     val kinopoiskId: Int,
     val nameRu: String? = null,
