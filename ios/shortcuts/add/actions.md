@@ -19,6 +19,9 @@ If [settings] does not have any value
     Stop this shortcut
 End If
 // ключ poiskkino проверяет Movie Lookup — Add в API не ходит
+// синхронизация раз в день (Movie Sync сам решает, нужен ли запрос)
+Text "auto"
+Run Shortcut "Movie Sync" with [Text]
 
 // ── Шаг 2. Теги ──
 Get Value for "tags" in [settings]
@@ -204,6 +207,26 @@ If [dupKey] does not have any value
     End If
 End If
 
+// ── Шаг 9a. Дубль по русскому названию + году (записи с ТВ: ключ tmdb-…, без title_en) ──
+If [dupKey] does not have any value
+    Get Value for "title_ru" in [rec]
+    If [Dictionary Value] has any value
+        Change [Dictionary Value] to lowercase
+        Text "[Updated Text]|[rec: year]"
+        Set variable recSigRu to [Text]
+        Get Value for "movies.items" (Data Jar)
+        Get All Values in [Value]
+        Repeat with each item in [Values]
+            Change [Repeat Item: title_ru] to lowercase
+            Text "[Updated Text]|[Repeat Item: year]"
+            If [Text] is [recSigRu]
+                Get Value for "key" in [Repeat Item]
+                Set variable dupKey to [Dictionary Value]
+            End If
+        End Repeat
+    End If
+End If
+
 // ── Шаг 10. Уже в списке → карточка ──
 If [dupKey] has any value
     Get Value for "movies.items.[dupKey].title_ru" (Data Jar)
@@ -353,6 +376,10 @@ End If
 
 // ── Шаг 14. Запись в Data Jar ──
 Set Value [rec] for "movies.items.[key]" (Data Jar)
+// правка → облако (без сети — в очередь)
+Dictionary
+    key  Text  [key]
+Run Shortcut "Movie Sync" with [Dictionary]
 
 // ── Шаг 15. Премьера в календарь ──
 // future и pDate — из шага 11

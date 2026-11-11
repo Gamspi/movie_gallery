@@ -25,7 +25,7 @@ flowchart TD
 
 Плоский список действий для сборки в редакторе — [actions.md](actions.md).
 
-1. **Get Value** `movies.settings` → `settings` ([проверка настроек](../data.md#ошибки), ключ API не нужен) → `k` = `weights.smoothing_k` (пусто → 3), `aiOn` = `ai_enabled`. **Get Value** `movies.items` → пусто → **Show Notification** «База пуста» → **Stop This Shortcut**; иначе All Values → `db`.
+1. **Get Value** `movies.settings` → `settings` ([проверка настроек](../data.md#ошибки), ключ API не нужен) → **Text** `auto` → **Run Shortcut** [Movie Sync](../sync/README.md) (раз в день — изменения из облака) → `k` = `weights.smoothing_k` (пусто → 3), `aiOn` = `ai_enabled`. **Get Value** `movies.items` → пусто → **Show Notification** «База пуста» → **Stop This Shortcut**; иначе All Values → `db`.
 2. Счётчики — **Dictionary** `byStatus`, `byType`, `byYear`, `gSum`, `gCnt` (пустые).
 3. **Repeat with Each** `db`:
    1. `byStatus[status] += 1`, `byType[type] += 1` (Get Dictionary Value → **Calculate** +1, пусто = 0 → **Set Dictionary Value**).

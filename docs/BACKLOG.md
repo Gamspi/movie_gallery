@@ -1,5 +1,14 @@
 # Пробелы и задачи на исправление
 
+## iPhone: синхронизация шорткатов — этап 6 (2026-11-11)
+
+**Состояние:** XML и документация готовы по [плану](superpowers/plans/2026-11-11-iphone-sync.md); проверена только корректность XML. [Протокол](verification/2026-11-11-iphone-sync.md).
+
+- [x] Movie Sync (очередь, отправка, забор раз в день, LWW, метки удаления, серии), вызовы из Rate/Recommend/Stats/Card/Add/Movies, «Синхронизировать» в Rate, «Уведомления» и «Остановился» в карточке, записи `tmdb-…`, удаление Movie Seasons, data.md.
+- [ ] Собрать на Mac `ios/shortcuts/build.sh`, удалить Movie Seasons и его автоматизацию из «Команд».
+- [ ] Пройти на iPhone [раздел «Синхронизация»](../ios/shortcuts/TESTING.md#синхронизация-movie-sync) с задеплоенным воркером и ТВ на том же облаке; подтвердить JSON из Text, разбор UTC (`updated_ms` ≈ currentmillis), пустой локальный IP без сети, создание `movies.sync`/`movies.episodes` в Data Jar.
+- [ ] Регрессия разделов 1–4 TESTING шорткатов: меню Rate и карточки изменились.
+
 ## Облако: Cron, Telegram и Google-таблица — этап 5 (2026-11-10)
 
 **Состояние:** код написан по [плану](superpowers/plans/2026-11-10-cron-telegram.md); 72 теста воркера в Docker без ошибок; деплой и живая проверка открыты. [Протокол](verification/2026-11-10-cron-telegram.md).

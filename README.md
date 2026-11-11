@@ -20,6 +20,7 @@ G-06 реализована в рабочем дереве: FFmpeg-аудиод�
 - [Спецификация продукта](docs/superpowers/specs/2026-10-29-android-tv-torrent-gallery-design.md).
 - [Активный план: двойные субтитры](docs/superpowers/plans/2026-10-31-stage3-dual-subtitles.md).
 - [Инструкции для работы с репозиторием](AGENTS.md).
+- [Шорткаты iPhone (Data Jar, синхронизация с облаком списка)](ios/shortcuts/README.md) и [облако списка](cloud/list-worker/README.md).
 
 ## Сборка
 
@@ -73,5 +74,7 @@ adb -s <device> shell am start -n dev.gamspi.videogallery/.MainActivity
 | `player` | Media3, озвучка, пульт, сохранение позиции |
 | `subs` | Парсеры, клиент OpenSubtitles, выбор источников двух слоёв |
 | `settings`, `ui` | Настройки, навигация и общие компоненты |
+
+Вне Android: `cloud/list-worker/` — воркер Cloudflare личного списка (D1, Cron, Telegram); `ios/shortcuts/` — шорткаты iPhone, собираются на Mac `ios/shortcuts/build.sh`.
 
 Тесты и фикстуры находятся в `app/src/test/`. Версии зависимостей — в `gradle/libs.versions.toml`, SDK и ABI — в `app/build.gradle.kts`.

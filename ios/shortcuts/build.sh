@@ -1,15 +1,15 @@
 #!/bin/bash
-# Пересборка шорткатов movies на Mac: shortcut.xml → подписанный .shortcut → импорт.
-# movies/build.sh        — все
-# movies/build.sh <имя>  — один шорткат (имя папки, например rate)
-# Результат — movies/build/. Имя файла (= имя шортката при импорте) — из заголовка README.md, текст в скобках отрезается.
+# Пересборка шорткатов (ios/shortcuts) на Mac: shortcut.xml → подписанный .shortcut → импорт.
+# ios/shortcuts/build.sh        — все
+# ios/shortcuts/build.sh <имя>  — один шорткат (имя папки, например rate)
+# Результат — ios/shortcuts/build/. Имя файла (= имя шортката при импорте) — из заголовка README.md, текст в скобках отрезается.
 set -u
 cd "$(dirname "$0")"
 OUT=build
 mkdir -p "$OUT"
 
 # Суб-шорткаты — первыми: Run Shortcut ищет их по имени.
-FIRST="lookup card recommend"
+FIRST="sync lookup card recommend"
 all=()
 if [ -n "${1:-}" ]; then
     [ -f "$1/shortcut.xml" ] || { echo "Нет $1/shortcut.xml" >&2; exit 1; }

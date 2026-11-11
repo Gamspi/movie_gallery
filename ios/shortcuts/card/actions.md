@@ -20,6 +20,9 @@ If [settings] does not have any value
     Show notification "Нет movies.settings — см. README, Установка"
     Stop this shortcut
 End If
+// синхронизация раз в день (Movie Sync сам решает, нужен ли запрос)
+Text "auto"
+Run Shortcut "Movie Sync" with [Text]
 
 // ── Шаг 2. Ключ API ──
 Get Value for "poiskkino_api_key" in [settings]
@@ -72,6 +75,8 @@ Dictionary
     Оценить            Text  rate
     Статус             Text  status
     Статус сериала     Text  rstatus
+    Уведомления: вкл   Text  notify
+    Уведомления: выкл  Text  notify
     Теги               Text  tags
     Заметка            Text  note
     Спросить ИИ        Text  ask
@@ -320,6 +325,30 @@ Repeat 50 times
                 Text "Следующая: [Dictionary Value]"
                 Add [Text] to lines
             End If
+            // последняя просмотренная серия (movies.episodes, приходит синхронизацией)
+            Check if Value Exists for "movies.episodes.[key]" (Data Jar)
+            If [Value Exists] is True
+                Get Value for "movies.episodes.[key]" (Data Jar)
+                Get All Keys in [Value]
+                Number 0
+                Set variable epBest to [Number]
+                Nothing
+                Set variable epKey
+                Repeat with each item in [Keys]
+                    // ключ c20005 = сезон 2, серия 5
+                    Replace "c" with "" in [Repeat Item 2]
+                    Number [Updated Text]
+                    If [Number] is greater than [epBest]
+                        Set variable epBest to [Number]
+                        Set variable epKey to [Repeat Item 2]
+                    End If
+                End Repeat
+                If [epKey] has any value
+                    Get Value for [epKey] in [Value]
+                    Text "Остановился: [Dictionary Value]"
+                    Add [Text] to lines
+                End If
+            End If
         End If
 
         // 14.6 Теги
@@ -359,6 +388,13 @@ Repeat 50 times
             If [isSeries] is 1
                 Text "Статус сериала"
                 Add [Text] to menuItems
+                If [rec: notify (Boolean)] is True
+                    Text "Уведомления: вкл"
+                    Add [Text] to menuItems
+                Otherwise
+                    Text "Уведомления: выкл"
+                    Add [Text] to menuItems
+                End If
             End If
             // каждый пункт: Text "…" → Add [Text] to menuItems
             Теги · Заметка · Спросить ИИ · Кинопоиск · IMDb · Трейлер · Постер · Похожие · Поделиться · Обновить данные
@@ -457,6 +493,24 @@ Repeat 50 times
         Set variable now to [Formatted Date]
         Set Value [newRS] for "movies.items.[key].release_status" (Data Jar)
         Set Value [now] for "movies.items.[key].updated_date" (Data Jar)
+    End If
+
+    // ── Шаг 15b. Уведомления о сериях (notify): переключить ──
+    If [act] is "notify"
+        If [rec: notify (Boolean)] is True
+            Dictionary
+                v  Boolean  False
+            Set variable nv to [Dictionary]
+        Otherwise
+            Dictionary
+                v  Boolean  True
+            Set variable nv to [Dictionary]
+        End If
+        Get Value for "v" in [nv]
+        Set Value [Dictionary Value] for "movies.items.[key].notify" (Data Jar)
+        Date   (Current Date)
+        Format [Date] with ISO 8601
+        Set Value [Formatted Date] for "movies.items.[key].updated_date" (Data Jar)
     End If
 
     // ── Шаг 16. Оценить ──
@@ -629,8 +683,15 @@ Repeat 50 times
                 kinopoisk_id  Number  [rec: kinopoisk_id]
             Set variable lkIn to [Dictionary]
         Otherwise
+            // записи с ТВ бывают без title_en → подсказка Lookup по title_ru
+            Get Value for "title_en" in [rec]
+            Set variable hintEn to [Dictionary Value]
+            If [hintEn] does not have any value
+                Get Value for "title_ru" in [rec]
+                Set variable hintEn to [Dictionary Value]
+            End If
             Dictionary
-                title_en  Text    [rec: title_en]
+                title_en  Text    [hintEn]
                 title_ru  Text    [rec: title_ru]
                 year      Number  [rec: year]
                 type      Text    [rec: type]
@@ -803,6 +864,12 @@ Repeat 50 times
         Choose from Menu   (Prompt: "Удалить [rec: title_ru]?")
             • Да
                 Delete Value for "movies.items.[key]" (Data Jar)
+                // метка удаления в облако (снимок записи — для полной строки)
+                Dictionary
+                    key      Text     [key]
+                    deleted  Boolean  True
+                Set "record" to [rec] in [Dictionary]
+                Run Shortcut "Movie Sync" with [Dictionary]
                 Dictionary
                     action  Text  back
                 Stop and output [Dictionary]
@@ -904,6 +971,10 @@ Repeat 50 times
         Set variable saved to [Text]
 
         If [saveStatus] is "dismissed"
+            // сразу выходим — отправить до выхода
+            Dictionary
+                key  Text  [key]
+            Run Shortcut "Movie Sync" with [Dictionary]
             Show notification "Больше не предложу"
             Dictionary
                 action  Text  back
@@ -935,6 +1006,14 @@ Repeat 50 times
                 • Нет
             End Menu
         End If
+    End If
+
+    // ── Шаг 31a. Была правка в этом обороте → Movie Sync (облако или очередь) ──
+    // до «Похожих»: они выходят через Stop and Output
+    If Any are true: [act] is "status", [act] is "rstatus", [act] is "rate", [act] is "tags", [act] is "note", [act] is "update", [act] is "notify", [saveStatus] has any value
+        Dictionary
+            key  Text  [key]
+        Run Shortcut "Movie Sync" with [Dictionary]
     End If
 
     // ── Шаг 32. Похожие ──

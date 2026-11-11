@@ -1,6 +1,6 @@
 # Фильмы и сериалы
 
-Личный список фильмов/сериалов в iPhone: добавляешь по названию, ставишь статус и оценку, получаешь рекомендации по своему вкусу и уведомления о новых сезонах. Данные — в Data Jar, метаданные — из poiskkino (Кинопоиск), распознавание названий и подбор — встроенный ИИ (Use Model, Private Cloud Compute).
+Личный список фильмов/сериалов в iPhone: добавляешь по названию, ставишь статус и оценку, получаешь рекомендации по своему вкусу. Данные — в Data Jar, синхронизация с облаком списка, общим с приложением на ТВ (по желанию); метаданные — из poiskkino (Кинопоиск), распознавание названий и подбор — встроенный ИИ (Use Model, Private Cloud Compute). О новых сериях и премьерах сообщает Cron облака в Telegram.
 
 **Основной способ — экран iPhone** (Add, Rate, Recommend, Stats, виджет). **Siri — дополнительно**: шорткат Movies умеет голосом добавить тайтл и подсказать, что посмотреть.
 
@@ -16,7 +16,7 @@
 | [Movie Tonight](tonight/README.md) | обёртка Recommend для виджета: один тайтл на вечер | виджет |
 | [Movies](voice/README.md) | доп. вход для Siri: «add …» / «what to watch» одной фразой, ответ вслух | Siri (доп.) |
 | [Movie Stats](stats/README.md) | статистика + разбор вкуса ИИ (чат) | основной |
-| [Movie Seasons](seasons/README.md) | проверка новых сезонов раз в неделю | автоматизация |
+| [Movie Sync](sync/README.md) | синхронизация с облаком: правки сразу (без сети — очередь), изменения с ТВ раз в день; вручную — Rate → «Синхронизировать» | суб-шорткат |
 
 Схема данных: [data.md](data.md).
 
@@ -25,7 +25,8 @@
 - В карточке и превью Add — актёры, постер и трейлер (поиск на YouTube).
 - У сериала — статус «Идёт / Завершён / Отменён» и дата ближайшей серии или сезона.
 - Будущая премьера: только «Не смотрел» / «Скрыт» (без «Смотрю», «Смотрел», «Бросил», оценки); в рекомендации не попадает.
-- Новый сезон у сериала со статусом «Смотрел» → Movie Seasons переводит его в «Смотрю».
+- Синхронизация с ТВ: статусы, оценки (в том числе по сезонам), «Уведомления» у сериалов, удаление; в карточке сериала — «Остановился: S2E5» по сериям, отмеченным на ТВ. Записи, добавленные на ТВ, бывают с ключом `tmdb-tv-…` / `tmdb-movie-…` — открываются и правятся как обычные.
+- Movie Seasons удалён: новые серии и сезоны отслеживает Cron облака (Telegram), статус «Смотрю» ставит ТВ при просмотре и он приходит синхронизацией.
 
 ## Граф вызовов
 
@@ -39,7 +40,13 @@ flowchart LR
     Rate[Movie Rate] --> Card
     Recommend --> Card
     Card -->|"Обновить данные / unsaved"| Lookup
-    Seasons[Movie Seasons] -.->|HTTP| API[(poiskkino)]
+    Rate -->|auto / now| Sync[Movie Sync]
+    Recommend -->|auto| Sync
+    Stats[Movie Stats] -->|auto| Sync
+    Add -->|auto, key| Sync
+    Card -->|auto, key| Sync
+    Voice -->|key| Sync
+    Sync -.->|HTTP| Cloud[(облако списка)]
     Lookup -.->|HTTP| API
     Card -.->|"Похожие"| API
 ```
@@ -49,7 +56,7 @@ flowchart LR
 1. Установить **Data Jar** из App Store. Других приложений не нужно.
 2. Получить ключ poiskkino: Telegram-бот **@poiskkinodev_bot** → выдаёт ключ. Демо — 200 запросов/сутки (хватает: добавление ≈ 2 запроса).
 3. В Data Jar создать **один** ключ верхнего уровня `movies` (Dictionary) — [структура](data.md#корень-movies). Внутри:
-   - `settings` (Dictionary) по образцу из [data.md](data.md#moviessettings): вписать ключ API, `weights`, `top_n`, `ai_enabled`, `tags`, `genres`, `genre_map`, `type_map`, `type_labels`, `type_labels_en`;
+   - `settings` (Dictionary) по образцу из [data.md](data.md#moviessettings): вписать ключ API, `weights`, `top_n`, `ai_enabled`, `tags`, `genres`, `genre_map`, `type_map`, `type_labels`, `type_labels_en`; для синхронизации — `sync_enabled` (Boolean), `sync_url` (адрес воркера списка без `/` на конце), `sync_key` (ключ `X-VG-List-Key`, вписать руками, в репозиторий не класть);
    - `items` — пустой Dictionary.
 4. Собрать шорткаты — по [порядку сборки](#порядок-сборки-и-проверки) (суб-шорткаты раньше тех, кто их вызывает через Run Shortcut).
 5. Имена шорткатов — точно как в таблице (Run Shortcut ищет по имени).
@@ -79,10 +86,11 @@ flowchart LR
 
 ### 2. Сборка
 
-На Mac: `movies/build.sh [шорткат]` (например `movies/build.sh rate`) — подпись и импорт в `movies/build/`; суб-шорткаты идут первыми.
+На Mac: `ios/shortcuts/build.sh [шорткат]` (например `ios/shortcuts/build.sh rate`) — подпись и импорт в `ios/shortcuts/build/`; суб-шорткаты (Movie Sync, Lookup, Card, Recommend) идут первыми.
 
 | # | Шорткат | Проверить |
 |---|---|---|
+| 0 | Movie Sync | собирается первым: его зовут все остальные; проверка — в [TESTING.md](TESTING.md#синхронизация-movie-sync) после сборки Rate |
 | 1 | Movie Lookup | «дюна пророчество», запрос с опечаткой, свежий фильм, вход `{kinopoisk_id}`, неверный ключ → уведомление 401, `ai_enabled: false` |
 | 2 | Movie Card | вход `{record, saved:false}` из Lookup → «Добавить в список» → запись в Data Jar; затем оценка + отзыв, статус, ссылки, постер, похожие, «Спросить ИИ», «Обновить», удаление |
 | 3 | Movie Add | превью «Это он?», дубль, «Смотрел» + оценка 8 → похожие, премьера в календарь |
@@ -90,8 +98,7 @@ flowchart LR
 | 5 | Movie Recommend | сначала «Мой список» и «Случайный», затем «Настроение» (уточнения, «↻ Не то»), затем «Новое» |
 | 6 | Movie Tonight + виджет | тап → сразу карточка |
 | 7 | Movie Stats | отчёт, «Разбор вкуса» |
-| 8 | Movie Seasons + автоматизация | ручной запуск на одном сериале: первый раз заполняет `seasons_count`; неверный ключ → одно уведомление |
-| 9 | Movies (голос) | «Hey Siri, Movies» с разблокированного iPhone и в AirPods: «add Dune Prophecy», русское название голосом, дубль, «something light for tonight» |
+| 8 | Movies (голос) | «Hey Siri, Movies» с разблокированного iPhone и в AirPods: «add Dune Prophecy», русское название голосом, дубль, «something light for tonight» |
 
 ### 3. Наполнение
 
@@ -100,10 +107,6 @@ flowchart LR
 ## Виджет
 
 Главный экран → долгое нажатие → Edit → Add Widget → Shortcuts → выбрать размер → в настройках виджета указать **Movie Tonight** (и при желании Movie Add в папке). Тап — сразу карточка одного тайтла на вечер.
-
-## Автоматизация
-
-Shortcuts → Automation → New Automation → **Time of Day** → воскресенье 19:00, Weekly → **Run Immediately** → действие Run Shortcut «Movie Seasons». Подробно — [seasons/README.md](seasons/README.md).
 
 ## Siri
 

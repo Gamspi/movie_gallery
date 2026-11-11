@@ -23,6 +23,12 @@ If [settings] does not have any value
     Show notification "Нет movies.settings — см. README, Установка"
     Stop this shortcut
 End If
+// синхронизация раз в день; голосовой вход (Dictionary) — без неё
+Get Type of [Shortcut Input]
+If [Type] is not "Dictionary"
+    Text "auto"
+    Run Shortcut "Movie Sync" with [Text]
+End If
 
 // ── Шаг 2. Веса скоринга (нет значения → по умолчанию из data.md) ──
 Get Value for "weights" in [settings]

@@ -60,7 +60,7 @@ stateDiagram-v2
 
 ### Подготовка
 
-1. **Get Value** `movies.settings` → `settings` ([проверка настроек](../data.md#ошибки), ключ API не нужен). **Get Value** `movies.items` → Get Dictionary Value All Values → `db`.
+1. **Get Value** `movies.settings` → `settings` ([проверка настроек](../data.md#ошибки), ключ API не нужен). **Get Type** входа ≠ `Dictionary` (экран и `today` из Movie Tonight; голосовой вход Siri пропускает) → **Text** `auto` → **Run Shortcut** [Movie Sync](../sync/README.md) — раз в день изменения из облака. **Get Value** `movies.items` → Get Dictionary Value All Values → `db`.
 2. **If** Shortcut Input = `today` → `mode` = `today`, `screen` = `list`. **If** **Get Type** входа = `Dictionary` и `mode` из входа = `voice` (Get Dictionary Value из Text `today` падает) → [голосовой режим](#голосовой-режим) (без цикла и экранов). Otherwise → `screen` = `menu`.
 3. **Repeat** 200 раз → шаги ниже.
 

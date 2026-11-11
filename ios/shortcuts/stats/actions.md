@@ -23,6 +23,9 @@ If [settings] does not have any value
     Stop this shortcut
 End If
 // ключ poiskkino не нужен — Stats в API не ходит
+// синхронизация раз в день (Movie Sync сам решает, нужен ли запрос)
+Text "auto"
+Run Shortcut "Movie Sync" with [Text]
 
 // ── Шаг 2. Сглаживание k ──
 Get Value for "weights.smoothing_k" in [settings]

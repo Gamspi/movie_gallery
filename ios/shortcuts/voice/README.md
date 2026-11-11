@@ -29,7 +29,7 @@ flowchart TD
     A[Ask for Input «What do you want?»] --> P[Use Model: intent]
     P -->|add| L[Run Movie Lookup query, voice] --> D{дубль?}
     D -->|да| O1[«Already in your list: …»]
-    D -->|нет| S[Set Value movies.items.key, unwatched] --> O2[«Added: …»]
+    D -->|нет| S[Set Value movies.items.key, unwatched + Movie Sync] --> O2[«Added: …»]
     L -->|пусто| O0[«Nothing added.»]
     P -->|recommend| R[Run Movie Recommend mode voice] --> O3[«Try: 1… 2… 3…»]
     P -->|unknown| O4[«Say add and a title, or ask what to watch.»]
@@ -45,7 +45,7 @@ flowchart TD
 4. **intent = add**:
    1. **Run Shortcut** Movie Lookup, Input **Dictionary** `{query: title, voice: true}` → `rec`. Пусто → **Stop and Output** «Nothing added. Check the phone for details.» (причина — в уведомлении Lookup: не найдено, ошибка API, отмена).
    2. Дубль — как в [Movie Add](../add/README.md#шаги), шаги 5–6. Есть → **Stop and Output** «Already in your list: title_en (year).».
-   3. **Set Dictionary Value** в `rec`: `status` = `unwatched`, `origin` = `manual`, `added_date`, `updated_date` = Current Date, `tags` / `note` не ставить (пустые, [data.md](../data.md#запись-moviesitemskey)). **Set Value** `movies.items.<key>` = `rec`.
+   3. **Set Dictionary Value** в `rec`: `status` = `unwatched`, `origin` = `manual`, `added_date`, `updated_date` = Current Date, `tags` / `note` не ставить (пустые, [data.md](../data.md#запись-moviesitemskey)). **Set Value** `movies.items.<key>` = `rec` → **Run Shortcut** Movie Sync `{key}`.
    4. **Text**: `Added: <title_en>, <year>, <метка типа англ.>` (метка — Get Dictionary Value `type` из `settings.type_labels_en`) + `, IMDb <x>` (если есть) + `. Not found on Kinopoisk, saved from AI data.` (если `source` = `ai`) + `. Premieres on <premiere_date>.` (если в будущем) → **Stop and Output**.
 5. **intent = recommend**: **Run Shortcut** Movie Recommend, Input **Dictionary** `{mode: "voice", mood, types}` → текст → **Stop and Output**. Текст пуст (Recommend остановился сам) → **Stop and Output** «No recommendations. Check the phone for details.».
 6. **intent = unknown** → **Stop and Output** «Say add and a title, or ask what to watch.».
@@ -70,7 +70,7 @@ Return a dictionary with:
 
 ## Data Jar
 
-Читает: `movies.settings`, `movies.items` (дубли). Пишет: `movies.items.<key>` при `add`.
+Читает: `movies.settings`, `movies.items` (дубли). Пишет: `movies.items.<key>` при `add` → **Run Shortcut** [Movie Sync](../sync/README.md) `{key}` (в облако; без сети — в очередь). Забора изменений в голосовом пути нет — его делают экранные шорткаты.
 
 ## Расход запросов poiskkino
 

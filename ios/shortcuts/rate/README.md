@@ -2,7 +2,7 @@
 
 ## Назначение
 
-Просмотр списка по статусу и вход в карточку для оценки/правки. Вся работа с тайтлом — в Movie Card.
+Просмотр списка по статусу и вход в карточку для оценки/правки. Вся работа с тайтлом — в Movie Card. При запуске — синхронизация раз в день, в меню — ручная «Синхронизировать» ([Movie Sync](../sync/README.md)).
 
 ## Вход / Выход
 
@@ -12,9 +12,11 @@
 
 ```mermaid
 flowchart TD
-    R[Repeat] --> Q{menuDone = 1?}
+    S0[Run Movie Sync auto] --> R[Repeat]
+    R --> Q{menuDone = 1?}
     Q -->|нет| F[Choose from Menu «Показать»: фильтр]
     F -->|Cancel| End[конец]
+    F -->|Синхронизировать| SN[Run Movie Sync now, фильтр «Все»] --> D
     F --> D[чтение базы по фильтру]
     Q -->|да| D
     D -->|пусто: «Пусто», menuDone пуст| R
@@ -33,9 +35,10 @@ flowchart TD
 Плоский список действий для сборки в редакторе — [actions.md](actions.md).
 
 1. **Get Value** `movies.settings` → `settings`. Пусто → **Show Notification** «Нет movies.settings — см. README, Установка» → **Stop This Shortcut**.
+1a. **Text** `auto` → **Run Shortcut** Movie Sync — раз в день забрать изменения из облака (ТВ и другие устройства).
 2. `menuDone` = пусто (Nothing → Set Variable) — флаг «фильтр выбран». Пустой → в начале оборота показать меню.
 3. **Repeat** 100 раз (один цикл на меню, список и карточку — goto в Shortcuts нет):
-   0. **If** `menuDone` ≠ 1 → **Choose from Menu** «Показать»: Несмотренные / Смотрю / Посмотренные / Бросил / Скрытые / Все → Set Variable `filter` = `unwatched` / `watching` / `watched` / `dropped` / `dismissed` / `all`; `filterT` = метка пункта; `menuDone` = 1. Cancel → шорткат завершается. «Скрытые» — чтобы вернуть тайтл в рекомендации (Статус в карточке).
+   0. **If** `menuDone` ≠ 1 → **Choose from Menu** «Показать»: Несмотренные / Смотрю / Посмотренные / Бросил / Скрытые / Все / Синхронизировать → Set Variable `filter` = `unwatched` / `watching` / `watched` / `dropped` / `dismissed` / `all`; `filterT` = метка пункта; `menuDone` = 1. Cancel → шорткат завершается. «Скрытые» — чтобы вернуть тайтл в рекомендации (Статус в карточке). «Синхронизировать» → **Text** `now` → **Run Shortcut** Movie Sync (сразу: очередь правок и изменения из облака, итог уведомлением) → `filter` = `all`, `filterT` = «Все».
    1. **Get Value** `movies.items` → **Get Dictionary Value** All Values → `all`.
    2. **Repeat with Each** `all`: **If** `filter` = `all` → берём всё, кроме `status` = `dismissed`; иначе — только `status` = `filter` → **Add to Variable** `items`.
    3. `items` пуст → **Show Notification** «Пусто» → `menuDone` = пусто → следующий оборот снова показывает меню. Шаги 4–9 — в Otherwise.
@@ -61,7 +64,7 @@ flowchart TD
 
 ## Data Jar
 
-Читает: `movies.items`. Пишет: только через Movie Card.
+Читает: `movies.items`. Пишет: только через Movie Card и Movie Sync.
 
 ## Расход запросов poiskkino
 

@@ -27,7 +27,7 @@ flowchart TD
     U --> T[Теги, можно пропустить]
     W --> T
     R --> T
-    T --> V[Set Value movies.items.key]
+    T --> V[Set Value movies.items.key → Movie Sync key]
     V --> P{future?}
     P -->|да| FE{Find Calendar Events: «Премьера: title_ru» есть?}
     FE -->|да| Ex[Notification «Премьера уже в Календаре»] --> Done
@@ -42,7 +42,7 @@ flowchart TD
 
 Плоский список действий для сборки в редакторе — [actions.md](actions.md). Экспорт собранного шортката — [shortcut.xml](shortcut.xml).
 
-1. **Get Value** `movies.settings` → `settings`. Пусто → **Show Notification** «Нет movies.settings — см. README, Установка» → **Stop This Shortcut**. Из `settings` — `tags`, `type_labels`.
+1. **Get Value** `movies.settings` → `settings`. Пусто → **Show Notification** «Нет movies.settings — см. README, Установка» → **Stop This Shortcut**. Из `settings` — `tags`, `type_labels`. **Text** `auto` → **Run Shortcut** [Movie Sync](../sync/README.md) — раз в день забрать изменения из облака, чтобы дубль с ТВ нашёлся.
    **If** Shortcut Input has any value → Set Variable `query` = Shortcut Input. Otherwise → **Ask for Input** (Text, «Что добавить?») → `query`. End If.
 2. **Repeat** 5 раз (пока `ok` пуст) — поиск с превью:
    1. **Run Shortcut** Movie Lookup, Input = `query` → `rec`. Пусто → **Stop This Shortcut**.
@@ -51,6 +51,7 @@ flowchart TD
 4. **Get Dictionary Value** `key` из `rec` → `key`.
 5. Дубль по ключу: **Check If Value Exists** `movies.items.<key>` → **If** true → `dupKey` = `key`.
 6. Дубль по названию (если `dupKey` пусто): **Get Value** `movies.items` → **Get Dictionary Value** All Values → **Repeat with Each**: **Change Case** lowercase `title_en` и `year` элемента == lowercase `rec.title_en` и `rec.year` → `dupKey` = `key` элемента. Ловит записи с другим ключом (`ai-` / `kp-` vs `tt…`).
+   6a. То же по `title_ru` + `year` (если `dupKey` всё ещё пусто): записи с ТВ с ключом `tmdb-tv-…` / `tmdb-movie-…` бывают без `title_en`.
 7. **If** `dupKey` has any value → **Show Notification** «Уже в списке: title_ru» → **Run Shortcut** Movie Card, Input **Dictionary** `{key: dupKey}` → `res`; `res.action` = `similar` → список похожих, как в шаге 14 → **Stop This Shortcut**.
 8. Премьера впереди: **If** `rec.premiere_date` has any value → **Get Dates from Input** → `pDate`; **If** `pDate` > Current Date → `future` = 1. **If** `future` = 1 → `status` = `unwatched` без вопроса. Otherwise → **Choose from Menu** «Уже смотрел?»:
    - **Нет** → **Set Dictionary Value** `status` = `unwatched` в `rec`.
@@ -60,7 +61,7 @@ flowchart TD
    - Добавить → **Choose from List** (Select Multiple) по `tags` из `movies.settings` (читаются в начале, вместе с настройками) → **Set Dictionary Value** `tags` в `rec`.
    - Пропустить → `tags` не ставить (пустое Set Dictionary Value не принимает, [data.md](../data.md#запись-moviesitemskey)).
 10. **Set Dictionary Value** в `rec`: `origin` = `manual`, `added_date` = Current Date (ISO), `updated_date` = Current Date, `note` (если пусто — не добавлять), `my_rating` (если не задан — не добавлять), `watched_date` (если нет — не добавлять).
-11. **Set Value** (Data Jar) `movies.items.<key>` = `rec`.
+11. **Set Value** (Data Jar) `movies.items.<key>` = `rec` → **Run Shortcut** Movie Sync `{key}` (в облако; без сети — в очередь).
 12. **If** `future` = 1 (шаг 8; `pDate` оттуда же):
     1. **Find Calendar Events** where Title is «Премьера: title_ru», Limit 1. **If** Calendar Events has any value → **Show Notification** «Премьера уже в Календаре», событие не добавлять. Otherwise:
     2. **Choose from Menu** «Добавить премьеру в Календарь?» Да / Нет.
@@ -74,7 +75,7 @@ flowchart TD
 
 ## Data Jar
 
-Читает: `movies.items` (дубли), `movies.settings` (`tags`, `type_labels`). Пишет: `movies.items.<key>` целиком.
+Читает: `movies.items` (дубли), `movies.settings` (`tags`, `type_labels`). Пишет: `movies.items.<key>` целиком; облако и очередь — через Movie Sync.
 
 ## Расход запросов poiskkino
 

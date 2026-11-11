@@ -1,6 +1,6 @@
 # movies — контекст категории
 
-Система шорткатов для учёта фильмов/сериалов: поиск, добавление, оценка, рекомендации, статистика, новые сезоны. Хранилище — Data Jar. Метаданные — API poiskkino. ИИ — действие Use Model (Private Cloud Compute).
+Система шорткатов для учёта фильмов/сериалов: поиск, добавление, оценка, рекомендации, статистика. Хранилище — Data Jar, синхронизация с облаком списка (воркер `cloud/list-worker`, общий с ТВ). Метаданные — API poiskkino. ИИ — действие Use Model (Private Cloud Compute). О новых сериях сообщает Cron воркера в Telegram (бывший Movie Seasons удалён).
 
 ## Карта файлов
 
@@ -15,7 +15,7 @@
 | `recommend/` | Movie Recommend |
 | `tonight/` | Movie Tonight — обёртка Recommend для виджета |
 | `stats/` | Movie Stats — статистика |
-| `seasons/` | Movie Seasons — автоматизация новых сезонов |
+| `sync/` | Movie Sync — суб-шорткат синхронизации с облаком: очередь правок, забор изменений раз в день |
 | `voice/` | Movies — голосовой вход для Siri (add / recommend, ответ текстом) |
 
 ## Конвенции
@@ -28,8 +28,9 @@
   - Movie Lookup: вход Text | `{query, voice:true}` | `{kinopoisk_id}` | `{title_en,title_ru,year,type}` → запись без пользовательских полей или ничего.
   - Movie Card: вход `{key[, predicted]}` | `{key, auto:"similar"}` | `{record, saved:false[, predicted]}` → `{action:"back"}` | `{action:"similar", items:[…]}`.
   - Movie Recommend: вход пусто | Text `today` | `{mode:"voice", mood, types}` → Text.
+  - Movie Sync: вход пусто / Text `auto` | Text `now` | `{key}` | `{key, deleted:true, record}` → ничего.
 - Названия действий — по-английски, как в приложении (iOS 27, англ. UI). Метки меню для пользователя — по-русски; **в голосовом пути (Movies, `voice: true`) — по-английски** (Siri на английском) и без экранных действий (Show Web Page, Quick Look, Follow Up, Add New Event).
-- Data Jar: всё — в **одном** корне `movies` (`movies.items`, `movies.settings`), других ключей верхнего уровня не создавать — хранилище общее с другими кейсами. Пути: `movies.items.<key>.<field>`. В ключах нет точек.
+- Data Jar: всё — в **одном** корне `movies` (`movies.items`, `movies.settings`, `movies.sync`, `movies.episodes`), других ключей верхнего уровня не создавать — хранилище общее с другими кейсами. Пути: `movies.items.<key>.<field>`. В ключах нет точек.
 - Проверено на iPhone 2026-10-24 ([мини-тесты](README.md#1-мини-тесты-ios-до-сборки)): Use Model Output Dictionary отдаёт словарь; Follow Up открывает чат; Show Web Page — после закрытия шорткат продолжается; **Stop This Shortcut в суб-шорткате останавливает только его** — вызывающий обязан обрабатывать пустой результат Run Shortcut; Data Jar — вложенные пути и ключи с `-` работают; **Siri с заблокированного iPhone не запускает шорткат**.
 - **If** со строкой по плашке Any (`[Repeat Item: status]`, Selected Item из Choose from List, переменная из Get Dictionary Value) — сравнить со строкой нельзя: в плашке Type → **Text** (в XML после `WFDictionaryValueVariableAggrandizement` — `WFCoercionVariableAggrandizement` `WFStringContentItem`).
 - Путь через точку (`rating.kp`) в Get Dictionary Value падает «no value was found for dictionary key rating», если родителя нет. Только для ответов poiskkino: `Get Value "rating"` → `If has any value` → `Get Value "kp" in [Dictionary Value]` → всё, что читает результат, — **внутри этого If** (снаружи значение пустое). Сравнение с числом — плашка Type → Number (`WFNumberContentItem`). Пути Data Jar (`movies.…`) и `settings` — можно.
@@ -40,6 +41,7 @@
 - Use Model — всегда с запасным путём ([data.md](data.md#ответ-ии-use-model)); чаты (Follow Up) — Output Text, без него.
 - Use Model: вход/выход по-английски; русский — через Translate Text. Применено в режиме «По настроению» Movie Recommend (русский промпт/ответ там давал «The model cannot provide a response…»; ошибку Shortcuts не ловит).
 - Отзыв (`note`) — сигнал для ИИ: промпты рекомендаций и чатов передают `my_rating — note`.
+- **Синхронизация** ([sync/README.md](sync/README.md), [data.md](data.md#синхронизация-с-облаком)): шорткат, который открывает данные с экрана (Rate, Recommend кроме голоса, Stats, Card, Add), в начале зовёт Movie Sync с `auto`; каждая правка записи — Movie Sync `{key}` сразу после Set Value (удаление — `{key, deleted:true, record}`). Запросы к воркеру — только из Movie Sync. Ключ записи может быть любым (`tt…`, `kp-…`, `ai-…`, `tmdb-tv-…`, `tmdb-movie-…`) и никогда не меняется.
 - Любой ответ poiskkino проверять (`m.id` / `docs` есть) до записи в Data Jar: пустой ответ не должен затирать данные. Ошибки — по правилам [data.md](data.md#ошибки): проверка настроек первым шагом, уведомление `poiskkino: <statusCode> <message>`, учёт `ai_enabled`.
 
 ## API poiskkino (OpenAPI v1.4.1)
@@ -55,6 +57,6 @@
 
 ## Правила
 
-- Никогда не вписывать API-ключи в документацию. Ключ — только в `movies.settings.poiskkino_api_key`.
-- `data.md` — единственный источник правды по полям. Меняешь поле → обнови `data.md` и все шорткаты, которые его читают/пишут (поиск по имени поля по всей `movies/`).
+- Никогда не вписывать API-ключи в документацию. Ключи — только в `movies.settings.poiskkino_api_key` и `movies.settings.sync_key`.
+- `data.md` — единственный источник правды по полям. Меняешь поле → обнови `data.md` и все шорткаты, которые его читают/пишут (поиск по имени поля по всей `ios/shortcuts/`); поле, которое пишет и ТВ, сверить с `app/.../watchlist` и `cloud/list-worker`.
 - Экономить запросы poiskkino: не дёргать API до открытия карточки; лимит указывать в разделе «Расход запросов».

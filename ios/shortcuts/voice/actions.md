@@ -149,6 +149,10 @@ If [intent] is "add"
     Set variable rec to [Dictionary]
     // tags / note не ставим: пустое значение Set Dictionary Value не принимает
     Set Value [rec] for "movies.items.[key]" (Data Jar)
+    // новая запись → облако (без сети — в очередь); забор изменений голос не делает
+    Dictionary
+        key  Text  [key]
+    Run Shortcut "Movie Sync" with [Dictionary]
 
     // ── Шаг 10. Ответ ──
     // 10.1 Название, год, тип

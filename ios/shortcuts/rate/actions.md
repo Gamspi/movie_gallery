@@ -19,6 +19,9 @@ If [settings] does not have any value
     Show notification "Нет movies.settings — см. README, Установка"
     Stop this shortcut
 End If
+// синхронизация раз в день (Movie Sync сам решает, нужен ли запрос)
+Text "auto"
+Run Shortcut "Movie Sync" with [Text]
 
 // ── Шаг 2. Цикл: меню «Показать» → список → карточка ──
 Nothing
@@ -54,6 +57,14 @@ Repeat 100 times
                 Text "Скрытые"
                 Set variable filterT to [Text]
             • Все
+                Text "all"
+                Set variable filter to [Text]
+                Text "Все"
+                Set variable filterT to [Text]
+            • Синхронизировать
+                Text "now"
+                Run Shortcut "Movie Sync" with [Text]
+                // после синхронизации — весь список
                 Text "all"
                 Set variable filter to [Text]
                 Text "Все"

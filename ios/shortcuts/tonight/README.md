@@ -20,7 +20,7 @@ flowchart LR
 1. **Text** `today`.
 2. **Run Shortcut** Movie Recommend, Input = Text.
 
-Дальше всё в Movie Recommend, режим `today`: без меню и фильтров → скоринг всех кандидатов → топ-10 → **Get Random Item from List** → Movie Card. «Назад» в карточке — конец. Кандидатов нет → уведомление «Список пуст — добавь через Movie Add».
+Дальше всё в Movie Recommend, режим `today` (сначала — синхронизация раз в день через [Movie Sync](../sync/README.md)): без меню и фильтров → скоринг всех кандидатов → топ-10 → **Get Random Item from List** → Movie Card. «Назад» в карточке — конец. Кандидатов нет → уведомление «Список пуст — добавь через Movie Add».
 
 ## Действия
 
