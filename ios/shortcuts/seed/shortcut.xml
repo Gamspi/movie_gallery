@@ -1,0 +1,1872 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>WFQuickActionSurfaces</key>
+	<array/>
+	<key>WFWorkflowActions</key>
+	<array>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.comment</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFCommentActionText</key>
+				<string>Movie Seed — ВРЕМЕННЫЙ тестовый шорткат, потом удалить. Пишет только movies.items.&lt;key&gt; из своего списка и movies.seed_keys.</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>dk.simonbs.DataJar.GetValueIntent</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>UUID</key>
+				<string>2A77512D-7D45-4596-BC71-3AC962809C8C</string>
+				<key>keyPath</key>
+				<string>movies.settings</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.setvariable</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFInput</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>OutputName</key>
+						<string>Value</string>
+						<key>OutputUUID</key>
+						<string>2A77512D-7D45-4596-BC71-3AC962809C8C</string>
+						<key>Type</key>
+						<string>ActionOutput</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenAttachment</string>
+				</dict>
+				<key>WFVariableName</key>
+				<string>settings</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.conditional</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>5E04C47E-7609-4282-8C91-AAEBE2FEF1F1</string>
+				<key>WFCondition</key>
+				<integer>101</integer>
+				<key>WFControlFlowMode</key>
+				<integer>0</integer>
+				<key>WFInput</key>
+				<dict>
+					<key>Type</key>
+					<string>Variable</string>
+					<key>Variable</key>
+					<dict>
+						<key>Value</key>
+						<dict>
+							<key>Type</key>
+							<string>Variable</string>
+							<key>VariableName</key>
+							<string>settings</string>
+						</dict>
+						<key>WFSerializationType</key>
+						<string>WFTextTokenAttachment</string>
+					</dict>
+				</dict>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.notification</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>UUID</key>
+				<string>889AF454-0623-4BA2-94AA-C356F77092D7</string>
+				<key>WFNotificationActionBody</key>
+				<string>Нет movies.settings — см. README, Установка</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.exit</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict/>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.conditional</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>5E04C47E-7609-4282-8C91-AAEBE2FEF1F1</string>
+				<key>UUID</key>
+				<string>542B7829-1073-4998-A6D9-092B0E636B45</string>
+				<key>WFControlFlowMode</key>
+				<integer>2</integer>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.choosefrommenu</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>B319F0FF-ABC8-4A3C-82D6-FE59378E1D72</string>
+				<key>WFControlFlowMode</key>
+				<integer>0</integer>
+				<key>WFMenuItems</key>
+				<array>
+					<string>Наполнить</string>
+					<string>Удалить тестовые</string>
+				</array>
+				<key>WFMenuPrompt</key>
+				<string>Тестовые данные</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.choosefrommenu</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>B319F0FF-ABC8-4A3C-82D6-FE59378E1D72</string>
+				<key>WFControlFlowMode</key>
+				<integer>1</integer>
+				<key>WFMenuItemTitle</key>
+				<string>Наполнить</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.comment</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFCommentActionText</key>
+				<string>Наполнить: записи зашиты JSON-ом ниже (0 запросов poiskkino). Существующий ключ не трогаем.</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.gettext</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>UUID</key>
+				<string>28DEB59F-DA9C-47AE-9A59-9F02E813248D</string>
+				<key>WFTextActionText</key>
+				<string>{
+ "items": [
+  {
+   "key": "tt0111161",
+   "title_en": "The Shawshank Redemption",
+   "title_ru": "Побег из Шоушенка",
+   "year": 1994,
+   "type": "movie",
+   "genres": "Drama",
+   "imdb_id": "tt0111161",
+   "kinopoisk_id": 326,
+   "ratings": {
+    "imdb": 9.3,
+    "kp": 9.1
+   },
+   "my_rating": 10,
+   "status": "watched",
+   "tags": [
+    "пересмотреть"
+   ],
+   "note": "лучший фильм про надежду",
+   "length": 142,
+   "age_rating": 16,
+   "premiere_date": "1994-09-10",
+   "description": "Банкир, осуждённый за убийство жены, годами готовит побег из тюрьмы.",
+   "poster_url": "https://st.kp.yandex.net/images/film_big/326.jpg",
+   "source": "poiskkino",
+   "origin": "manual",
+   "added_date": "2026-09-01T21:00:00+03:00",
+   "watched_date": "2026-09-02T21:00:00+03:00",
+   "updated_date": "2026-09-02T21:00:00+03:00"
+  },
+  {
+   "key": "tt0816692",
+   "title_en": "Interstellar",
+   "title_ru": "Интерстеллар",
+   "year": 2014,
+   "type": "movie",
+   "genres": [
+    "Science Fiction",
+    "Drama",
+    "Adventure"
+   ],
+   "imdb_id": "tt0816692",
+   "kinopoisk_id": 258687,
+   "ratings": {
+    "imdb": 8.7,
+    "kp": 8.6
+   },
+   "my_rating": 9,
+   "status": "watched",
+   "note": "музыка Циммера, сцена с часами",
+   "length": 169,
+   "age_rating": 12,
+   "premiere_date": "2014-10-26",
+   "description": "Экспедиция через червоточину ищет новый дом для человечества.",
+   "poster_url": "https://st.kp.yandex.net/images/film_big/258687.jpg",
+   "source": "poiskkino",
+   "origin": "manual",
+   "added_date": "2026-09-03T21:00:00+03:00",
+   "watched_date": "2026-09-04T21:00:00+03:00",
+   "updated_date": "2026-09-04T21:00:00+03:00"
+  },
+  {
+   "key": "tt0133093",
+   "title_en": "The Matrix",
+   "title_ru": "Матрица",
+   "year": 1999,
+   "type": "movie",
+   "genres": [
+    "Science Fiction",
+    "Action"
+   ],
+   "imdb_id": "tt0133093",
+   "kinopoisk_id": 301,
+   "ratings": {
+    "imdb": 8.7,
+    "kp": 8.5
+   },
+   "status": "watched",
+   "length": 136,
+   "age_rating": 16,
+   "premiere_date": "1999-03-24",
+   "description": "Хакер узнаёт, что мир — симуляция, и вступает в войну с машинами.",
+   "poster_url": "https://st.kp.yandex.net/images/film_big/301.jpg",
+   "source": "poiskkino",
+   "origin": "recommendation",
+   "added_date": "2026-09-05T21:00:00+03:00",
+   "watched_date": "2026-09-05T21:00:00+03:00",
+   "updated_date": "2026-09-05T21:00:00+03:00"
+  },
+  {
+   "key": "tt0118767",
+   "title_en": "Brother",
+   "title_ru": "Брат",
+   "year": 1997,
+   "type": "movie",
+   "genres": [
+    "Drama",
+    "Crime",
+    "Action"
+   ],
+   "imdb_id": "tt0118767",
+   "kinopoisk_id": 41519,
+   "ratings": {
+    "imdb": 7.8,
+    "kp": 8.3
+   },
+   "my_rating": 8,
+   "status": "watched",
+   "length": 100,
+   "age_rating": 18,
+   "premiere_date": "1997-05-17",
+   "description": "Демобилизованный Данила приезжает в Петербург к старшему брату-киллеру.",
+   "poster_url": "https://st.kp.yandex.net/images/film_big/41519.jpg",
+   "source": "poiskkino",
+   "origin": "manual",
+   "added_date": "2026-09-06T21:00:00+03:00",
+   "watched_date": "2026-09-06T21:00:00+03:00",
+   "updated_date": "2026-09-06T21:00:00+03:00"
+  },
+  {
+   "key": "kp-42664",
+   "title_en": "Ivan Vasilievich: Back to the Future",
+   "title_ru": "Иван Васильевич меняет профессию",
+   "year": 1973,
+   "type": "movie",
+   "genres": [
+    "Comedy",
+    "Science Fiction",
+    "Adventure"
+   ],
+   "kinopoisk_id": 42664,
+   "ratings": {
+    "kp": 8.8
+   },
+   "my_rating": 9,
+   "status": "watched",
+   "tags": [
+    "с семьёй"
+   ],
+   "note": "с семьёй на Новый год",
+   "length": 88,
+   "age_rating": 6,
+   "premiere_date": "1973-09-17",
+   "description": "Машина времени меняет местами управдома Буншу и Ивана Грозного.",
+   "poster_url": "https://st.kp.yandex.net/images/film_big/42664.jpg",
+   "source": "poiskkino",
+   "origin": "manual",
+   "added_date": "2026-09-07T21:00:00+03:00",
+   "watched_date": "2026-09-07T21:00:00+03:00",
+   "updated_date": "2026-09-07T21:00:00+03:00"
+  },
+  {
+   "key": "tt0903747",
+   "title_en": "Breaking Bad",
+   "title_ru": "Во все тяжкие",
+   "year": 2008,
+   "type": "tv_show",
+   "genres": [
+    "Drama",
+    "Crime",
+    "Thriller"
+   ],
+   "imdb_id": "tt0903747",
+   "kinopoisk_id": 404900,
+   "ratings": {
+    "imdb": 9.5,
+    "kp": 8.9
+   },
+   "my_rating": 10,
+   "status": "watched",
+   "length": 47,
+   "age_rating": 18,
+   "premiere_date": "2008-01-20",
+   "seasons_count": 5,
+   "release_status": "completed",
+   "description": "Учитель химии со смертельным диагнозом начинает варить метамфетамин.",
+   "poster_url": "https://st.kp.yandex.net/images/film_big/404900.jpg",
+   "source": "poiskkino",
+   "origin": "manual",
+   "added_date": "2026-09-08T21:00:00+03:00",
+   "watched_date": "2026-09-20T21:00:00+03:00",
+   "updated_date": "2026-09-20T21:00:00+03:00",
+   "seasons_checked": "2026-10-18T19:00:00+03:00"
+  },
+  {
+   "key": "tt0944947",
+   "title_en": "Game of Thrones",
+   "title_ru": "Игра престолов",
+   "year": 2011,
+   "type": "tv_show",
+   "genres": [
+    "Fantasy",
+    "Drama",
+    "Adventure",
+    "Action"
+   ],
+   "imdb_id": "tt0944947",
+   "kinopoisk_id": 464963,
+   "ratings": {
+    "imdb": 9.2,
+    "kp": 9.0
+   },
+   "my_rating": 6,
+   "status": "dropped",
+   "note": "бросил на 7 сезоне — скомкали",
+   "length": 57,
+   "age_rating": 18,
+   "premiere_date": "2011-04-17",
+   "seasons_count": 8,
+   "release_status": "completed",
+   "description": "Знатные семьи Вестероса воюют за Железный трон.",
+   "poster_url": "https://st.kp.yandex.net/images/film_big/464963.jpg",
+   "source": "poiskkino",
+   "origin": "manual",
+   "added_date": "2026-09-09T21:00:00+03:00",
+   "watched_date": "2026-09-25T21:00:00+03:00",
+   "updated_date": "2026-09-25T21:00:00+03:00",
+   "seasons_checked": "2026-10-18T19:00:00+03:00"
+  },
+  {
+   "key": "tt4574334",
+   "title_en": "Stranger Things",
+   "title_ru": "Очень странные дела",
+   "year": 2016,
+   "type": "tv_show",
+   "genres": [
+    "Science Fiction",
+    "Horror",
+    "Drama",
+    "Mystery"
+   ],
+   "imdb_id": "tt4574334",
+   "kinopoisk_id": 915196,
+   "ratings": {
+    "imdb": 8.6,
+    "kp": 8.4
+   },
+   "status": "watching",
+   "length": 51,
+   "age_rating": 16,
+   "premiere_date": "2016-07-15",
+   "seasons_count": 4,
+   "description": "В городке Хоукинс пропадает мальчик, а друзья находят девочку со сверхспособностями.",
+   "poster_url": "https://st.kp.yandex.net/images/film_big/915196.jpg",
+   "source": "poiskkino",
+   "origin": "manual",
+   "added_date": "2026-09-10T21:00:00+03:00",
+   "updated_date": "2026-09-10T21:00:00+03:00"
+  },
+  {
+   "key": "tt10466872",
+   "title_en": "Severance",
+   "title_ru": "Разделение",
+   "year": 2022,
+   "type": "tv_show",
+   "genres": [
+    "Drama",
+    "Mystery",
+    "Science Fiction",
+    "Thriller"
+   ],
+   "imdb_id": "tt10466872",
+   "kinopoisk_id": 1318972,
+   "ratings": {
+    "imdb": 8.7,
+    "kp": 8.1
+   },
+   "status": "watching",
+   "length": 50,
+   "age_rating": 18,
+   "premiere_date": "2022-02-17",
+   "seasons_count": 2,
+   "release_status": "ongoing",
+   "description": "Сотрудникам корпорации разделили память на рабочую и личную.",
+   "poster_url": "https://st.kp.yandex.net/images/film_big/1318972.jpg",
+   "source": "poiskkino",
+   "origin": "recommendation",
+   "added_date": "2026-09-11T21:00:00+03:00",
+   "updated_date": "2026-09-11T21:00:00+03:00",
+   "seasons_checked": "2026-10-11T19:00:00+03:00"
+  },
+  {
+   "key": "tt0910970",
+   "title_en": "WALL·E",
+   "title_ru": "ВАЛЛ·И",
+   "year": 2008,
+   "type": "animation",
+   "genres": [
+    "Science Fiction",
+    "Romance",
+    "Adventure",
+    "Family"
+   ],
+   "imdb_id": "tt0910970",
+   "kinopoisk_id": 279102,
+   "ratings": {
+    "imdb": 8.4,
+    "kp": 8.0
+   },
+   "my_rating": 8,
+   "status": "watched",
+   "tags": [
+    "с семьёй",
+    "на выходные"
+   ],
+   "length": 98,
+   "age_rating": 0,
+   "premiere_date": "2008-06-23",
+   "description": "Робот-уборщик на опустевшей Земле влюбляется в робота-разведчицу.",
+   "poster_url": "https://st.kp.yandex.net/images/film_big/279102.jpg",
+   "source": "poiskkino",
+   "origin": "manual",
+   "added_date": "2026-09-12T21:00:00+03:00",
+   "watched_date": "2026-09-12T21:00:00+03:00",
+   "updated_date": "2026-09-12T21:00:00+03:00"
+  },
+  {
+   "key": "tt0245429",
+   "title_en": "Spirited Away",
+   "title_ru": "Унесённые призраками",
+   "year": 2001,
+   "type": "anime",
+   "genres": [
+    "Fantasy",
+    "Adventure",
+    "Family"
+   ],
+   "imdb_id": "tt0245429",
+   "kinopoisk_id": 370,
+   "ratings": {
+    "imdb": 8.6,
+    "kp": 8.4
+   },
+   "my_rating": 10,
+   "status": "watched",
+   "note": "Миядзаки — ещё",
+   "length": 125,
+   "age_rating": 12,
+   "premiere_date": "2001-07-20",
+   "description": "Девочка попадает в мир духов и работает в бане, чтобы спасти родителей.",
+   "poster_url": "https://st.kp.yandex.net/images/film_big/370.jpg",
+   "source": "poiskkino",
+   "origin": "manual",
+   "added_date": "2026-09-13T21:00:00+03:00",
+   "watched_date": "2026-09-13T21:00:00+03:00",
+   "updated_date": "2026-09-13T21:00:00+03:00"
+  },
+  {
+   "key": "tt2861424",
+   "title_en": "Rick and Morty",
+   "title_ru": "Рик и Морти",
+   "year": 2013,
+   "type": "animated_series",
+   "genres": [
+    "Comedy",
+    "Science Fiction",
+    "Adventure"
+   ],
+   "imdb_id": "tt2861424",
+   "kinopoisk_id": 685246,
+   "ratings": {
+    "imdb": 9.1,
+    "kp": 8.6
+   },
+   "status": "unwatched",
+   "length": 23,
+   "age_rating": 18,
+   "premiere_date": "2013-12-02",
+   "seasons_count": 8,
+   "release_status": "ongoing",
+   "description": "Безумный учёный таскает внука по параллельным вселенным.",
+   "poster_url": "https://st.kp.yandex.net/images/film_big/685246.jpg",
+   "source": "poiskkino",
+   "origin": "recommendation",
+   "added_date": "2026-09-14T21:00:00+03:00",
+   "updated_date": "2026-09-14T21:00:00+03:00"
+  },
+  {
+   "key": "tt0120338",
+   "title_en": "Titanic",
+   "title_ru": "Титаник",
+   "year": 1997,
+   "type": "movie",
+   "genres": [
+    "Romance",
+    "History",
+    "Thriller",
+    "Drama"
+   ],
+   "imdb_id": "tt0120338",
+   "kinopoisk_id": 2213,
+   "ratings": {
+    "imdb": 7.9,
+    "kp": 8.4
+   },
+   "status": "dismissed",
+   "length": 194,
+   "age_rating": 12,
+   "premiere_date": "1997-11-01",
+   "description": "История любви пассажиров первого и третьего класса на тонущем лайнере.",
+   "poster_url": "https://st.kp.yandex.net/images/film_big/2213.jpg",
+   "source": "poiskkino",
+   "origin": "recommendation",
+   "added_date": "2026-09-15T21:00:00+03:00",
+   "updated_date": "2026-09-16T21:00:00+03:00"
+  },
+  {
+   "key": "tt15239678",
+   "title_en": "Dune: Part Two",
+   "title_ru": "Дюна: Часть вторая",
+   "year": 2024,
+   "type": "movie",
+   "genres": [
+    "Science Fiction",
+    "Action",
+    "Drama",
+    "Adventure"
+   ],
+   "imdb_id": "tt15239678",
+   "kinopoisk_id": 4540126,
+   "ratings": {
+    "imdb": 8.5,
+    "kp": 8.3
+   },
+   "status": "unwatched",
+   "tags": [
+    "на выходные"
+   ],
+   "length": 166,
+   "age_rating": 12,
+   "premiere_date": "2024-02-15",
+   "description": "Пол Атрейдес объединяется с фрименами, чтобы отомстить заговорщикам.",
+   "poster_url": "https://st.kp.yandex.net/images/film_big/4540126.jpg",
+   "source": "poiskkino",
+   "origin": "manual",
+   "added_date": "2026-09-16T21:00:00+03:00",
+   "updated_date": "2026-09-16T21:00:00+03:00"
+  },
+  {
+   "key": "ai-the-batman-part-ii-2027",
+   "title_en": "The Batman Part II",
+   "title_ru": "Бэтмен 2",
+   "year": 2027,
+   "type": "movie",
+   "genres": [
+    "Action",
+    "Crime",
+    "Mystery"
+   ],
+   "status": "unwatched",
+   "premiere_date": "2027-10-01",
+   "release_status": "ongoing",
+   "description": "Продолжение «Бэтмена» Мэтта Ривза.",
+   "source": "ai",
+   "origin": "manual",
+   "added_date": "2026-09-17T21:00:00+03:00",
+   "updated_date": "2026-09-17T21:00:00+03:00"
+  },
+  {
+   "key": "ai-my-octopus-teacher-2020",
+   "title_en": "My Octopus Teacher",
+   "title_ru": "Мой учитель — осьминог",
+   "year": 2020,
+   "type": "documentary",
+   "genres": "Documentary",
+   "my_rating": 7,
+   "status": "watched",
+   "note": "красиво, но затянуто",
+   "length": 85,
+   "description": "Режиссёр год наблюдает за осьминогом в подводном лесу у мыса Доброй Надежды.",
+   "source": "ai",
+   "origin": "manual",
+   "added_date": "2026-09-18T21:00:00+03:00",
+   "watched_date": "2026-09-18T21:00:00+03:00",
+   "updated_date": "2026-09-18T21:00:00+03:00"
+  },
+  {
+   "key": "ai-pinocchio-2022",
+   "title_en": "Pinocchio",
+   "title_ru": "Пиноккио",
+   "year": 2022,
+   "type": "movie",
+   "genres": [
+    "Fantasy",
+    "Family",
+    "Adventure"
+   ],
+   "status": "unwatched",
+   "premiere_date": "2022-09-08",
+   "description": "Игровой ремейк Disney: деревянная кукла мечтает стать настоящим мальчиком.",
+   "source": "ai",
+   "origin": "manual",
+   "added_date": "2026-09-19T21:00:00+03:00",
+   "updated_date": "2026-09-19T21:00:00+03:00"
+  },
+  {
+   "key": "ai-guillermo-del-toros-pinocchio-2022",
+   "title_en": "Pinocchio",
+   "title_ru": "Пиноккио",
+   "year": 2022,
+   "type": "animation",
+   "genres": [
+    "Fantasy",
+    "Drama",
+    "Family",
+    "Musical"
+   ],
+   "status": "unwatched",
+   "length": 117,
+   "age_rating": 12,
+   "premiere_date": "2022-10-15",
+   "description": "Кукольный мультфильм Гильермо дель Торо: Пиноккио оживает в фашистской Италии.",
+   "source": "ai",
+   "origin": "manual",
+   "added_date": "2026-09-20T21:00:00+03:00",
+   "updated_date": "2026-09-20T21:00:00+03:00"
+  }
+ ]
+}</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.detect.dictionary</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>UUID</key>
+				<string>FB8D2085-7EFB-4278-8054-EF73BAE3D662</string>
+				<key>WFInput</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>OutputName</key>
+						<string>Text</string>
+						<key>OutputUUID</key>
+						<string>28DEB59F-DA9C-47AE-9A59-9F02E813248D</string>
+						<key>Type</key>
+						<string>ActionOutput</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenAttachment</string>
+				</dict>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.getvalueforkey</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>UUID</key>
+				<string>A53A1497-D8F3-4DB6-8104-9C4F9E87E26E</string>
+				<key>WFDictionaryKey</key>
+				<string>items</string>
+				<key>WFInput</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>OutputName</key>
+						<string>Dictionary</string>
+						<key>OutputUUID</key>
+						<string>FB8D2085-7EFB-4278-8054-EF73BAE3D662</string>
+						<key>Type</key>
+						<string>ActionOutput</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenAttachment</string>
+				</dict>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.setvariable</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFInput</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>OutputName</key>
+						<string>Dictionary Value</string>
+						<key>OutputUUID</key>
+						<string>A53A1497-D8F3-4DB6-8104-9C4F9E87E26E</string>
+						<key>Type</key>
+						<string>ActionOutput</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenAttachment</string>
+				</dict>
+				<key>WFVariableName</key>
+				<string>seed</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.repeat.each</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>71497266-B3D3-4196-A164-9E4C9761E343</string>
+				<key>WFControlFlowMode</key>
+				<integer>0</integer>
+				<key>WFInput</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>Type</key>
+						<string>Variable</string>
+						<key>VariableName</key>
+						<string>seed</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenAttachment</string>
+				</dict>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.getvalueforkey</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>UUID</key>
+				<string>01E80975-564A-48C1-97A7-3BAEFC863842</string>
+				<key>WFDictionaryKey</key>
+				<string>key</string>
+				<key>WFInput</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>Type</key>
+						<string>Variable</string>
+						<key>VariableName</key>
+						<string>Repeat Item</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenAttachment</string>
+				</dict>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.setvariable</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFInput</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>OutputName</key>
+						<string>Dictionary Value</string>
+						<key>OutputUUID</key>
+						<string>01E80975-564A-48C1-97A7-3BAEFC863842</string>
+						<key>Type</key>
+						<string>ActionOutput</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenAttachment</string>
+				</dict>
+				<key>WFVariableName</key>
+				<string>k</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>dk.simonbs.DataJar.CheckIfValueExistsIntent</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>UUID</key>
+				<string>34128221-E12C-4B11-A5F1-9EFB60F0C36A</string>
+				<key>keyPath</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>attachmentsByRange</key>
+						<dict>
+							<key>{13, 1}</key>
+							<dict>
+								<key>Type</key>
+								<string>Variable</string>
+								<key>VariableName</key>
+								<string>k</string>
+							</dict>
+						</dict>
+						<key>string</key>
+						<string>movies.items.￼</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenString</string>
+				</dict>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.conditional</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>45340119-90B2-411E-A85F-84742554A3E8</string>
+				<key>WFCondition</key>
+				<integer>4</integer>
+				<key>WFConditionalActionBoolean</key>
+				<integer>1</integer>
+				<key>WFControlFlowMode</key>
+				<integer>0</integer>
+				<key>WFInput</key>
+				<dict>
+					<key>Type</key>
+					<string>Variable</string>
+					<key>Variable</key>
+					<dict>
+						<key>Value</key>
+						<dict>
+							<key>Aggrandizements</key>
+							<array>
+								<dict>
+									<key>CoercionItemClass</key>
+									<string>WFBooleanContentItem</string>
+									<key>Type</key>
+									<string>WFCoercionVariableAggrandizement</string>
+								</dict>
+							</array>
+							<key>OutputName</key>
+							<string>Value Exists</string>
+							<key>OutputUUID</key>
+							<string>34128221-E12C-4B11-A5F1-9EFB60F0C36A</string>
+							<key>Type</key>
+							<string>ActionOutput</string>
+						</dict>
+						<key>WFSerializationType</key>
+						<string>WFTextTokenAttachment</string>
+					</dict>
+				</dict>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.comment</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFCommentActionText</key>
+				<string>уже есть (живая запись или прошлый прогон) — не перезаписывать, в seed_keys не добавлять</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.appendvariable</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFInput</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>Type</key>
+						<string>Variable</string>
+						<key>VariableName</key>
+						<string>k</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenAttachment</string>
+				</dict>
+				<key>WFVariableName</key>
+				<string>skipped</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.conditional</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>45340119-90B2-411E-A85F-84742554A3E8</string>
+				<key>WFControlFlowMode</key>
+				<integer>1</integer>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>dk.simonbs.DataJar.SetValueIntent</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>UUID</key>
+				<string>D0973CC9-0BDA-4680-B377-A64AE2F6D3BF</string>
+				<key>keyPath</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>attachmentsByRange</key>
+						<dict>
+							<key>{13, 1}</key>
+							<dict>
+								<key>Type</key>
+								<string>Variable</string>
+								<key>VariableName</key>
+								<string>k</string>
+							</dict>
+						</dict>
+						<key>string</key>
+						<string>movies.items.￼</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenString</string>
+				</dict>
+				<key>values</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>Type</key>
+						<string>Variable</string>
+						<key>VariableName</key>
+						<string>Repeat Item</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenAttachment</string>
+				</dict>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.appendvariable</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFInput</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>Type</key>
+						<string>Variable</string>
+						<key>VariableName</key>
+						<string>k</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenAttachment</string>
+				</dict>
+				<key>WFVariableName</key>
+				<string>added</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.conditional</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>45340119-90B2-411E-A85F-84742554A3E8</string>
+				<key>UUID</key>
+				<string>F1ABA8B3-EF14-4995-9DFC-D0D7823DE0E9</string>
+				<key>WFControlFlowMode</key>
+				<integer>2</integer>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.repeat.each</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>71497266-B3D3-4196-A164-9E4C9761E343</string>
+				<key>UUID</key>
+				<string>90C44B51-300B-446F-AB98-31DCEB62EBB4</string>
+				<key>WFControlFlowMode</key>
+				<integer>2</integer>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.comment</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFCommentActionText</key>
+				<string>seed_keys = старый список + добавленные (пустое в Data Jar не писать)</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.conditional</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>8D1179F2-8291-438D-9028-BE21A3CD00C9</string>
+				<key>WFCondition</key>
+				<integer>100</integer>
+				<key>WFControlFlowMode</key>
+				<integer>0</integer>
+				<key>WFInput</key>
+				<dict>
+					<key>Type</key>
+					<string>Variable</string>
+					<key>Variable</key>
+					<dict>
+						<key>Value</key>
+						<dict>
+							<key>Type</key>
+							<string>Variable</string>
+							<key>VariableName</key>
+							<string>added</string>
+						</dict>
+						<key>WFSerializationType</key>
+						<string>WFTextTokenAttachment</string>
+					</dict>
+				</dict>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>dk.simonbs.DataJar.CheckIfValueExistsIntent</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>UUID</key>
+				<string>379F190E-A7A2-419C-94AE-0F401BEC07FD</string>
+				<key>keyPath</key>
+				<string>movies.seed_keys</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.conditional</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>05B8BDDB-E0DA-45C4-91DB-10CC828FF85F</string>
+				<key>WFCondition</key>
+				<integer>4</integer>
+				<key>WFConditionalActionBoolean</key>
+				<integer>1</integer>
+				<key>WFControlFlowMode</key>
+				<integer>0</integer>
+				<key>WFInput</key>
+				<dict>
+					<key>Type</key>
+					<string>Variable</string>
+					<key>Variable</key>
+					<dict>
+						<key>Value</key>
+						<dict>
+							<key>Aggrandizements</key>
+							<array>
+								<dict>
+									<key>CoercionItemClass</key>
+									<string>WFBooleanContentItem</string>
+									<key>Type</key>
+									<string>WFCoercionVariableAggrandizement</string>
+								</dict>
+							</array>
+							<key>OutputName</key>
+							<string>Value Exists</string>
+							<key>OutputUUID</key>
+							<string>379F190E-A7A2-419C-94AE-0F401BEC07FD</string>
+							<key>Type</key>
+							<string>ActionOutput</string>
+						</dict>
+						<key>WFSerializationType</key>
+						<string>WFTextTokenAttachment</string>
+					</dict>
+				</dict>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>dk.simonbs.DataJar.GetValueIntent</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>UUID</key>
+				<string>7FA0005F-9DFA-46D5-B139-64CBF0A88A16</string>
+				<key>keyPath</key>
+				<string>movies.seed_keys</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.repeat.each</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>7856550C-83EF-49AE-8CB3-9BFC40D4292D</string>
+				<key>WFControlFlowMode</key>
+				<integer>0</integer>
+				<key>WFInput</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>OutputName</key>
+						<string>Value</string>
+						<key>OutputUUID</key>
+						<string>7FA0005F-9DFA-46D5-B139-64CBF0A88A16</string>
+						<key>Type</key>
+						<string>ActionOutput</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenAttachment</string>
+				</dict>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.appendvariable</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFInput</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>Type</key>
+						<string>Variable</string>
+						<key>VariableName</key>
+						<string>Repeat Item</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenAttachment</string>
+				</dict>
+				<key>WFVariableName</key>
+				<string>allKeys</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.repeat.each</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>7856550C-83EF-49AE-8CB3-9BFC40D4292D</string>
+				<key>UUID</key>
+				<string>CBA857CF-81AB-4DE8-ADB5-BC7C66E0BC66</string>
+				<key>WFControlFlowMode</key>
+				<integer>2</integer>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.conditional</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>05B8BDDB-E0DA-45C4-91DB-10CC828FF85F</string>
+				<key>UUID</key>
+				<string>469B31FC-6581-472A-80A9-0AB7FB4A75AC</string>
+				<key>WFControlFlowMode</key>
+				<integer>2</integer>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.repeat.each</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>9CB0B67B-2A53-4AE5-ABE7-6FDA3D37D573</string>
+				<key>WFControlFlowMode</key>
+				<integer>0</integer>
+				<key>WFInput</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>Type</key>
+						<string>Variable</string>
+						<key>VariableName</key>
+						<string>added</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenAttachment</string>
+				</dict>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.appendvariable</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFInput</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>Type</key>
+						<string>Variable</string>
+						<key>VariableName</key>
+						<string>Repeat Item</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenAttachment</string>
+				</dict>
+				<key>WFVariableName</key>
+				<string>allKeys</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.repeat.each</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>9CB0B67B-2A53-4AE5-ABE7-6FDA3D37D573</string>
+				<key>UUID</key>
+				<string>6F2402FB-B85A-41FE-B209-624BB133FDFE</string>
+				<key>WFControlFlowMode</key>
+				<integer>2</integer>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>dk.simonbs.DataJar.SetValueIntent</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>UUID</key>
+				<string>E51E2146-26B6-45C0-81A3-BA798E6E5CC1</string>
+				<key>keyPath</key>
+				<string>movies.seed_keys</string>
+				<key>values</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>Type</key>
+						<string>Variable</string>
+						<key>VariableName</key>
+						<string>allKeys</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenAttachment</string>
+				</dict>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.conditional</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>8D1179F2-8291-438D-9028-BE21A3CD00C9</string>
+				<key>UUID</key>
+				<string>00208B28-5705-4BCF-A891-5856C3D202DD</string>
+				<key>WFControlFlowMode</key>
+				<integer>2</integer>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.count</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>Input</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>Type</key>
+						<string>Variable</string>
+						<key>VariableName</key>
+						<string>added</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenAttachment</string>
+				</dict>
+				<key>UUID</key>
+				<string>27C8F426-FBF6-4614-9511-34CD45F516CD</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.setvariable</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFInput</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>OutputName</key>
+						<string>Count</string>
+						<key>OutputUUID</key>
+						<string>27C8F426-FBF6-4614-9511-34CD45F516CD</string>
+						<key>Type</key>
+						<string>ActionOutput</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenAttachment</string>
+				</dict>
+				<key>WFVariableName</key>
+				<string>nAdded</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.count</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>Input</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>Type</key>
+						<string>Variable</string>
+						<key>VariableName</key>
+						<string>skipped</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenAttachment</string>
+				</dict>
+				<key>UUID</key>
+				<string>69AB20DB-3FA4-4827-9435-299399CD1996</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.notification</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>UUID</key>
+				<string>47E17668-A609-42CB-AC3F-16F47DCE1BC5</string>
+				<key>WFNotificationActionBody</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>attachmentsByRange</key>
+						<dict>
+							<key>{11, 1}</key>
+							<dict>
+								<key>Type</key>
+								<string>Variable</string>
+								<key>VariableName</key>
+								<string>nAdded</string>
+							</dict>
+							<key>{25, 1}</key>
+							<dict>
+								<key>OutputName</key>
+								<string>Count</string>
+								<key>OutputUUID</key>
+								<string>69AB20DB-3FA4-4827-9435-299399CD1996</string>
+								<key>Type</key>
+								<string>ActionOutput</string>
+							</dict>
+						</dict>
+						<key>string</key>
+						<string>Добавлено: ￼, пропущено: ￼</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenString</string>
+				</dict>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.choosefrommenu</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>B319F0FF-ABC8-4A3C-82D6-FE59378E1D72</string>
+				<key>WFControlFlowMode</key>
+				<integer>1</integer>
+				<key>WFMenuItemTitle</key>
+				<string>Удалить тестовые</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.comment</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFCommentActionText</key>
+				<string>Удалить: только ключи из movies.seed_keys</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>dk.simonbs.DataJar.CheckIfValueExistsIntent</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>UUID</key>
+				<string>51BC2763-17E1-4075-A9AD-1F45842EAA5C</string>
+				<key>keyPath</key>
+				<string>movies.seed_keys</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.conditional</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>2A328367-1651-4D99-9172-01729C029042</string>
+				<key>WFCondition</key>
+				<integer>4</integer>
+				<key>WFConditionalActionBoolean</key>
+				<integer>1</integer>
+				<key>WFControlFlowMode</key>
+				<integer>0</integer>
+				<key>WFInput</key>
+				<dict>
+					<key>Type</key>
+					<string>Variable</string>
+					<key>Variable</key>
+					<dict>
+						<key>Value</key>
+						<dict>
+							<key>Aggrandizements</key>
+							<array>
+								<dict>
+									<key>CoercionItemClass</key>
+									<string>WFBooleanContentItem</string>
+									<key>Type</key>
+									<string>WFCoercionVariableAggrandizement</string>
+								</dict>
+							</array>
+							<key>OutputName</key>
+							<string>Value Exists</string>
+							<key>OutputUUID</key>
+							<string>51BC2763-17E1-4075-A9AD-1F45842EAA5C</string>
+							<key>Type</key>
+							<string>ActionOutput</string>
+						</dict>
+						<key>WFSerializationType</key>
+						<string>WFTextTokenAttachment</string>
+					</dict>
+				</dict>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>dk.simonbs.DataJar.GetValueIntent</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>UUID</key>
+				<string>B1B758E6-52E2-4873-BDBF-81FB43C41F06</string>
+				<key>keyPath</key>
+				<string>movies.seed_keys</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.repeat.each</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>29A52BA5-223C-40DB-99AF-8FB6370B05AE</string>
+				<key>WFControlFlowMode</key>
+				<integer>0</integer>
+				<key>WFInput</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>OutputName</key>
+						<string>Value</string>
+						<key>OutputUUID</key>
+						<string>B1B758E6-52E2-4873-BDBF-81FB43C41F06</string>
+						<key>Type</key>
+						<string>ActionOutput</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenAttachment</string>
+				</dict>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.gettext</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>UUID</key>
+				<string>A313AB4B-918B-45D4-B484-E815CC8F4997</string>
+				<key>WFTextActionText</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>attachmentsByRange</key>
+						<dict>
+							<key>{0, 1}</key>
+							<dict>
+								<key>Type</key>
+								<string>Variable</string>
+								<key>VariableName</key>
+								<string>Repeat Item</string>
+							</dict>
+						</dict>
+						<key>string</key>
+						<string>￼</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenString</string>
+				</dict>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.setvariable</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFInput</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>OutputName</key>
+						<string>Text</string>
+						<key>OutputUUID</key>
+						<string>A313AB4B-918B-45D4-B484-E815CC8F4997</string>
+						<key>Type</key>
+						<string>ActionOutput</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenAttachment</string>
+				</dict>
+				<key>WFVariableName</key>
+				<string>k</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>dk.simonbs.DataJar.CheckIfValueExistsIntent</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>UUID</key>
+				<string>824C748E-5F0A-4CAD-8B3C-913CEB38035B</string>
+				<key>keyPath</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>attachmentsByRange</key>
+						<dict>
+							<key>{13, 1}</key>
+							<dict>
+								<key>Type</key>
+								<string>Variable</string>
+								<key>VariableName</key>
+								<string>k</string>
+							</dict>
+						</dict>
+						<key>string</key>
+						<string>movies.items.￼</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenString</string>
+				</dict>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.conditional</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>9808E17B-025A-43E6-8842-077CD4FA7A1A</string>
+				<key>WFCondition</key>
+				<integer>4</integer>
+				<key>WFConditionalActionBoolean</key>
+				<integer>1</integer>
+				<key>WFControlFlowMode</key>
+				<integer>0</integer>
+				<key>WFInput</key>
+				<dict>
+					<key>Type</key>
+					<string>Variable</string>
+					<key>Variable</key>
+					<dict>
+						<key>Value</key>
+						<dict>
+							<key>Aggrandizements</key>
+							<array>
+								<dict>
+									<key>CoercionItemClass</key>
+									<string>WFBooleanContentItem</string>
+									<key>Type</key>
+									<string>WFCoercionVariableAggrandizement</string>
+								</dict>
+							</array>
+							<key>OutputName</key>
+							<string>Value Exists</string>
+							<key>OutputUUID</key>
+							<string>824C748E-5F0A-4CAD-8B3C-913CEB38035B</string>
+							<key>Type</key>
+							<string>ActionOutput</string>
+						</dict>
+						<key>WFSerializationType</key>
+						<string>WFTextTokenAttachment</string>
+					</dict>
+				</dict>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>dk.simonbs.DataJar.DeleteValueIntent</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>UUID</key>
+				<string>7FF0DFCB-C66D-4A91-9576-96E1FABFFD80</string>
+				<key>deleteStrategy</key>
+				<string>alwaysAllow</string>
+				<key>keyPath</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>attachmentsByRange</key>
+						<dict>
+							<key>{13, 1}</key>
+							<dict>
+								<key>Type</key>
+								<string>Variable</string>
+								<key>VariableName</key>
+								<string>k</string>
+							</dict>
+						</dict>
+						<key>string</key>
+						<string>movies.items.￼</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenString</string>
+				</dict>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.appendvariable</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>WFInput</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>Type</key>
+						<string>Variable</string>
+						<key>VariableName</key>
+						<string>k</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenAttachment</string>
+				</dict>
+				<key>WFVariableName</key>
+				<string>deleted</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.conditional</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>9808E17B-025A-43E6-8842-077CD4FA7A1A</string>
+				<key>UUID</key>
+				<string>F42AF7F2-75EF-4B4D-968A-D8A6C3A4DE5F</string>
+				<key>WFControlFlowMode</key>
+				<integer>2</integer>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.repeat.each</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>29A52BA5-223C-40DB-99AF-8FB6370B05AE</string>
+				<key>UUID</key>
+				<string>0A13BC68-BFEF-454A-BF99-D62F115ACDD4</string>
+				<key>WFControlFlowMode</key>
+				<integer>2</integer>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>dk.simonbs.DataJar.DeleteValueIntent</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>UUID</key>
+				<string>8A48E4C3-4A7A-4148-84DB-AE68DACBA43F</string>
+				<key>deleteStrategy</key>
+				<string>alwaysAllow</string>
+				<key>keyPath</key>
+				<string>movies.seed_keys</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.count</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>Input</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>Type</key>
+						<string>Variable</string>
+						<key>VariableName</key>
+						<string>deleted</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenAttachment</string>
+				</dict>
+				<key>UUID</key>
+				<string>170B16CA-06E5-4D7D-A7FE-33A5F3F3343D</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.notification</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>UUID</key>
+				<string>A4DD2210-1BF0-4992-BE82-5F0496940249</string>
+				<key>WFNotificationActionBody</key>
+				<dict>
+					<key>Value</key>
+					<dict>
+						<key>attachmentsByRange</key>
+						<dict>
+							<key>{9, 1}</key>
+							<dict>
+								<key>OutputName</key>
+								<string>Count</string>
+								<key>OutputUUID</key>
+								<string>170B16CA-06E5-4D7D-A7FE-33A5F3F3343D</string>
+								<key>Type</key>
+								<string>ActionOutput</string>
+							</dict>
+						</dict>
+						<key>string</key>
+						<string>Удалено: ￼</string>
+					</dict>
+					<key>WFSerializationType</key>
+					<string>WFTextTokenString</string>
+				</dict>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.conditional</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>2A328367-1651-4D99-9172-01729C029042</string>
+				<key>WFControlFlowMode</key>
+				<integer>1</integer>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.notification</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>UUID</key>
+				<string>C48FF964-E0C9-4E24-A7CF-8C6DF92F28DE</string>
+				<key>WFNotificationActionBody</key>
+				<string>Тестовых записей нет</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.conditional</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>2A328367-1651-4D99-9172-01729C029042</string>
+				<key>UUID</key>
+				<string>239765C9-0E11-462A-94E0-1962EF8A7257</string>
+				<key>WFControlFlowMode</key>
+				<integer>2</integer>
+			</dict>
+		</dict>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.choosefrommenu</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>GroupingIdentifier</key>
+				<string>B319F0FF-ABC8-4A3C-82D6-FE59378E1D72</string>
+				<key>UUID</key>
+				<string>98231BB5-8E8D-49E8-A66C-14BD3EB67303</string>
+				<key>WFControlFlowMode</key>
+				<integer>2</integer>
+			</dict>
+		</dict>
+	</array>
+	<key>WFWorkflowClientVersion</key>
+	<string>5037.111</string>
+	<key>WFWorkflowHasOutputFallback</key>
+	<false/>
+	<key>WFWorkflowHasShortcutInputVariables</key>
+	<false/>
+	<key>WFWorkflowIcon</key>
+	<dict>
+		<key>WFWorkflowIconGlyphNumber</key>
+		<integer>59686</integer>
+		<key>WFWorkflowIconStartColor</key>
+		<integer>255</integer>
+	</dict>
+	<key>WFWorkflowImportQuestions</key>
+	<array/>
+	<key>WFWorkflowInputContentItemClasses</key>
+	<array>
+		<string>WFAppContentItem</string>
+		<string>WFAppStoreAppContentItem</string>
+		<string>WFArticleContentItem</string>
+		<string>WFContactContentItem</string>
+		<string>WFDateContentItem</string>
+		<string>WFEmailAddressContentItem</string>
+		<string>WFFolderContentItem</string>
+		<string>WFGenericFileContentItem</string>
+		<string>WFImageContentItem</string>
+		<string>WFiTunesProductContentItem</string>
+		<string>WFLocationContentItem</string>
+		<string>WFDCMapsLinkContentItem</string>
+		<string>WFAVAssetContentItem</string>
+		<string>WFPDFContentItem</string>
+		<string>WFPhoneNumberContentItem</string>
+		<string>WFRichTextContentItem</string>
+		<string>WFSafariWebPageContentItem</string>
+		<string>WFStringContentItem</string>
+		<string>WFURLContentItem</string>
+	</array>
+	<key>WFWorkflowMinimumClientVersion</key>
+	<integer>5023</integer>
+	<key>WFWorkflowMinimumClientVersionString</key>
+	<string>5023</string>
+	<key>WFWorkflowOutputContentItemClasses</key>
+	<array/>
+	<key>WFWorkflowTypes</key>
+	<array>
+		<string>WFWorkflowTypeShowInSearch</string>
+	</array>
+</dict>
+</plist>
