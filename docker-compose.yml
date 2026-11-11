@@ -1,0 +1,43 @@
+# Release build + install on the TV:
+#   docker compose run --rm tv-release
+# `run` starts depends_on services and waits for service_completed_successfully.
+services:
+  release-build:
+    image: videogallery-build
+    build: ./docker
+    working_dir: /work
+    volumes:
+      - .:/work
+      - videogallery-gradle-cache:/root/.gradle
+      # Holds debug.keystore; release is signed with the debug key
+      - videogallery-android-home:/root/.android
+    command: ./gradlew assembleRelease
+
+  tv-release:
+    image: videogallery-build
+    depends_on:
+      release-build:
+        condition: service_completed_successfully
+    working_dir: /work
+    environment:
+      TV_ADDR: ${TV_ADDR:-192.168.0.186:5555}
+    volumes:
+      - .:/work:ro
+      # adb keys already authorized on the TV
+      - videogallery-adb-keys:/root/.android
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        set -e
+        adb connect "$$TV_ADDR"
+        timeout 30 adb -s "$$TV_ADDR" wait-for-device
+        adb -s "$$TV_ADDR" install -r app/build/outputs/apk/release/app-release.apk
+        adb -s "$$TV_ADDR" shell monkey -p dev.gamspi.videogallery -c android.intent.category.LEANBACK_LAUNCHER 1
+
+volumes:
+  videogallery-gradle-cache:
+    external: true
+  videogallery-android-home:
+    external: true
+  videogallery-adb-keys:
+    external: true

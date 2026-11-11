@@ -24,3 +24,16 @@ docker build -t videogallery-build docker
 Нативные выходы и лицензии: `decoder-ffmpeg/build/generated/ffmpeg`. Состав, ссылки на исходники и порядок замены shared-библиотек — [NOTICE](../decoder-ffmpeg/NOTICE.md). При изменении версии Media3 также нужно обновить закреплённые исходники расширения.
 
 Текущий APK содержит JNI только для `armeabi-v7a`. Результаты тестов: `app/build/test-results/testDebugUnitTest/`; подробные команды, ограничения и приёмка — в [TESTING](../docs/TESTING.md).
+
+## Релиз на ТВ
+
+Одна команда собирает release APK и ставит его на ТВ с запуском:
+
+```text
+docker compose run --rm tv-release
+```
+
+- Сначала `release-build` выполняет `./gradlew assembleRelease`, затем `tv-release` делает `adb connect`, `install -r` и запускает приложение.
+- Адрес ТВ по умолчанию `192.168.0.186:5555`; другой задаётся так: `TV_ADDR=192.168.0.50:5555 docker compose run --rm tv-release`.
+- ТВ должен один раз принять adb-ключ; ключи лежат в томе `videogallery-adb-keys`.
+- Release подписывается debug-ключом из тома `videogallery-android-home`, поэтому ставится поверх debug без потери данных.
