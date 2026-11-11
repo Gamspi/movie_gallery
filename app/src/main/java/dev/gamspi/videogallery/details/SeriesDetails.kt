@@ -38,10 +38,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Border
 import androidx.tv.material3.Card
@@ -67,6 +69,18 @@ import dev.gamspi.videogallery.watchlist.EpisodeMarkDialog
 private val EpisodeShape = RoundedCornerShape(8.dp)
 private val EpisodeFocusBorder = Border(BorderStroke(3.dp, AppColors.Accent), shape = EpisodeShape)
 private val EpisodeWidth = 200.dp
+private val ScreenPadding = 48.dp
+
+/** Lets a scrolling row extend [bleed] past the parent padding on both sides; layout size stays unchanged. */
+private fun Modifier.bleedHorizontal(bleed: Dp): Modifier = layout { measurable, constraints ->
+    val b = bleed.roundToPx()
+    val widened = if (constraints.hasBoundedWidth) {
+        constraints.copy(minWidth = constraints.minWidth + 2 * b, maxWidth = constraints.maxWidth + 2 * b)
+    } else constraints
+    val placeable = measurable.measure(widened)
+    val shift = if (constraints.hasBoundedWidth) b else 0
+    layout((placeable.width - 2 * shift).coerceAtLeast(0), placeable.height) { placeable.place(-shift, 0) }
+}
 
 internal fun episodeCode(ref: EpisodeRef): String = "S%02dE%02d".format(ref.season, ref.episode)
 
@@ -171,7 +185,7 @@ internal fun SeriesDetailsContent(
         }
         Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.75f)))
         Column(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 48.dp, vertical = 32.dp),
+            modifier = Modifier.fillMaxSize().padding(horizontal = ScreenPadding, vertical = 32.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(24.dp), modifier = Modifier.fillMaxWidth()) {
@@ -241,7 +255,10 @@ internal fun SeriesDetailsContent(
             val tabsDown = if (c.episodesError != null) retryFocus else firstTarget
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                modifier = Modifier
+                    .bleedHorizontal(ScreenPadding)
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = ScreenPadding, vertical = 6.dp),
             ) {
                 c.seasons.forEach { info ->
                     AccentButton(
@@ -271,7 +288,10 @@ internal fun SeriesDetailsContent(
                 }
                 else -> Row(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 6.dp),
+                    modifier = Modifier
+                        .bleedHorizontal(ScreenPadding)
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = ScreenPadding, vertical = 6.dp),
                 ) {
                     c.episodes.forEach { ep ->
                         val ref = EpisodeRef(ep.season, ep.number)

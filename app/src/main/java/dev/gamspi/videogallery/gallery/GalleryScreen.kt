@@ -1,5 +1,8 @@
 package dev.gamspi.videogallery.gallery
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.BringIntoViewSpec
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -32,7 +36,9 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -100,20 +106,27 @@ fun GalleryScreen(
         }
     }
     val showRail = !(state is GalleryUiState.Loading && (state as GalleryUiState.Loading).initial)
+    val railInset = if (showRail) RailCollapsedWidth else 0.dp
+    // Card rows run under the rail and fade into its scrim; other views keep the rail inset.
+    val savedList = (state as? GalleryUiState.Content)?.tab.let { it == HomeTab.Watchlist || it == HomeTab.Watched }
+    val rowsUnderRail = state !is GalleryUiState.Error && !savedList
     Box(Modifier.fillMaxSize()) {
-        Box(Modifier.fillMaxSize().padding(start = if (showRail) RailCollapsedWidth else 0.dp)) {
+        Box(Modifier.fillMaxSize()) {
             when (val s = state) {
                 is GalleryUiState.Loading ->
-                    if (s.initial) FullScreenLoader() else GallerySkeleton()
-                is GalleryUiState.Error ->
+                    if (s.initial) FullScreenLoader() else GallerySkeleton(railInset)
+                is GalleryUiState.Error -> Box(Modifier.fillMaxSize().padding(start = railInset)) {
                     ErrorView(s.kind, onRetry = viewModel::retry, onOpenKeySettings = onOpenKeySettings, onOpenSettings = onOpenSettings)
+                }
                 is GalleryUiState.Content -> key(s.tab) {
                     if (s.tab == HomeTab.Watchlist || s.tab == HomeTab.Watched) {
-                        SavedListContent(listSnapshot, s.tab == HomeTab.Watched, listError, railEntry, railLinks,
-                            { viewModel.openSaved(it, onOpenSaved) }, { row, field, value -> viewModel.changeList(row, field, value); Unit }, viewModel::rateSaved)
+                        Box(Modifier.fillMaxSize().padding(start = railInset)) {
+                            SavedListContent(listSnapshot, s.tab == HomeTab.Watched, listError, railEntry, railLinks,
+                                { viewModel.openSaved(it, onOpenSaved) }, { row, field, value -> viewModel.changeList(row, field, value); Unit }, viewModel::rateSaved)
+                        }
                     } else {
                     GalleryContent(s, if (s.tab == HomeTab.ForYou) emptyList() else visibleHistory,
-                        memory, railEntry, railLinks, if (showRail) RailCollapsedWidth else 0.dp,
+                        memory, railEntry, railLinks, railInset,
                         onOpenMovie, onContinue, onOpenSearch, onOpenSettings, { menuMovie = it }, menuMovie != null)
                     }
                 }
@@ -135,6 +148,7 @@ fun GalleryScreen(
                 entry = railEntry,
                 links = railLinks,
                 modifier = Modifier.align(Alignment.CenterStart),
+                collapsedScrim = rowsUnderRail,
             )
         }
     }
@@ -142,10 +156,10 @@ fun GalleryScreen(
 
 // Reload placeholder: row titles and card skeletons.
 @Composable
-private fun GallerySkeleton() {
+private fun GallerySkeleton(railInset: Dp) {
     ShimmerHost {
         Column(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 48.dp, vertical = 24.dp),
+            modifier = Modifier.fillMaxSize().padding(start = contentStart(railInset), end = RowInset, top = 24.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             repeat(3) {
@@ -192,6 +206,34 @@ private class RestoreTarget(var wanted: CardKey?, var active: Boolean) {
         active && target.let { it != null && it.row == rowKey && it.movieId == id }
 }
 
+/** Horizontal inset of row titles and cards, measured from the rail edge. */
+private val RowInset = 48.dp
+
+/** Start of cards, row titles and header: just past the collapsed rail, or the plain inset without it. */
+internal fun contentStart(railInset: Dp): Dp = if (railInset > 0.dp) railInset + RailGap else RowInset
+
+/**
+ * Keeps a focused card inside the row window [start, size - end], so it never settles under the rail scrim.
+ * Same minimal-scroll rule as the default spec, applied to the narrowed window.
+ */
+internal fun insetScrollDistance(offset: Float, size: Float, containerSize: Float, start: Float, end: Float): Float {
+    val lead = offset - start
+    val window = containerSize - start - end
+    val trail = lead + size - window
+    return when {
+        lead >= 0f && trail <= 0f -> 0f
+        lead < 0f && trail > 0f -> 0f
+        kotlin.math.abs(lead) < kotlin.math.abs(trail) -> lead
+        else -> trail
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+private class InsetBringIntoViewSpec(private val start: Float, private val end: Float) : BringIntoViewSpec {
+    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float =
+        insetScrollDistance(offset, size, containerSize, start, end)
+}
+
 /** Card identity within a row: TMDB movie and series ids can collide, so series ids get a high bit. */
 private fun Movie.cardId(): Int = if (kind == MediaKind.Series) id or SERIES_ID_BIT else id
 
@@ -203,6 +245,7 @@ private fun slotCard(slot: String) = CardKey(slot.substringBeforeLast('|'), slot
 /** One displayed row: the continue row or a catalog row. */
 private class DisplayRow(val key: String, val title: String, val movies: List<Movie>)
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun GalleryContent(
     content: GalleryUiState.Content,
@@ -281,6 +324,14 @@ private fun GalleryContent(
         onDispose { railLinks.enter = { FocusRequester.Default } }
     }
 
+    val rowStart = contentStart(railInset)
+    val density = LocalDensity.current
+    val rowSpec = remember(density, rowStart) {
+        with(density) { InsetBringIntoViewSpec(rowStart.toPx(), RowInset.toPx()) }
+    }
+    // The scrim starts below the header; reset when the header scrolls away or the content leaves.
+    DisposableEffect(railLinks) { onDispose { railLinks.scrimTop = 0f } }
+
     ShimmerHost {
     LazyColumn(
         state = listState,
@@ -289,21 +340,13 @@ private fun GalleryContent(
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         item {
+            DisposableEffect(Unit) { onDispose { railLinks.scrimTop = 0f } }
             Row(
                 modifier = Modifier
-                    // Header ignores the rail inset: widen by it and shift back left.
-                    .layout { measurable, constraints ->
-                        val extra = railInset.roundToPx()
-                        val p = measurable.measure(
-                            constraints.copy(
-                                minWidth = constraints.minWidth + extra,
-                                maxWidth = constraints.maxWidth + extra,
-                            ),
-                        )
-                        layout(constraints.maxWidth, p.height) { p.place(-extra, 0) }
-                    }
+                    // Header ignores the rail inset and stays above the scrim.
+                    .onGloballyPositioned { railLinks.scrimTop = it.boundsInRoot().bottom }
                     .fillMaxWidth()
-                    .padding(horizontal = 48.dp),
+                    .padding(start = rowStart, end = RowInset),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Row(
@@ -328,7 +371,7 @@ private fun GalleryContent(
             }
         }
         if (content.tab == HomeTab.ForYou && rows.isEmpty()) item {
-            Column(Modifier.padding(horizontal = 48.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(Modifier.padding(start = rowStart, end = RowInset), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text("Для вас", style = MaterialTheme.typography.titleLarge)
                 Text("Оцените пару фильмов — здесь появятся похожие", style = MaterialTheme.typography.bodyLarge)
             }
@@ -342,11 +385,13 @@ private fun GalleryContent(
                 Text(
                     row.title,
                     style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.padding(horizontal = 48.dp),
+                    modifier = Modifier.padding(start = rowStart, end = RowInset),
                 )
+                // Full-width row: cards scroll under the rail; the start padding keeps them clear of it at rest.
+                CompositionLocalProvider(LocalBringIntoViewSpec provides rowSpec) {
                 LazyRow(
                     state = rowState,
-                    contentPadding = PaddingValues(horizontal = 48.dp, vertical = 12.dp),
+                    contentPadding = PaddingValues(start = rowStart, end = RowInset, top = 12.dp, bottom = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     itemsIndexed(row.movies, key = { _, m -> m.cardId() }) { index, movie ->
@@ -391,6 +436,7 @@ private fun GalleryContent(
                             caption = entry?.episodeCaption(),
                             onLongClick = remember(movie) { if (movie.id > 0) { { cardMenu(movie) } } else null })
                     }
+                }
                 }
             }
         }
