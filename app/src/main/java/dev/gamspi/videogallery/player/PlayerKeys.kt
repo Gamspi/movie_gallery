@@ -3,7 +3,7 @@ package dev.gamspi.videogallery.player
 enum class RemoteKey { Center, PlayPause, Left, Right, Up, Down, Back }
 
 /** Where remote focus currently lives; decides who owns each key. */
-enum class PlayerFocus { None, Track, Buttons, MenuSections, MenuSection }
+enum class PlayerFocus { None, Track, Buttons, MenuSections, MenuSection, MenuLayer }
 
 sealed interface PlayerCommand {
     data object TogglePlay : PlayerCommand
@@ -15,6 +15,10 @@ sealed interface PlayerCommand {
     data object HidePanel : PlayerCommand
     data object OpenMenuSection : PlayerCommand
     data object BackToSections : PlayerCommand
+
+    /** A subtitle layer screen inside «Субтитры»; Back returns to the layer list. */
+    data object OpenMenuLayer : PlayerCommand
+    data object BackToLayers : PlayerCommand
     data object CloseMenu : PlayerCommand
     data object Exit : PlayerCommand
 
@@ -64,6 +68,8 @@ fun handleKey(
             if (key == RemoteKey.Back) PlayerCommand.CloseMenu else PlayerCommand.PassToFocus
         PlayerFocus.MenuSection ->
             if (key == RemoteKey.Back) PlayerCommand.BackToSections else PlayerCommand.PassToFocus
+        PlayerFocus.MenuLayer ->
+            if (key == RemoteKey.Back) PlayerCommand.BackToLayers else PlayerCommand.PassToFocus
     }
 }
 

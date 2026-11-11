@@ -83,6 +83,19 @@ fun layerOptions(
     }
 }
 
+/** Short label of the layer's current source for the «Субтитры» list row. */
+fun currentOptionLabel(options: List<SubtitleMenuOption>, source: LayerSource): String =
+    options.firstOrNull { it.source != null && it.source == source }?.label ?: when (source) {
+        LayerSource.Off -> "Выкл"
+        is LayerSource.Embedded -> source.track.language?.takeIf { it.isNotBlank() } ?: "встроенные"
+        is LayerSource.Remote -> "OpenSubtitles"
+        is LayerSource.Translated -> "Перевод с ${source.sourceLang.tag}"
+        LayerSource.None -> "нет"
+    }
+
+/** Title of a layer screen and its row: «Слой A (ru)». */
+fun layerTitle(layer: Layer, language: String): String = "Слой ${layer.name} ($language)"
+
 private const val NO_TRANSLATION_SOURCE = "Нет субтитров для перевода"
 
 fun formatOffset(ms: Long): String {
@@ -95,7 +108,8 @@ fun formatOffset(ms: Long): String {
 
 /**
  * Focus owns Up/Down/OK while the panel is open; Back belongs to the screen.
- * [section] == null shows the section list, otherwise that section's options.
+ * [section] == null shows the section list, otherwise that section's options;
+ * inside «Субтитры» [layer] == null lists the layers, otherwise shows that layer's screen.
  */
 @Composable
 fun TracksMenu(
@@ -115,14 +129,22 @@ fun TracksMenu(
     onScale: (Layer, Int) -> Unit,
     section: PlayerMenuSection?,
     onOpenSection: (PlayerMenuSection) -> Unit,
+    layer: Layer?,
+    onOpenLayer: (Layer) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val sectionFocus = remember { PlayerMenuSection.entries.associateWith { FocusRequester() } }
+    val layerFocus = remember { Layer.entries.associateWith { FocusRequester() } }
     val contentFocus = remember { FocusRequester() }
     var lastSection by remember { mutableStateOf(PlayerMenuSection.Subtitles) }
-    LaunchedEffect(section) {
-        // Returning to the list focuses the section the user came from.
-        if (section == null) sectionFocus.getValue(lastSection).requestFocus() else contentFocus.requestFocus()
+    var lastLayer by remember { mutableStateOf(Layer.A) }
+    LaunchedEffect(section, layer) {
+        // Returning to a list focuses the entry the user came from.
+        when {
+            section == null -> sectionFocus.getValue(lastSection).requestFocus()
+            section == PlayerMenuSection.Subtitles && layer == null -> layerFocus.getValue(lastLayer).requestFocus()
+            else -> contentFocus.requestFocus()
+        }
     }
     Column(
         modifier.fillMaxHeight().width(420.dp).background(Color(0xE6101018))
@@ -137,6 +159,8 @@ fun TracksMenu(
                         label = entry.title,
                         onClick = {
                             lastSection = entry
+                            // A freshly opened «Субтитры» starts on layer A.
+                            lastLayer = Layer.A
                             onOpenSection(entry)
                         },
                         enabled = true,
@@ -145,10 +169,21 @@ fun TracksMenu(
                     )
                 }
             }
-            PlayerMenuSection.Subtitles -> SubtitlesSection(
-                embedded, remoteOptions, layers, languageA, languageB, translations, onSelect,
-                scaleA, scaleB, onScale, contentFocus,
-            )
+            PlayerMenuSection.Subtitles -> if (layer == null) {
+                SubtitleLayersList(
+                    embedded, remoteOptions, layers, languageA, languageB, translations, layerFocus,
+                    onOpen = {
+                        lastLayer = it
+                        onOpenLayer(it)
+                    },
+                )
+            } else {
+                LayerScreen(
+                    layer, if (layer == Layer.A) languageA else languageB, embedded, remoteOptions,
+                    layers[layer] ?: LayerState(), translations[layer].orEmpty(), onSelect,
+                    if (layer == Layer.A) scaleA else scaleB, onScale, contentFocus,
+                )
+            }
             PlayerMenuSection.Audio -> AudioSection(audioTracks, selectedAudio, onAudioSelect, contentFocus)
             PlayerMenuSection.Other -> OtherSection(layers, onShift, contentFocus)
         }
@@ -156,44 +191,63 @@ fun TracksMenu(
 }
 
 @Composable
-private fun SubtitlesSection(
+private fun SubtitleLayersList(
     embedded: List<TextTrack>,
     remoteOptions: List<RemoteSubtitle>,
     layers: Map<Layer, LayerState>,
     languageA: String,
     languageB: String,
     translations: Map<Layer, List<LayerSource.Translated>>,
-    onSelect: (Layer, LayerSource) -> Unit,
-    scaleA: Int,
-    scaleB: Int,
-    onScale: (Layer, Int) -> Unit,
-    focus: FocusRequester,
+    focus: Map<Layer, FocusRequester>,
+    onOpen: (Layer) -> Unit,
 ) {
     Text(PlayerMenuSection.Subtitles.title, color = Color.White)
     Layer.entries.forEach { layer ->
         val language = if (layer == Layer.A) languageA else languageB
         val state = layers[layer] ?: LayerState()
         val options = layerOptions(language, embedded, remoteOptions, state.note, translations[layer].orEmpty())
-        // Focus lands on layer A's current option, or on "Выкл" when none matches.
-        val target = if (layer != Layer.A) null else
-            options.firstOrNull { it.source != null && it.enabled && it.source == state.source } ?: options.first()
-        Text("Слой ${layer.name} ($language)", color = Color.LightGray)
-        ScaleItem(layer, if (layer == Layer.A) scaleA else scaleB, onScale)
-        options.forEach { option ->
-            val source = option.source
-            if (source == null) {
-                Text(option.label, color = Color.LightGray)
-                return@forEach
-            }
-            MenuButton(
-                label = option.label,
-                onClick = { onSelect(layer, source) },
-                enabled = option.enabled,
-                current = source == state.source,
-                modifier = Modifier.fillMaxWidth()
-                    .then(if (option === target) Modifier.focusRequester(focus) else Modifier),
-            )
+        MenuButton(
+            label = "${layerTitle(layer, language)}: ${currentOptionLabel(options, state.source)}",
+            onClick = { onOpen(layer) },
+            enabled = true,
+            trailingChevron = true,
+            modifier = Modifier.fillMaxWidth().focusRequester(focus.getValue(layer)),
+        )
+    }
+}
+
+@Composable
+private fun LayerScreen(
+    layer: Layer,
+    language: String,
+    embedded: List<TextTrack>,
+    remoteOptions: List<RemoteSubtitle>,
+    state: LayerState,
+    translations: List<LayerSource.Translated>,
+    onSelect: (Layer, LayerSource) -> Unit,
+    scale: Int,
+    onScale: (Layer, Int) -> Unit,
+    focus: FocusRequester,
+) {
+    val options = layerOptions(language, embedded, remoteOptions, state.note, translations)
+    // Focus lands on the current option, or on "Выкл" when none matches.
+    val target = options.firstOrNull { it.source != null && it.enabled && it.source == state.source } ?: options.first()
+    Text(layerTitle(layer, language), color = Color.White)
+    ScaleItem(layer, scale, onScale)
+    options.forEach { option ->
+        val source = option.source
+        if (source == null) {
+            Text(option.label, color = Color.LightGray)
+            return@forEach
         }
+        MenuButton(
+            label = option.label,
+            onClick = { onSelect(layer, source) },
+            enabled = option.enabled,
+            current = source == state.source,
+            modifier = Modifier.fillMaxWidth()
+                .then(if (option === target) Modifier.focusRequester(focus) else Modifier),
+        )
     }
 }
 

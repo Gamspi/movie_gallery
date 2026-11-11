@@ -58,9 +58,10 @@ class PlayerTranslationViewModelTest {
         prefs: SubtitlePrefs = SubtitlePrefs(),
         files: Map<Long, ByteArray> = mapOf(7L to hello, 8L to world),
         dispatcher: CoroutineDispatcher = StandardTestDispatcher(testScheduler),
+        store: FakePlaybackStore = FakePlaybackStore(),
     ) = PlayerViewModel(
         SavedStateHandle(mapOf("url" to "http://test/movie.mkv")),
-        FakePlaybackStore(),
+        store,
         StreamManager(FakeTorrentEngine(), StreamServer(CoroutineScope(Dispatchers.Unconfined)),
             File("unused"), CoroutineScope(Dispatchers.Unconfined)),
         client = FakeClient(files), prefs = MutableStateFlow(prefs), clock = { 0 },
@@ -77,6 +78,22 @@ class PlayerTranslationViewModelTest {
     }
 
     private val none = emptyList<LayerSource.Translated>()
+
+    @Test fun stored_translation_is_restored_once_source_is_ready() = runTest {
+        val store = FakePlaybackStore()
+        store.subtitleChoices["key:url:http://test/movie.mkv" to Layer.B] =
+            SubtitleChoice.Translated(Layer.A, TranslateLang.EN)
+        val vm = vm(store = store)
+        try {
+            vm.onTextTracks(emptyList())
+            // No source yet: B stays on auto.
+            assertFalse(vm.layer(Layer.B).source is LayerSource.Translated)
+            val track = TextTrack(1, 0, "en", null, true)
+            vm.onTextTracks(listOf(track))
+            assertEquals(LayerSource.Embedded(track), vm.layer(Layer.A).source)
+            assertEquals(LayerSource.Translated(Layer.A, TranslateLang.EN), vm.layer(Layer.B).source)
+        } finally { vm.clearViaStore() }
+    }
 
     @Test fun options_for_remote_source_and_no_chains() = runTest {
         val vm = vm()

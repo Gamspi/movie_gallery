@@ -1,9 +1,12 @@
 package dev.gamspi.videogallery.player
 
+import dev.gamspi.videogallery.subs.Layer
+
 class FakePlaybackStore : PlaybackStore {
     val positions = mutableMapOf<String, Long>()
     var preference: AudioPreference? = null
     var saveCount = 0
+    val subtitleChoices = mutableMapOf<Pair<String, Layer>, SubtitleChoice>()
 
     override fun position(key: String): Long? = positions[key]
 
@@ -20,5 +23,11 @@ class FakePlaybackStore : PlaybackStore {
 
     override fun saveAudioPreference(p: AudioPreference) {
         preference = p
+    }
+
+    override fun subtitleChoice(titleKey: String, layer: Layer): SubtitleChoice? = subtitleChoices[titleKey to layer]
+
+    override fun saveSubtitleChoice(titleKey: String, layer: Layer, choice: SubtitleChoice) {
+        subtitleChoices[titleKey to layer] = choice
     }
 }

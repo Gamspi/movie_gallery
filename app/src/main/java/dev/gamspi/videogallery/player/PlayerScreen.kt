@@ -148,7 +148,9 @@ fun PlayerScreen(
     var failedAudioSelection by remember(player) { mutableStateOf<Pair<Int, Int>?>(null) }
     var playerFocus by remember { mutableStateOf(PlayerFocus.None) }
     var menuSection by remember { mutableStateOf<PlayerMenuSection?>(null) }
-    val menuOpen = playerFocus == PlayerFocus.MenuSections || playerFocus == PlayerFocus.MenuSection
+    var menuLayer by remember { mutableStateOf<Layer?>(null) }
+    val menuOpen = playerFocus == PlayerFocus.MenuSections || playerFocus == PlayerFocus.MenuSection ||
+        playerFocus == PlayerFocus.MenuLayer
     // Focus requests wait for the composition that makes their target focusable.
     var pendingFocus by remember { mutableStateOf<FocusRequester?>(null) }
     val trackFocus = remember { FocusRequester() }
@@ -191,6 +193,7 @@ fun PlayerScreen(
             player.pause()
             playerFocus = PlayerFocus.None
             menuSection = null
+            menuLayer = null
         }
         recoveryAudioOpen = false
     }
@@ -315,6 +318,7 @@ fun PlayerScreen(
                     vm.onPauseOrExit(d, d)
                     playerFocus = PlayerFocus.None
                     menuSection = null
+                    menuLayer = null
                     recoveryAudioOpen = false
                     ended = true
                     return
@@ -490,10 +494,18 @@ fun PlayerScreen(
             PlayerCommand.OpenMenuSection -> playerFocus = PlayerFocus.MenuSection
             PlayerCommand.BackToSections -> {
                 menuSection = null
+                menuLayer = null
                 playerFocus = PlayerFocus.MenuSections
+            }
+            // The layer is chosen by the row itself (onOpenLayer).
+            PlayerCommand.OpenMenuLayer -> playerFocus = PlayerFocus.MenuLayer
+            PlayerCommand.BackToLayers -> {
+                menuLayer = null
+                playerFocus = PlayerFocus.MenuSection
             }
             PlayerCommand.CloseMenu -> {
                 menuSection = null
+                menuLayer = null
                 playerFocus = PlayerFocus.Buttons
                 pendingFocus = settingsButtonFocus
             }
@@ -679,6 +691,7 @@ fun PlayerScreen(
                         onTogglePlay = { execute(PlayerCommand.TogglePlay) },
                         onOpenMenu = {
                             menuSection = null
+                            menuLayer = null
                             playerFocus = PlayerFocus.MenuSections
                         },
                         trackFocus = trackFocus,
@@ -711,7 +724,13 @@ fun PlayerScreen(
                         section = menuSection,
                         onOpenSection = {
                             menuSection = it
+                            menuLayer = null
                             execute(PlayerCommand.OpenMenuSection)
+                        },
+                        layer = menuLayer,
+                        onOpenLayer = {
+                            menuLayer = it
+                            execute(PlayerCommand.OpenMenuLayer)
                         },
                         modifier = Modifier.align(Alignment.CenterEnd),
                     )

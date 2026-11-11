@@ -84,6 +84,19 @@ class PlayerKeysTest {
         assertEquals(PlayerCommand.BackToSections, key(RemoteKey.Back, f, shown = true))
     }
 
+    @Test fun menuLayer_table() {
+        val f = PlayerFocus.MenuLayer
+        assertEquals(PlayerCommand.PassToFocus, key(RemoteKey.Center, f))
+        assertEquals(PlayerCommand.TogglePlay, key(RemoteKey.PlayPause, f))
+        assertEquals(PlayerCommand.PassToFocus, key(RemoteKey.Left, f))
+        assertEquals(PlayerCommand.PassToFocus, key(RemoteKey.Right, f))
+        assertEquals(PlayerCommand.PassToFocus, key(RemoteKey.Down, f))
+        assertEquals(PlayerCommand.PassToFocus, key(RemoteKey.Up, f))
+        assertEquals(PlayerCommand.BackToLayers, key(RemoteKey.Back, f))
+        assertEquals(PlayerCommand.BackToLayers, key(RemoteKey.Back, f, shown = true))
+        assertFalse(shouldAutoHidePanel(playing = true, focus = f, dialogOpen = false))
+    }
+
     @Test fun seekClampsToZeroAndDuration() {
         val f = PlayerFocus.None
         assertEquals(PlayerCommand.SeekTo(0), key(RemoteKey.Left, f, pos = 4_000))

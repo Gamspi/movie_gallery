@@ -143,6 +143,15 @@ class PlayerViewModel internal constructor(
     private var searchNotes: Map<String, String> = emptyMap()
     private var cleared = false
     private val manual = mutableSetOf<Layer>()
+
+    /** Layers whose stored choice has been restored; auto selection leaves them alone. */
+    private val restored = mutableSetOf<Layer>()
+    private val titleKey by lazy { subtitleTitleKey(meta, key) }
+
+    /** Stored manual choices of this title; read once from the in-memory preferences. */
+    private val savedChoices: Map<Layer, SubtitleChoice> by lazy {
+        Layer.entries.mapNotNull { layer -> store.subtitleChoice(titleKey, layer)?.let { layer to it } }.toMap()
+    }
     private val layerJobs = mutableMapOf<Layer, Job>()
     private val generations = mutableMapOf<Layer, Long>()
 
@@ -182,10 +191,20 @@ class PlayerViewModel internal constructor(
     }
 
     private fun autoSelect() {
-        for (layer in Layer.entries) {
-            if (layer in manual) continue
+        // Translations depend on the other layer's source, so they are resolved last.
+        val order = Layer.entries.sortedBy { savedChoices[it] is SubtitleChoice.Translated }
+        for (layer in order) {
+            if (layer in manual || layer in restored) continue
             val other = if (layer == Layer.A) Layer.B else Layer.A
             val taken = (_layers.value[other]?.source as? LayerSource.Embedded)?.track
+            val back = savedChoices[layer]?.let {
+                restoreSource(it, embedded, _remoteOptions.value, taken, translationOptions(layer))
+            }
+            if (back != null) {
+                restored += layer
+                if (_layers.value.getValue(layer).source != back) applySource(layer, back)
+                continue
+            }
             val language = if (layer == Layer.A) initialSubtitlePrefs.languageA else initialSubtitlePrefs.languageB
             val source = chooseSource(language, embedded, _remoteOptions.value, taken)
             if (_layers.value.getValue(layer).source != source) applySource(layer, source)
@@ -206,6 +225,7 @@ class PlayerViewModel internal constructor(
             }
         }
         applySource(layer, source)
+        source.toChoice()?.let { store.saveSubtitleChoice(titleKey, layer, it) }
     }
 
     private fun applySource(layer: Layer, source: LayerSource) {

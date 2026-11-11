@@ -43,9 +43,11 @@ class PlayerSubtitleViewModelTest {
         client: SubtitleClient,
         prefs: SubtitlePrefs = SubtitlePrefs(),
         hashFetcher: suspend (String) -> String? = { "hash" },
+        store: FakePlaybackStore = FakePlaybackStore(),
+        args: Map<String, String> = mapOf("url" to "http://test/movie.mkv", "imdb" to "tt123"),
     ) = PlayerViewModel(
-        SavedStateHandle(mapOf("url" to "http://test/movie.mkv", "imdb" to "tt123")),
-        FakePlaybackStore(),
+        SavedStateHandle(args),
+        store,
         StreamManager(FakeTorrentEngine(), StreamServer(CoroutineScope(Dispatchers.Unconfined)),
             File("unused"), CoroutineScope(Dispatchers.Unconfined)),
         client = client, prefs = MutableStateFlow(prefs), hashFetcher = hashFetcher, clock = { 0 },
@@ -252,5 +254,113 @@ class PlayerSubtitleViewModelTest {
             // Steps past the limit do not write again.
             assertEquals(1 + 5, saved.size)
         } finally { vm.clearViaStore() }
+    }
+
+    private val titleKey = "imdb:Movie:tt123"
+
+    @Test fun manual_choice_is_saved_and_restored_by_a_new_screen() = runTest {
+        val store = FakePlaybackStore()
+        val plain = TextTrack(1, 0, "en", null, true)
+        val full = TextTrack(2, 0, "en", "Full", true)
+        val first = vm(FakeClient(), store = store)
+        try {
+            first.onTextTracks(listOf(plain, full))
+            runCurrent()
+            // Auto selection is not stored.
+            assertTrue(store.subtitleChoices.isEmpty())
+            first.select(Layer.A, LayerSource.Embedded(full))
+            first.select(Layer.B, LayerSource.Off)
+            assertEquals(SubtitleChoice.Embedded("en", "Full"), store.subtitleChoices[titleKey to Layer.A])
+            assertEquals(SubtitleChoice.Off, store.subtitleChoices[titleKey to Layer.B])
+        } finally { first.clearViaStore() }
+        val second = vm(FakeClient().apply { searchCall = { SubsResult.Ok(listOf(remote)) } }, store = store)
+        try {
+            second.onTextTracks(listOf(plain, full))
+            runCurrent()
+            assertEquals(LayerSource.Embedded(full), second.layers.value.getValue(Layer.A).source)
+            assertEquals(LayerSource.Off, second.layers.value.getValue(Layer.B).source)
+        } finally { second.clearViaStore() }
+    }
+
+    @Test fun restored_remote_upgrades_once_results_arrive_and_then_stays() = runTest {
+        val store = FakePlaybackStore()
+        store.subtitleChoices[titleKey to Layer.B] = SubtitleChoice.Remote("ru", 8, "other")
+        val response = CompletableDeferred<SubsResult<List<RemoteSubtitle>>>()
+        val wanted = remote.copy(fileId = 8, release = "other")
+        val vm = vm(FakeClient().apply {
+            searchCall = { response.await() }
+            downloadCall = { SubsResult.Ok(srt) }
+        }, store = store)
+        try {
+            val ru = TextTrack(1, 0, "ru", null, true)
+            vm.onTextTracks(listOf(ru))
+            runCurrent()
+            // Until search results arrive the auto choice plays.
+            assertEquals(LayerSource.Embedded(ru), vm.layers.value.getValue(Layer.B).source)
+            response.complete(SubsResult.Ok(listOf(remote, wanted)))
+            runCurrent()
+            assertEquals(LayerSource.Remote(wanted), vm.layers.value.getValue(Layer.B).source)
+            vm.onTextTracks(listOf(ru))
+            assertEquals(LayerSource.Remote(wanted), vm.layers.value.getValue(Layer.B).source)
+        } finally { vm.clearViaStore() }
+    }
+
+    @Test fun restored_off_is_not_overridden_by_late_search() = runTest {
+        val store = FakePlaybackStore()
+        store.subtitleChoices[titleKey to Layer.B] = SubtitleChoice.Off
+        var downloads = 0
+        val vm = vm(FakeClient().apply {
+            searchCall = { SubsResult.Ok(listOf(remote)) }
+            downloadCall = { downloads++; SubsResult.Ok(srt) }
+        }, store = store)
+        try {
+            vm.onTextTracks(emptyList())
+            runCurrent()
+            assertEquals(LayerSource.Off, vm.layers.value.getValue(Layer.B).source)
+            assertEquals(0, downloads)
+        } finally { vm.clearViaStore() }
+    }
+
+    @Test fun missing_embedded_choice_falls_back_to_auto() = runTest {
+        val store = FakePlaybackStore()
+        store.subtitleChoices[titleKey to Layer.A] = SubtitleChoice.Embedded("de", "Forced")
+        val vm = vm(FakeClient(), store = store)
+        try {
+            val en = TextTrack(1, 0, "en", null, true)
+            vm.onTextTracks(listOf(en))
+            runCurrent()
+            assertEquals(LayerSource.Embedded(en), vm.layers.value.getValue(Layer.A).source)
+        } finally { vm.clearViaStore() }
+    }
+
+    @Test fun restored_embedded_respects_group_of_other_layer() = runTest {
+        val store = FakePlaybackStore()
+        val en = TextTrack(1, 0, "en", null, true)
+        store.subtitleChoices[titleKey to Layer.A] = SubtitleChoice.Embedded("en", null)
+        store.subtitleChoices[titleKey to Layer.B] = SubtitleChoice.Embedded("en", null)
+        val vm = vm(FakeClient(), store = store)
+        try {
+            vm.onTextTracks(listOf(en))
+            runCurrent()
+            assertEquals(LayerSource.Embedded(en), vm.layers.value.getValue(Layer.A).source)
+            assertFalse(vm.layers.value.getValue(Layer.B).source is LayerSource.Embedded)
+        } finally { vm.clearViaStore() }
+    }
+
+    @Test fun series_choice_is_shared_by_episodes() = runTest {
+        val store = FakePlaybackStore()
+        fun episode(n: Int) = mapOf("url" to "http://test/e$n.mkv", "key" to "bt:hash:$n", "movieId" to "9",
+            "source" to "tmdb", "kind" to "Series", "season" to "1", "episode" to "$n")
+        val first = vm(FakeClient(), store = store, args = episode(1))
+        try {
+            first.onTextTracks(emptyList())
+            first.select(Layer.A, LayerSource.Off)
+        } finally { first.clearViaStore() }
+        assertEquals(SubtitleChoice.Off, store.subtitleChoices["tmdb:Series:9" to Layer.A])
+        val next = vm(FakeClient(), store = store, args = episode(2))
+        try {
+            next.onTextTracks(listOf(TextTrack(1, 0, "en", null, true)))
+            assertEquals(LayerSource.Off, next.layers.value.getValue(Layer.A).source)
+        } finally { next.clearViaStore() }
     }
 }

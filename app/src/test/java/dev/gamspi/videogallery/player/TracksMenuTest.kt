@@ -75,5 +75,23 @@ class TracksMenuTest {
         assertEquals(listOf("Субтитры", "Аудиодорожка", "Прочее"), PlayerMenuSection.entries.map { it.title })
     }
 
+    @Test fun currentOptionLabel_uses_menu_label_or_falls_back_by_source() {
+        val track = TextTrack(2, 0, "ru", "SDH", true)
+        val sub = remote(1, "ru")
+        val options = layerOptions("ru", listOf(track), listOf(sub))
+        assertEquals("ru · SDH", currentOptionLabel(options, LayerSource.Embedded(track)))
+        assertEquals("OpenSubtitles · release 1", currentOptionLabel(options, LayerSource.Remote(sub)))
+        assertEquals("Выкл", currentOptionLabel(options, LayerSource.Off))
+        assertEquals("нет", currentOptionLabel(options, LayerSource.None))
+        assertEquals("Перевод с en",
+            currentOptionLabel(options, LayerSource.Translated(Layer.B, TranslateLang.EN)))
+        assertEquals("OpenSubtitles", currentOptionLabel(options, LayerSource.Remote(remote(9, "en"))))
+    }
+
+    @Test fun layerTitle_names_layer_and_language() {
+        assertEquals("Слой A (ru)", layerTitle(Layer.A, "ru"))
+        assertEquals("Слой B (en)", layerTitle(Layer.B, "en"))
+    }
+
     private fun remote(id: Long, language: String) = RemoteSubtitle(id, language, "release $id", false, 0)
 }
